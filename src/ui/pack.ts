@@ -52,6 +52,20 @@ function rememberRatio(setId: string, ratio: number) {
   }
 }
 
+/**
+ * Zadní strana obalu: fotku rubu nemáme, proto vlastní potisk v barvách sady
+ * (zatavené okraje, šev uprostřed, logo sady). Kreslí se celá na obou dílech
+ * obalu (pruh i zbytek), takže na sebe přesně navazují.
+ */
+function backDesign(set: SetInfo): HTMLElement {
+  return h(
+    "div",
+    { class: "pack3d__backdesign" },
+    h("img", { class: "pack3d__backlogo", src: set.logo, alt: "", draggable: "false", loading: "lazy" }),
+    h("div", { class: "pack3d__backlabel" }, `${set.name} · ${packSize(packProfile(set.id))} karet`),
+  );
+}
+
 /** Náhradní potisk, když fotka obalu chybí nebo se nenačte. */
 function fallbackArt(set: SetInfo): HTMLElement {
   return h(
@@ -73,12 +87,11 @@ export function packEl(set: SetInfo, opts: { large?: boolean; tilt?: boolean; hi
   // Nejdřív malá fotka (bývá už v mezipaměti z obchodu), velká ji vymění, až se načte.
   const art = packArtUrl(set.id);
   const ratio = ratios[set.id];
-  // Zadní strana: rozmazaná a ztmavená fotka (skutečný rub obalu nemáme), ať text nejde přečíst.
   const face = (side: "front" | "back") =>
     h(
       "div",
       { class: `pack3d__face pack3d__face--${side}` },
-      side === "front" ? fallbackArt(set) : h("div", { class: "pack3d__backart" }),
+      side === "front" ? fallbackArt(set) : backDesign(set),
     );
   const mainFront = face("front");
   if (opts.hint) mainFront.append(twinkle(opts.hint));

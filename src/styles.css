@@ -18,6 +18,9 @@
 
 * {
   box-sizing: border-box;
+  /* Dvojí klepnutí nepřibližuje stránku (rychlé klepání na karty a balíčky), zoom dvěma
+     prsty zůstává kvůli přístupnosti. Prvky s vlastním gestem mají touch-action: none. */
+  touch-action: manipulation;
 }
 
 html,
@@ -124,9 +127,14 @@ img {
   grid-template-columns: repeat(4, 1fr);
   height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
   padding-bottom: env(safe-area-inset-bottom);
-  background: color-mix(in srgb, var(--bg-2) 92%, transparent);
-  backdrop-filter: blur(12px);
+  /* Neprůhledné pozadí bez backdrop-filter a vlastní vrstva: rozmazání průhledné lišty
+     Chrome na Androidu při scrollování nestíhá překreslovat (lišta bliká, mění vzhled
+     nebo na okamžik zmizí), hlavně nad mřížkou 3D karet v albu. */
+  background: var(--bg-2);
   border-top: 1px solid var(--border);
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 .tabbar a {
@@ -626,15 +634,43 @@ a.chip {
 
 .pack3d__face--back {
   transform: rotateY(180deg) translateZ(calc(var(--depth) / 2));
+  /* vlastní potisk rubu: zatavené okraje nahoře a dole, lesk fólie, barvy sady */
+  background:
+    repeating-linear-gradient(90deg, rgb(255 255 255 / 0.22) 0 2px, rgb(0 0 0 / 0.25) 2px 4px) top / 100% 9% no-repeat,
+    repeating-linear-gradient(90deg, rgb(255 255 255 / 0.22) 0 2px, rgb(0 0 0 / 0.25) 2px 4px) bottom / 100% 5% no-repeat,
+    radial-gradient(90% 50% at 50% 42%, rgb(255 255 255 / 0.16), transparent 70%),
+    linear-gradient(200deg, var(--c1), var(--c2));
 }
 
-.pack3d__backart {
+.pack3d__backdesign {
   position: absolute;
-  inset: -8%;
-  background: inherit;
-  background-size: 100% 100%;
-  transform: scaleX(-1);
-  filter: blur(6px) brightness(0.42) saturate(0.75);
+  inset: 0;
+  /* potisk je nad lepeným švem */
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6%;
+  padding: 16% 12% 12%;
+}
+
+.pack3d__backlogo {
+  width: 78%;
+  max-height: 30%;
+  object-fit: contain;
+  opacity: 0.92;
+  filter: drop-shadow(0 2px 6px rgb(0 0 0 / 0.5));
+}
+
+.pack3d__backlabel {
+  font-size: 0.55em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+  color: rgb(255 255 255 / 0.75);
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.6);
 }
 
 .pack3d__face--back::after {
@@ -652,6 +688,16 @@ a.chip {
 .pack3d__piece--top .pack3d__face {
   /* lehký přesah přes hranu řezu, aby mezi díly nebyla vlasová spára */
   clip-path: inset(0 0 90.6% 0);
+}
+
+/* Pruh leží o kousek před zbytkem obalu: ve stejné rovině by se překryv
+   při otáčení přeblikával (prohlížeč neví, který díl kreslit navrch). */
+.pack3d__piece--top .pack3d__face--front {
+  transform: translateZ(calc(var(--depth) / 2 + 0.5px));
+}
+
+.pack3d__piece--top .pack3d__face--back {
+  transform: rotateY(180deg) translateZ(calc(var(--depth) / 2 + 0.5px));
 }
 
 .pack3d__piece--main .pack3d__face {
@@ -757,15 +803,18 @@ a.chip {
   top: 0;
   bottom: 0;
   width: var(--depth);
+  /* Ztmavení vrstvou, ne filtrem: filter na 3D prvku nutí Chrome překreslovat
+     a boky při otáčení problikávaly. */
   background:
+    linear-gradient(rgb(0 0 0 / 0.45), rgb(0 0 0 / 0.45)),
     var(--art, none) 0 0 / 4000% 100% no-repeat,
     linear-gradient(180deg, var(--c2), var(--c1));
-  filter: brightness(0.55) saturate(0.9);
   clip-path: inset(10% 0 4% 0 round 999px);
 }
 
 .pack3d__side--right {
   background-position:
+    0 0,
     100% 0,
     0 0;
 }
@@ -1687,7 +1736,8 @@ a.chip {
 
 .toolbar {
   position: sticky;
-  top: 57px;
+  /* Těsně pod horní lištu (49 px), jinak v mezeře prosvítají karty. */
+  top: calc(48px + env(safe-area-inset-top));
   z-index: 10;
   display: flex;
   flex-wrap: wrap;
@@ -1793,8 +1843,19 @@ a.chip {
     font-size: 10px;
   }
 
+  /* Na telefonu by přilepený panel filtrů zabíral čtvrtinu obrazovky: odscrolluje se
+     s albem a výběry jsou v jednom řádku. */
+  .toolbar {
+    position: static;
+  }
+
+  .toolbar .field--grow {
+    flex-basis: 100%;
+  }
+
   .toolbar .field:not(.field--grow) {
-    flex: 1 1 30%;
+    flex: 1 1 0;
+    min-width: 0;
   }
 }
 

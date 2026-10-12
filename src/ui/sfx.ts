@@ -101,6 +101,8 @@ const NOTES = [523.25, 659.25, 783.99, 1046.5, 1318.5, 1568, 2093];
 
 function vibrate(pattern: number | number[]) {
   if (!prefs.vibrate || typeof navigator === "undefined" || !("vibrate" in navigator)) return;
+  // Před prvním klepnutím prohlížeč vibraci zablokuje a zapíše chybu do konzole.
+  if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return;
   try {
     navigator.vibrate(pattern);
   } catch {
