@@ -40,10 +40,9 @@ a karty Pokémon TCG, šance na tah podle reálných měření a tržní ceny ka
 Potřebuješ Node.js 20+.
 
 ```bash
-cd pokemon-packs
 npm install
 npm run dev        # vývojový server na http://localhost:5173
-npm test           # testy generátoru balíčků
+npm test           # testy (generátor balíčků, šance, sbírka, ceny)
 npm run build      # produkční build do dist/
 npm run preview    # náhled buildu (včetně service workeru)
 npm run e2e        # automatický průchod aplikací v Chromiu (po buildu; poprvé npx playwright install chromium)
@@ -53,8 +52,9 @@ npm run e2e        # automatický průchod aplikací v Chromiu (po buildu; poprv
 
 Aplikace musí běžet přes HTTPS (nebo na `localhost`). Nejjednodušší je GitHub Pages:
 v repozitáři zapni **Settings → Pages → Source: GitHub Actions**. Workflow
-`.github/workflows/pokemon-packs.yml` ji pak nasadí po každém pushi do výchozí větve,
-případně ji spustíš ručně (Actions → pokemon-packs → Run workflow).
+`.github/workflows/pages.yml` ji pak nasadí po každém pushi do větve `main` a každé ráno
+s čerstvými cenami, případně ji spustíš ručně (Actions → pages → Run workflow).
+Adresa bude https://w3stik.github.io/Pokemon-cards/.
 
 - **Android (Chrome)**: otevři adresu → menu ⋮ → *Přidat na plochu / Instalovat aplikaci*.
 - **Windows (Edge / Chrome)**: ikona instalace v adresním řádku → *Instalovat*.
@@ -87,13 +87,14 @@ s malým vzorkem (Black White Rare, Chaos Rising) jsou to odhady, poznámka u sa
 ## Struktura
 
 ```
-pokemon-packs/
+.
 ├── public/data/        karty a sady (JSON, generuje scripts/fetch-data.mjs)
 ├── public/sw.js        service worker (offline, cache obrázků)
 ├── src/odds.ts         rarity, složení balíčků, šance a zdroje
 ├── src/pack.ts         generátor balíčků (+ pack.test.ts)
 ├── src/store.ts        sbírka a neotevřené balíčky v localStorage
-├── src/prices.ts       ceny z Pokémon TCG API / TCGdex
+├── src/storage.ts      trvalé úložiště a připomínka zálohy
+├── src/prices.ts       ceny z TCGdex / Pokémon TCG API
 └── src/views/          obchod, regál, otevírání, album, detail karty, nastavení
 ```
 

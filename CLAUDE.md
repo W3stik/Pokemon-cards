@@ -1,9 +1,11 @@
-# Booster Lab (pokemon-packs) – poznámky pro agenta
+# Booster Lab – poznámky pro agenta
 
 Fanouškovská PWA (Android i Windows přes „Instalovat aplikaci“), ve které si uživatel zdarma bere
 a otevírá balíčky **skutečných** sad Pokémon TCG a sbírá karty do alba. Uživatel komunikuje česky,
-celé UI i komentáře jsou česky. Návod pro uživatele je v `README.md`, kořenové pokyny pro celý
-repozitář v `../CLAUDE.md`.
+celé UI i komentáře jsou česky. Návod pro uživatele je v `README.md`.
+
+Repozitář `W3stik/Pokemon-cards` obsahuje jen tuto aplikaci (TypeScript, Vite, bez frameworku,
+Vitest). Vznikl vyčleněním složky `pokemon-packs/` z `W3stik/claude-project` i s historií commitů.
 
 ## Příkazy
 
@@ -77,11 +79,14 @@ Black White Rare (1:1789), část 30th Celebration.
 
 ## Nasazení
 
-Workflow `../.github/workflows/pokemon-packs.yml`: test → `npm run prices` (smí selhat) → build →
-artefakt → **deploy na GitHub Pages jen z výchozí větve** (push, denní cron 5:17 UTC kvůli cenám,
-ruční spuštění). Předpoklad: *Settings → Pages → Source: GitHub Actions*. Výchozí větev repozitáře je
-`claude/day-trading-app-66jnnu`; Booster Lab je zatím jen ve větvi `claude/awesome-cori-5nrn80`
-(nesloučeno, bez PR). Vite má `base: "./"`, takže build funguje v podsložce Pages.
+Workflow `.github/workflows/pages.yml`: test → `npm run prices` (smí selhat) → build →
+artefakt → **deploy na GitHub Pages jen z výchozí větve `main`** (push, denní cron 5:17 UTC kvůli cenám,
+ruční spuštění). Předpoklad: *Settings → Pages → Source: GitHub Actions*. Adresa:
+https://w3stik.github.io/Pokemon-cards/. Vite má `base: "./"`, takže build funguje v podsložce Pages.
+
+Všechny projektové stránky účtu sdílejí origin `https://w3stik.github.io`, tedy i localStorage,
+mezipaměti service workeru a trvalé úložiště. Klíče mají prefix `pokemon-packs:`; nenasazuj druhou
+kopii aplikace pod stejný účet, service worker by mazal mezipaměť té druhé (`app-*`).
 
 ## Nástrahy (naučené na vlastní kůži)
 
@@ -101,6 +106,9 @@ ruční spuštění). Předpoklad: *Settings → Pages → Source: GitHub Action
 
 ## Konvence
 
+- Commit zprávy anglicky (rozkazovací věta v předmětu, tělo vysvětluje proč). Před commitem
+  `npm test && npm run build`. Neměň víc, než úkol vyžaduje; nepřidávej závislosti bez důvodu.
+
 - Texty UI, komentáře a hlášky česky; názvy rarit a sad anglicky (oficiální).
 - Stav hry měň jen přes funkce ze `store.ts` (ukládají a volají posluchače). Při nekompatibilní
   změně schématu zvyš verzi klíče a doplň migraci (`load()` dnes doplňuje chybějící pole z `empty()`).
@@ -111,7 +119,7 @@ ruční spuštění). Předpoklad: *Settings → Pages → Source: GitHub Action
 
 Seřazeno podle přínosu:
 
-1. Sloučit větev do výchozí a zapnout GitHub Pages → aplikace jde nainstalovat na telefon.
+1. Zapnout GitHub Pages (Source: GitHub Actions) → aplikace jde nainstalovat na telefon.
 2. Zvuky (trhání, odhození, fanfára u vzácné karty) a vibrace (`navigator.vibrate`) při hitu.
 3. „God pack“ (vzácný balíček plný IR/SIR) u sad, kde existuje (Ascended Heroes), jako samostatný výsledek v profilu.
 4. Herní ekonomika: prodej duplikátů za mince podle tržní ceny, nákup balíčků za mince.
