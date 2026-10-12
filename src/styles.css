@@ -18,9 +18,9 @@
 
 * {
   box-sizing: border-box;
-  /* Dvojí klepnutí nepřibližuje stránku (rychlé klepání na karty a balíčky), zoom dvěma
-     prsty zůstává kvůli přístupnosti. Prvky s vlastním gestem mají touch-action: none. */
-  touch-action: manipulation;
+  /* Stránka se nepřibližuje (dvojí klepnutí ani dva prsty), jen se posouvá. Prvky
+     s vlastním gestem mají touch-action: none. Blokování v JS je v main.ts. */
+  touch-action: pan-x pan-y;
 }
 
 html,

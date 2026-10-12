@@ -88,6 +88,18 @@ function showUpdateBanner() {
   document.body.append(banner);
 }
 
+// Zoom je zakázaný: viewport a touch-action: pan-x pan-y (blokuje i sevření dvěma prsty).
+// Safari na iPhonu a sevření na touchpadu (posílá wheel s ctrlKey) to ignorují, proto je
+// blokujeme i tady. Klávesové Ctrl + / Ctrl − na počítači necháváme, to je vědomá volba.
+document.addEventListener("gesturestart", (e) => e.preventDefault());
+window.addEventListener(
+  "wheel",
+  (e) => {
+    if (e.ctrlKey) e.preventDefault();
+  },
+  { passive: false },
+);
+
 window.addEventListener("hashchange", route);
 subscribe(updateBadge);
 subscribe(protectCollection);
