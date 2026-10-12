@@ -36,10 +36,21 @@ const smallImage = (c) =>
     ? `https://images.scrydex.com/pokemon/${c.id}/small`
     : c.images.small;
 
+// Číslo karty bereme z jejího id (sada-číslo): ve zdroji je občas chybně, např. Black Bolt
+// zsv10pt5-80 (Antique Cover Fossil) má number 60 jako Escavalier.
+function cardNumber(c) {
+  const fromId = c.id.slice(c.id.lastIndexOf("-") + 1);
+  if (/^\d+$/.test(fromId) && Number(fromId) !== Number(c.number)) {
+    console.warn(`  ${c.id}: číslo ${c.number} nesedí s id, použito ${fromId}`);
+    return Number(fromId);
+  }
+  return Number(c.number);
+}
+
 const slimCard = (c) => ({
   id: c.id,
   name: c.name,
-  number: Number(c.number),
+  number: cardNumber(c),
   rarity: c.rarity === "MEGA_ATTACK_RARE" ? "Mega Attack Rare" : c.rarity,
   supertype: c.supertype,
   subtypes: c.subtypes ?? [],

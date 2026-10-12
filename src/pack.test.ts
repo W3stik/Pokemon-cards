@@ -38,6 +38,14 @@ describe("data a konfigurace šancí", () => {
     }
   });
 
+  it("čísla karet v sadě jsou jedinečná a odpovídají id", () => {
+    for (const set of sets) {
+      const main = cardsOf(set.id).filter((c) => !c.prefix);
+      expect(new Set(main.map((c) => c.number)).size, set.id).toBe(main.length);
+      for (const c of main) expect(c.id, c.name).toBe(`${set.id}-${c.number}`);
+    }
+  });
+
   it("součet šancí ve slotu nepřesáhne 100 %", () => {
     for (const [id, profile] of Object.entries(PACKS)) {
       for (const slot of profile.slots) {
