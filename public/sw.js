@@ -66,6 +66,21 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+// Promazání mezipaměti obrázků projde všechny položky (až tisíce), proto se nespouští po
+// každém obrázku, ale jednou, až se pár sekund nic neukládá. Dřív to aplikaci po chvíli
+// používání zpomalovalo: na výpis mezipaměti čekaly i obrázky, které v ní už byly.
+const trimTimers = new Map();
+function scheduleTrim(cacheName, limit) {
+  clearTimeout(trimTimers.get(cacheName));
+  trimTimers.set(
+    cacheName,
+    setTimeout(() => {
+      trimTimers.delete(cacheName);
+      trim(cacheName, limit);
+    }, 5000),
+  );
+}
+
 async function trim(cacheName, limit) {
   const cache = await caches.open(cacheName);
   const keys = await cache.keys();
@@ -94,7 +109,7 @@ async function cacheImage(request) {
     const res = await fetch(request.url, { mode: "cors", credentials: "omit" });
     if (res.ok) {
       await cache.put(request.url, res.clone());
-      trim(cacheName, limit);
+      scheduleTrim(cacheName, limit);
     }
     return res;
   } catch {

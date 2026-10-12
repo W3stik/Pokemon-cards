@@ -1067,9 +1067,19 @@ a.chip {
   width: 100%;
   aspect-ratio: var(--card-ratio);
   border-radius: 4.6% / 3.3%;
-  transform: perspective(900px) rotateX(var(--rx)) rotateY(var(--ry));
   transition: transform 0.25s ease-out;
+}
+
+/* 3D natočení (a vlastní vrstva) jen při naklánění: trvalá 3D vrstva u každé karty
+   (album má až 295 karet) vyčerpala grafickou paměť telefonu a prohlížeč pak obrázky
+   zahazoval a kreslil znovu – chvíli byla vidět jen barva. Třídu přepíná enableTilt. */
+.pcard.is-tilting {
+  transform: perspective(900px) rotateX(var(--rx)) rotateY(var(--ry));
   will-change: transform;
+}
+
+.pcard:not(.is-tilting) .pcard__glare {
+  display: none;
 }
 
 .pcard__inner {
@@ -1585,6 +1595,11 @@ a.chip {
 .summary__item,
 .album-tile {
   position: relative;
+  /* Karty mimo obrazovku se nevykreslují (velké sady mají stovky karet). */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 240px;
+  /* content-visibility ořezává obsah na dlaždici; stín a naklonění karty smí přesahovat */
+  overflow-clip-margin: 24px;
   display: flex;
   flex-direction: column;
   gap: 6px;

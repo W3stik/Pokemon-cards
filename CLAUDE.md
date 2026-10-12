@@ -94,6 +94,11 @@ kopii aplikace pod stejný účet, service worker by mazal mezipaměť té druh�
 
 ## Nástrahy (naučené na vlastní kůži)
 
+- **Grafická paměť telefonu**: karta (`.pcard`) nesmí být v klidu 3D vrstva (`will-change`, 3D
+  transform) – stovky vrstev v albu vyčerpaly paměť a obrázky se po chvíli kreslily se zpožděním.
+  3D natočení a odlesk jen s třídou `is-tilting` (přepíná `enableTilt`); dlaždice alba a přehledu
+  mají `content-visibility: auto`. Service worker promazává mezipaměť obrázků jen jednou za čas.
+
 - **Service worker a nasazení na Pages**: GitHub Pages při nasazení smaže staré soubory buildu a
   index.html drží v HTTP mezipaměti prohlížeče až 10 min. Proto: precache s `cache: "reload"`,
   stránka se ověřuje u serveru (`cache: "no-cache"`), předchozí `app-*` mezipaměť se nemaže

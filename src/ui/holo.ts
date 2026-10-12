@@ -18,6 +18,7 @@ function setTilt(el: HTMLElement, x: number, y: number, active: boolean) {
   el.style.setProperty("--pos", `${x * 100}% ${y * 100}%`);
   el.style.setProperty("--o", active ? "1" : "0");
   el.style.setProperty("--hyp", `${Math.min(1, Math.hypot(x - 0.5, y - 0.5) * 2)}`);
+  el.classList.toggle("is-tilting", active);
 }
 
 function onOrientation(e: DeviceOrientationEvent) {
