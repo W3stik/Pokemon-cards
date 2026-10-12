@@ -6,6 +6,23 @@
     <meta name="theme-color" content="#11131a" />
     <meta name="description" content="Simulátor otevírání balíčků Pokémon TCG se skutečnými sadami, kartami a cenami." />
     <title>Booster Lab</title>
+    <script>
+      // Když se nenačte soubor aplikace (stará stránka po novém nasazení, soubory už na webu
+      // nejsou), načte se stránka jednou znovu, místo aby zůstala prázdná.
+      addEventListener(
+        "error",
+        function (e) {
+          var t = e.target;
+          if (!t || !(t.tagName === "SCRIPT" || (t.tagName === "LINK" && t.rel === "stylesheet"))) return;
+          try {
+            if (sessionStorage.getItem("booster-lab:reloaded")) return;
+            sessionStorage.setItem("booster-lab:reloaded", "1");
+          } catch (_) {}
+          location.reload();
+        },
+        true,
+      );
+    </script>
     <link rel="manifest" href="./manifest.webmanifest" />
     <!-- Spojení se servery obrázků navážeme hned, ne až u prvního obrázku. -->
     <link rel="preconnect" href="https://assets.tcgdex.net" crossorigin />

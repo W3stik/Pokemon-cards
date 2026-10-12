@@ -94,6 +94,13 @@ kopii aplikace pod stejný účet, service worker by mazal mezipaměť té druh�
 
 ## Nástrahy (naučené na vlastní kůži)
 
+- **Service worker a nasazení na Pages**: GitHub Pages při nasazení smaže staré soubory buildu a
+  index.html drží v HTTP mezipaměti prohlížeče až 10 min. Proto: precache s `cache: "reload"`,
+  stránka se ověřuje u serveru (`cache: "no-cache"`), předchozí `app-*` mezipaměť se nemaže
+  (otevřená stará stránka najde své soubory) a index.html se při nenačteném skriptu jednou sám
+  obnoví. Režim navigace je `request.mode === "navigate"` (12. 10. 2026 tu byla chyba
+  `"navigation"` a aplikace po nasazení zůstala na telefonu prázdná).
+
 - **TCGdex má GeoDNS**: z Evropy `api.tcgdex.net` vede na 51.255.35.48, z USA (runnery GitHub Actions)
   na 142.44.242.175 a servery nemají stejná data – 12. 10. 2026 americký neměl ceny 30th Celebration.
   `fetch-prices.mjs` proto karty bez ceny zkouší na adrese, kterou DNS-over-HTTPS vrátí pro evropskou

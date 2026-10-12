@@ -33,18 +33,17 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     (async () => {
       const cache = await caches.open(APP_CACHE);
-      await cache.addAll([
-        local("./"),
-        local("manifest.webmanifest"),
-        local("icons/icon.svg"),
-        local("icons/icon-192.png"),
-        ...BUILD.assets.map(local),
-      ]);
+      // Vždy ze sítě (cache: "reload"): z HTTP mezipaměti prohlížeče (GitHub Pages až 10 min)
+      // by se mohla uložit stará stránka odkazující na soubory, které už na webu nejsou.
+      const fresh = (path) => new Request(local(path), { cache: "reload" });
+      await cache.addAll(
+        ["./", "manifest.webmanifest", "icons/icon.svg", "icons/icon-192.png", ...BUILD.assets].map(fresh),
+      );
       // Data všech sad, aby šlo otevírat balíčky i bez připojení.
-      const res = await fetch(local("data/sets.json"));
+      const res = await fetch(fresh("data/sets.json"));
       const sets = await res.clone().json();
       await cache.put(local("data/sets.json"), res);
-      await cache.addAll(sets.map((s) => local(`data/${s.id}.json`)));
+      await cache.addAll(sets.map((s) => fresh(`data/${s.id}.json`)));
       await self.skipWaiting();
     })(),
   );
@@ -53,9 +52,12 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
-      // Mezipaměť předchozí verze (i se starými soubory z buildu) už není potřeba.
+      // Starší verze se mažou, ale předchozí zůstává: stránka otevřená ještě se starou verzí
+      // (nebo právě načítaná) by jinak nenašla své soubory – GitHub Pages je při nasazení
+      // smaže – a zůstala by prázdná. caches.keys() vrací mezipaměti v pořadí vytvoření.
       const keys = await caches.keys();
-      await Promise.all(keys.filter((k) => k.startsWith("app-") && k !== APP_CACHE).map((k) => caches.delete(k)));
+      const older = keys.filter((k) => k.startsWith("app-") && k !== APP_CACHE);
+      await Promise.all(older.slice(0, -1).map((k) => caches.delete(k)));
       // Starší verze ukládaly velké obrázky mezi malé.
       const small = await caches.open(IMG_CACHE);
       for (const req of await small.keys()) if (isLarge(req.url)) await small.delete(req);
@@ -72,7 +74,8 @@ async function trim(cacheName, limit) {
 
 async function cacheFirst(request, cacheName) {
   const cache = await caches.open(cacheName);
-  const hit = await cache.match(request.url);
+  // Nejdřív aktuální verze, pak ostatní mezipaměti (předchozí verze, viz activate).
+  const hit = (await cache.match(request.url)) ?? (await caches.match(request.url));
   if (hit) return hit;
   const res = await fetch(request);
   if (res.ok) await cache.put(request.url, res.clone());
@@ -124,7 +127,14 @@ async function staleWhileRevalidate(event) {
 // pak uložená verze. Síťová odpověď mezitím obnoví mezipaměť.
 async function navigation(event) {
   const cache = await caches.open(APP_CACHE);
-  const network = updateCache(cache, event.request);
+  // Stránka vždy ověřená u serveru, ne z HTTP mezipaměti prohlížeče (mohla by být stará).
+  const network = fetch(event.request.url, { cache: "no-cache", credentials: "same-origin" }).then((res) => {
+    // Přesměrovanou odpověď (adresa bez lomítka na konci) prohlížeč pro stránku nepřijme,
+    // necháme ho přejít na cílovou adresu.
+    if (res.redirected) return Response.redirect(res.url, 302);
+    if (res.ok) cache.put(local("./"), res.clone());
+    return res;
+  });
   event.waitUntil(network.catch(() => undefined));
   const cached = (await cache.match(event.request)) ?? (await cache.match(local("./")));
   if (!cached) return network;
@@ -143,7 +153,9 @@ self.addEventListener("fetch", (event) => {
   }
   if (url.origin !== scope.origin) return;
 
-  if (request.mode === "navigation") {
+  // Pozor: hodnota je "navigate" (dřív tu bylo "navigation", takže se stránka brala natvrdo
+  // z mezipaměti a po nasazení mohla zůstat stará verze s odkazy na smazané soubory).
+  if (request.mode === "navigate") {
     event.respondWith(navigation(event));
   } else if (url.pathname.includes("/data/")) {
     event.respondWith(staleWhileRevalidate(event));

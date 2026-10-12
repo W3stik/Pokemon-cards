@@ -106,6 +106,12 @@ subscribe(protectCollection);
 updateBadge();
 protectCollection();
 route();
+// Aplikace naběhla: případné příští selhání načtení smí stránku zase jednou obnovit (index.html).
+try {
+  sessionStorage.removeItem("booster-lab:reloaded");
+} catch {
+  // nevadí
+}
 
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
   window.addEventListener("load", () => {
