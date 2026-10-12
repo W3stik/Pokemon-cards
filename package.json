@@ -11,6 +11,7 @@
     "test": "vitest run",
     "data": "node scripts/fetch-data.mjs",
     "prices": "node scripts/fetch-prices.mjs",
+    "images": "node scripts/fetch-images.mjs",
     "e2e": "node scripts/e2e-smoke.mjs"
   },
   "devDependencies": {

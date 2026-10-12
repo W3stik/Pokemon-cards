@@ -11,7 +11,8 @@ const APP_CACHE = `app-${BUILD.version}`;
 const IMG_CACHE = "card-images";
 const IMG_LARGE_CACHE = "card-images-large";
 const IMG_LIMIT = 2000;
-const IMG_LARGE_LIMIT = 150;
+// Velké WebP z TCGdex mají ~70 kB (dřívější PNG ~550 kB), proto jich může být víc.
+const IMG_LARGE_LIMIT = 400;
 const IMAGE_HOSTS = [
   "images.pokemontcg.io",
   "images.scrydex.com",
@@ -19,7 +20,7 @@ const IMAGE_HOSTS = [
   "tcgplayer-cdn.tcgplayer.com",
   "tcg.pokemon.com",
 ];
-const isLarge = (url) => /_hires\.|\/large$|_in_1000x1000/.test(url);
+const isLarge = (url) => /_hires\.|\/large$|\/high\.webp$|_in_1000x1000/.test(url);
 // Oficiální rub karty: server nepovoluje CORS, proto se ukládá výjimečně i neprůhledný.
 const CARD_BACK = "https://tcg.pokemon.com/assets/img/global/tcg-card-back-2x.jpg";
 // Jak dlouho čekat na síť při spuštění aplikace, než se použije uložená verze.

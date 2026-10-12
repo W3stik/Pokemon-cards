@@ -92,3 +92,6 @@ for (const set of sets) {
 
 await writeFile(join(OUT, "sets.json"), JSON.stringify(index, null, 1));
 console.log(`Hotovo: ${index.length} sad v ${OUT}`);
+
+// Menší obrázky (WebP z TCGdex), kde jsou k dispozici.
+await import("./fetch-images.mjs");
