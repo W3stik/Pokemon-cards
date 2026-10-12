@@ -37,6 +37,33 @@ async function pool(items, fn) {
   return results;
 }
 
+// Podsady sloučené do hlavní sady (prefix čísla → id podsady v TCGdex). TCGdex je čísluje
+// jinak než my (my podle pořadí v pokemon-tcg-data), proto se párují podle jména.
+const TCGDEX_SUBSETS = { me55: { CC: "30th-c" } };
+
+// „Rayquaza-EX“ ~ „Rayquaza EX“, „Palkia LV.X“ ~ „Palkia“
+const normName = (name) =>
+  name
+    .toLowerCase()
+    .replace(/\s+lv\.x$/, "")
+    .replace(/-/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+/** Páry [naše id, karta TCGdex] podle jména; stejná jména (např. dvě poloviny LEGEND) v pořadí. */
+function pairByName(ours, remoteCards) {
+  const queues = new Map();
+  for (const c of remoteCards) {
+    const key = normName(c.name);
+    queues.set(key, [...(queues.get(key) ?? []), c]);
+  }
+  return ours.flatMap((c) => {
+    const match = queues.get(normName(c.name))?.shift();
+    if (!match) console.warn(`  ${c.id} („${c.name}“) v TCGdex nenalezena`);
+    return match ? [[c.id, match]] : [];
+  });
+}
+
 const sets = JSON.parse(await readFile(join(DATA, "sets.json"), "utf8"));
 const tcgdexSets = await getJson(`${API}/sets`);
 const cards = {};
@@ -47,21 +74,31 @@ for (const set of sets) {
     console.warn(`${set.id}: sada „${set.name}“ v TCGdex není`);
     continue;
   }
-  const ours = JSON.parse(await readFile(join(DATA, `${set.id}.json`), "utf8")).filter((c) => !c.prefix);
+  const all = JSON.parse(await readFile(join(DATA, `${set.id}.json`), "utf8"));
+  const ours = all.filter((c) => !c.prefix);
   const byNumber = new Map(ours.map((c) => [c.number, c.id]));
   const { cards: list } = await getJson(`${API}/sets/${remote.id}`);
-  const wanted = list.filter((c) => byNumber.has(Number(c.localId)));
-  const details = await pool(wanted, (c) => getJson(`${API}/cards/${c.id}`));
+  const pairs = list.filter((c) => byNumber.has(Number(c.localId))).map((c) => [byNumber.get(Number(c.localId)), c]);
 
+  for (const [prefix, subId] of Object.entries(TCGDEX_SUBSETS[set.id] ?? {})) {
+    const sub = await getJson(`${API}/sets/${subId}`).catch(() => null);
+    if (!sub) {
+      console.warn(`${set.id}: podsada ${subId} v TCGdex není`);
+      continue;
+    }
+    pairs.push(...pairByName(all.filter((c) => c.prefix === prefix), sub.cards));
+  }
+
+  const details = await pool(pairs, ([, c]) => getJson(`${API}/cards/${c.id}`));
   let priced = 0;
-  wanted.forEach((c, i) => {
+  pairs.forEach(([id], i) => {
     const price = parseTcgdexPricing(details[i]?.pricing);
     if (Object.keys(price).length) {
-      cards[byNumber.get(Number(c.localId))] = price;
+      cards[id] = price;
       priced++;
     }
   });
-  console.log(`${set.id.padEnd(10)} ${remote.id.padEnd(8)} ${priced}/${ours.length} karet s cenou`);
+  console.log(`${set.id.padEnd(10)} ${remote.id.padEnd(8)} ${priced}/${all.length} karet s cenou`);
 }
 
 const out = { updated: new Date().toISOString(), source: "tcgdex", cards };

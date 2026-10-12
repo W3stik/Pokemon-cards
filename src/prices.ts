@@ -23,12 +23,17 @@ export interface CardPrice {
 type PriceMap = Record<string, CardPrice>;
 
 const TTL = 12 * 60 * 60 * 1000;
+/** Pokémon TCG API často neodpovídá; déle se na něj nečeká, aby součty v albu nevisely. */
+const REQUEST_TIMEOUT = 8000;
+/** Po neúspěchu se API pro danou sadu chvíli nezkouší znovu. */
+const RETRY_AFTER = 10 * 60 * 1000;
 const API = "https://api.pokemontcg.io/v2/cards";
 const TCGDEX = "https://api.tcgdex.net/v2/en";
 const storageKey = (setId: string) => `pokemon-packs:prices:${setId}`;
 
 const memory = new Map<string, PriceMap>();
 const inflight = new Map<string, Promise<PriceMap>>();
+const failedAt = new Map<string, number>();
 
 const num = (v: unknown): number | undefined => (typeof v === "number" && v > 0 ? v : undefined);
 
@@ -80,10 +85,11 @@ async function fetchSet(setId: string): Promise<PriceMap> {
   for (let page = 1; page < 10; page++) {
     const url = `${API}?q=set.id:${setId}&select=id,tcgplayer,cardmarket&pageSize=250&page=${page}`;
     // API občas vrátí chybu 500, proto to zkusíme víckrát.
-    let res = await fetch(url);
-    for (let attempt = 1; !res.ok && res.status >= 500 && attempt < 3; attempt++) {
-      await new Promise((r) => setTimeout(r, 800 * attempt));
-      res = await fetch(url);
+    const get = () => fetch(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT) });
+    let res = await get();
+    if (!res.ok && res.status >= 500) {
+      await new Promise((r) => setTimeout(r, 800));
+      res = await get();
     }
     if (!res.ok) throw new Error(`Ceny: HTTP ${res.status}`);
     const body = (await res.json()) as { data: ApiCard[]; totalCount: number };
@@ -137,6 +143,7 @@ function loadOne(setId: string): Promise<PriceMap> {
     memory.set(setId, cached.data);
     return Promise.resolve(cached.data);
   }
+  if (Date.now() - (failedAt.get(setId) ?? 0) < RETRY_AFTER) return Promise.resolve(cached?.data ?? {});
   let p = inflight.get(setId);
   if (!p) {
     p = fetchSet(setId)
@@ -145,7 +152,10 @@ function loadOne(setId: string): Promise<PriceMap> {
         writeCache(setId, data);
         return data;
       })
-      .catch(() => cached?.data ?? {})
+      .catch(() => {
+        failedAt.set(setId, Date.now());
+        return cached?.data ?? {};
+      })
       .finally(() => inflight.delete(setId));
     inflight.set(setId, p);
   }

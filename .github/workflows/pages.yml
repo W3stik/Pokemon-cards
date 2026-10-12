@@ -27,9 +27,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      # Ceny z TCGdex se přibalí k aplikaci; když služba neodpoví, build pokračuje bez nich.
-      - run: npm run prices
-        continue-on-error: true
+      # Ceny z TCGdex se přibalí k aplikaci. Když služba neodpoví, použijí se ceny
+      # z posledního nasazení, a když nejsou ani ty, build pokračuje bez nich.
+      - name: Ceny karet
+        run: |
+          npm run prices || curl -sfL "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/data/prices.json" -o public/data/prices.json || echo "::warning::Ceny karet nejsou k dispozici"
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
