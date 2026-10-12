@@ -29,6 +29,13 @@ const sets = allSets
 
 await mkdir(OUT, { recursive: true });
 
+// Náhledy z images.pokemontcg.io jsou PNG kolem 160 kB, stejné obrázky na Scrydexu
+// (CDN, na kterou projekt přechází) mají stejné rozlišení a třetinovou velikost.
+const smallImage = (c) =>
+  /^https:\/\/images\.pokemontcg\.io\/[^/]+\/\d+\.png$/.test(c.images.small)
+    ? `https://images.scrydex.com/pokemon/${c.id}/small`
+    : c.images.small;
+
 const slimCard = (c) => ({
   id: c.id,
   name: c.name,
@@ -39,7 +46,7 @@ const slimCard = (c) => ({
   types: c.types ?? [],
   hp: c.hp ?? null,
   artist: c.artist ?? null,
-  img: c.images.small,
+  img: smallImage(c),
   imgLarge: c.images.large,
 });
 

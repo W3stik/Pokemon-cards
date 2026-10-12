@@ -26,6 +26,32 @@ export function packArtUrl(setId: string, large = false): string | null {
   return `https://tcgplayer-cdn.tcgplayer.com/product/${id}_${large ? "in_1000x1000" : "400w"}.jpg`;
 }
 
+/** Velkou fotku obalu stáhne dopředu, aby otevírání balíčku nečekalo. */
+export function prefetchPackArt(setId: string) {
+  const url = packArtUrl(setId, true);
+  if (url) new Image().src = url;
+}
+
+// Poměr stran fotky obalu si pamatujeme, aby balíček při načítání neposkočil.
+const RATIO_KEY = "pokemon-packs:pack-ratios";
+const ratios: Record<string, number> = (() => {
+  try {
+    return JSON.parse(localStorage.getItem(RATIO_KEY) ?? "{}");
+  } catch {
+    return {};
+  }
+})();
+
+function rememberRatio(setId: string, ratio: number) {
+  if (Math.abs((ratios[setId] ?? 0) - ratio) < 0.001) return;
+  ratios[setId] = ratio;
+  try {
+    localStorage.setItem(RATIO_KEY, JSON.stringify(ratios));
+  } catch {
+    // nevadí
+  }
+}
+
 /** Náhradní potisk, když fotka obalu chybí nebo se nenačte. */
 function fallbackArt(set: SetInfo): HTMLElement {
   return h(
@@ -44,7 +70,9 @@ function fallbackArt(set: SetInfo): HTMLElement {
  */
 export function packEl(set: SetInfo, opts: { large?: boolean; tilt?: boolean; hint?: number } = {}): HTMLElement {
   const [c1, c2] = packProfile(set.id).colors;
-  const art = packArtUrl(set.id, opts.large);
+  // Nejdřív malá fotka (bývá už v mezipaměti z obchodu), velká ji vymění, až se načte.
+  const art = packArtUrl(set.id);
+  const ratio = ratios[set.id];
   // Zadní strana: rozmazaná a ztmavená fotka (skutečný rub obalu nemáme), ať text nejde přečíst.
   const face = (side: "front" | "back") =>
     h(
@@ -59,7 +87,7 @@ export function packEl(set: SetInfo, opts: { large?: boolean; tilt?: boolean; hi
     "div",
     {
       class: `pack3d${art ? "" : " pack3d--noart"}`,
-      style: `--c1: ${c1}; --c2: ${c2};${art ? ` --art: url("${art}");` : ""}`,
+      style: `--c1: ${c1}; --c2: ${c2};${art ? ` --art: url("${art}");` : ""}${ratio ? ` --ratio: ${ratio};` : ""}`,
       role: "img",
       "aria-label": `Balíček ${set.name}`,
     },
@@ -86,9 +114,27 @@ export function packEl(set: SetInfo, opts: { large?: boolean; tilt?: boolean; hi
   if (art) {
     // Poměr stran podle skutečné fotky; při chybě zůstane náhradní potisk.
     const img = new Image();
-    img.onload = () => pack.style.setProperty("--ratio", String(img.naturalWidth / img.naturalHeight));
+    img.onload = () => {
+      const r = img.naturalWidth / img.naturalHeight;
+      pack.style.setProperty("--ratio", String(r));
+      rememberRatio(set.id, r);
+    };
     img.onerror = () => pack.classList.add("pack3d--noart");
     img.src = art;
+  }
+  const largeArt = opts.large ? packArtUrl(set.id, true) : null;
+  if (largeArt) {
+    const big = new Image();
+    big.src = largeArt;
+    big
+      .decode()
+      .then(() => {
+        pack.style.setProperty("--art", `url("${largeArt}")`);
+        pack.classList.remove("pack3d--noart");
+      })
+      .catch(() => {
+        // Zůstane malá fotka (nebo náhradní potisk).
+      });
   }
   if (opts.tilt) enableTilt(pack);
   return pack;

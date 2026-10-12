@@ -5,7 +5,7 @@ import { fromSealed, hintLevel, openPack, toSealed } from "../pack";
 import { getState, pickFromShelf, type SealedPack, setShelf } from "../store";
 import type { Card, SetInfo } from "../types";
 import { clear, h, toast } from "../ui/dom";
-import { packEl } from "../ui/pack";
+import { packEl, prefetchPackArt } from "../ui/pack";
 
 const SHELF_SIZE = 10;
 
@@ -16,6 +16,8 @@ export async function renderPick(root: HTMLElement, setId?: string) {
     root.append(h("p", { class: "empty" }, "Neznámá sada."));
     return;
   }
+  // Z regálu se jde rovnou otevírat: velkou fotku obalu stáhneme dopředu.
+  prefetchPackArt(set.id);
   const [cards, pools] = await Promise.all([loadCards(set.id), loadPools(set.id)]);
   const byId = new Map(cards.map((c) => [c.id, c]));
   const roll = (): SealedPack => toSealed(openPack(packProfile(set.id), pools));

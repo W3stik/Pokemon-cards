@@ -1,9 +1,26 @@
 import { isPersisted, lastBackup, markBackup } from "../storage";
 import { exportState, importState, parseBackup, resetState, stateSummary } from "../store";
 import { h, toast } from "../ui/dom";
+import { type FxPrefs, fxPrefs, setFxPrefs, sfxHit, unlockAudio } from "../ui/sfx";
 
 const dateFmt = new Intl.DateTimeFormat("cs-CZ", { dateStyle: "medium" });
 const kusu = (n: number) => `${n} ${n === 1 ? "kus" : n >= 2 && n <= 4 ? "kusy" : "kusů"}`;
+
+function fxToggle(key: keyof FxPrefs, label: string, note?: string) {
+  const input = h("input", {
+    type: "checkbox",
+    checked: fxPrefs()[key],
+    onchange: (e: Event) => {
+      setFxPrefs({ [key]: (e.target as HTMLInputElement).checked });
+      // Ukázka, jak to zní / jak to vibruje.
+      if (fxPrefs()[key]) {
+        unlockAudio();
+        sfxHit(6);
+      }
+    },
+  });
+  return h("label", { class: "check" }, input, h("span", null, label, note ? h("small", { class: "muted" }, ` – ${note}`) : null));
+}
 
 function download(name: string, text: string) {
   const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
@@ -98,6 +115,17 @@ export function renderSettings(root: HTMLElement) {
         ),
       ),
       status,
+    ),
+    h(
+      "section",
+      { class: "panel" },
+      h("h2", null, "Zvuky a vibrace"),
+      fxToggle("sound", "Zvuky při otevírání balíčků"),
+      fxToggle(
+        "vibrate",
+        "Vibrace při vzácné kartě",
+        "vibrate" in navigator ? undefined : "toto zařízení nebo prohlížeč vibrace nepodporuje",
+      ),
     ),
     h(
       "section",

@@ -214,6 +214,31 @@ img {
   background: transparent;
 }
 
+.check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  cursor: pointer;
+}
+
+.check input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+}
+
+.sound-toggle {
+  padding: 6px 10px;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.view-head--row .row {
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
 .btn--danger {
   border-color: var(--danger);
   color: var(--danger);

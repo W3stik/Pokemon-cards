@@ -6,7 +6,8 @@ import { collectionKey, getState, nextSealed, recordOpening } from "../store";
 import type { Card, PulledCard, SetInfo } from "../types";
 import { animationEnd, append, clear, h, prefersReducedMotion, sleep } from "../ui/dom";
 import { CARD_BACK_URL, cardBack, cardEl, enableTilt, preload } from "../ui/holo";
-import { packEl } from "../ui/pack";
+import { packEl, prefetchPackArt } from "../ui/pack";
+import { fxPrefs, setFxPrefs, sfxHit, sfxSwipe, sfxTear, unlockAudio } from "../ui/sfx";
 import { openCardModal } from "./cardModal";
 
 const priceSetIds = (cards: PulledCard[]) => [...new Set(cards.map((c) => setIdOfCard(c.card.id)))];
@@ -28,6 +29,7 @@ async function renderInventory(root: HTMLElement) {
     );
     return;
   }
+  owned.forEach((s) => prefetchPackArt(s.id));
   root.append(
     h(
       "div",
@@ -61,6 +63,8 @@ class OpeningStage {
   private stage = h("div", { class: "stage" });
   private controls = h("div", { class: "stage__controls" });
   private remaining = h("span", { class: "chip" });
+  /** Obsah dalšího balíčku, vylosovaný dopředu, aby se obrázky karet stáhly ještě před roztržením. */
+  private pending: PulledCard[] | null = null;
 
   constructor(
     root: HTMLElement,
@@ -73,7 +77,7 @@ class OpeningStage {
         "section",
         { class: "view-head view-head--row" },
         h("h1", null, set.name),
-        this.remaining,
+        h("div", { class: "row" }, soundToggle(), this.remaining),
       ),
       this.stage,
       this.controls,
@@ -105,6 +109,7 @@ class OpeningStage {
 
     // Balíček vybraný z regálu má obsah daný předem (a s ním i tajný náznak).
     const sealed = this.sealedCards();
+    this.prepare();
     const pack = packEl(this.set, { large: true, tilt: true, hint: sealed ? hintLevel(sealed) : 0 });
     pack.classList.add("pack3d--big", "pack3d--idle");
     const cut = h("div", { class: "pack3d__cut" });
@@ -122,12 +127,14 @@ class OpeningStage {
       fn();
     };
     const tear = once(() => {
+      sfxTear();
       hint.remove();
       pack.classList.remove("is-dragging");
       pack.style.setProperty("--spin", "0deg");
       this.open(pack);
     });
     pack.addEventListener("pointerdown", (e) => {
+      unlockAudio();
       const r = pack.getBoundingClientRect();
       drag = { x: e.clientX, mode: e.clientY - r.top < r.height * 0.3 ? "tear" : "spin" };
       pack.classList.add("is-dragging");
@@ -160,9 +167,9 @@ class OpeningStage {
     pack.addEventListener("pointercancel", release);
 
     append(this.controls, [
-      h("button", { class: "btn", onclick: once(() => this.quickOpen(1)) }, "Otevřít bez animace"),
+      h("button", { class: "btn", onclick: once(() => (unlockAudio(), this.quickOpen(1))) }, "Otevřít bez animace"),
       this.left() > 1
-        ? h("button", { class: "btn", onclick: once(() => this.quickOpen(this.left())) }, `Otevřít vše (${this.left()})`)
+        ? h("button", { class: "btn", onclick: once(() => (unlockAudio(), this.quickOpen(this.left()))) }, `Otevřít vše (${this.left()})`)
         : null,
     ]);
   }
@@ -173,8 +180,19 @@ class OpeningStage {
     return next ? fromSealed(next, this.byId) : null;
   }
 
+  /**
+   * Vylosuje obsah dalšího balíčku dopředu (bez zápisu do sbírky) a začne stahovat
+   * obrázky jeho karet. Do sbírky se zapíše až při roztržení (draw).
+   */
+  private prepare() {
+    if (this.pending || this.left() === 0) return;
+    this.pending = this.sealedCards() ?? openPack(packProfile(this.set.id), this.pools);
+    preload([...this.pending.map((c) => c.card.img), CARD_BACK_URL]);
+  }
+
   private draw(): { cards: PulledCard[]; fresh: Set<string> } {
-    const cards = this.sealedCards() ?? openPack(packProfile(this.set.id), this.pools);
+    const cards = this.pending ?? this.sealedCards() ?? openPack(packProfile(this.set.id), this.pools);
+    this.pending = null;
     const fresh = recordOpening(this.set.id, cards);
     this.updateRemaining();
     return { cards, fresh };
@@ -245,6 +263,7 @@ class OpeningStage {
     const throwAway = async (item: HTMLElement, dir: number) => {
       item.style.setProperty("--dir", String(dir));
       item.classList.add("is-gone");
+      sfxSwipe();
       index++;
       update();
       const next = items[index];
@@ -268,6 +287,7 @@ class OpeningStage {
     let drag: { x: number; item: HTMLElement } | null = null;
     let dx = 0;
     pile.addEventListener("pointerdown", (e) => {
+      unlockAudio();
       const item = items[index];
       if (busy || !item) return;
       drag = { x: e.clientX, item };
@@ -300,6 +320,7 @@ class OpeningStage {
   /** Vzácná karta se po odhalení rozzáří barvou rarity a vybuchne částicemi. */
   private revealHit(item: HTMLElement, rank: number) {
     item.classList.add("is-revealed");
+    sfxHit(rank);
     if (prefersReducedMotion()) return;
     burst(item, rank);
     if (rank >= 8) flash();
@@ -315,6 +336,9 @@ class OpeningStage {
       r.fresh.forEach((k) => fresh.add(k));
     }
     this.summary(all, fresh, count);
+    // Fanfára podle nejvzácnější karty ze všech otevřených balíčků.
+    const best = Math.max(-1, ...all.filter((c) => rarityInfo(c.card.rarity).hit).map((c) => rarityInfo(c.card.rarity).rank));
+    if (best >= 0) sfxHit(best);
   }
 
   private summary(cards: PulledCard[], fresh: Set<string>, packs = 1) {
@@ -403,10 +427,13 @@ class OpeningStage {
 
     this.controls.append(
       this.left() > 0
-        ? h("button", { class: "btn btn--primary", onclick: () => this.showPack() }, `Otevřít další (${this.left()})`)
+        ? h("button", { class: "btn btn--primary", onclick: () => (unlockAudio(), this.showPack()) }, `Otevřít další (${this.left()})`)
         : h("a", { class: "btn btn--primary", href: "#/shop" }, "Vzít další balíčky"),
       h("a", { class: "btn", href: `#/album/${this.set.id}` }, "Do alba"),
     );
+
+    // Další balíček se připraví (a jeho karty stáhnou), zatímco hráč prohlíží přehled.
+    this.prepare();
 
     loadSetPrices(priceSetIds(cards)).then((loaded) => {
       prices = loaded;
@@ -416,6 +443,24 @@ class OpeningStage {
       for (const { el, pulled } of priceEls) el.textContent = priceText(pulled);
     });
   }
+}
+
+/** Tlačítko pro rychlé ztlumení zvuků přímo při otevírání. */
+function soundToggle(): HTMLElement {
+  const btn = h("button", { class: "btn btn--ghost sound-toggle" });
+  const render = () => {
+    const on = fxPrefs().sound;
+    btn.textContent = on ? "🔊" : "🔇";
+    btn.setAttribute("aria-label", on ? "Vypnout zvuky" : "Zapnout zvuky");
+    btn.setAttribute("aria-pressed", String(on));
+  };
+  btn.addEventListener("click", () => {
+    setFxPrefs({ sound: !fxPrefs().sound });
+    unlockAudio();
+    render();
+  });
+  render();
+  return btn;
 }
 
 /** Záblesk částic kolem karty v barvě rarity. */

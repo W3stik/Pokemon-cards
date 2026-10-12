@@ -20,6 +20,10 @@ const IMAGE_HOSTS = [
   "tcg.pokemon.com",
 ];
 const isLarge = (url) => /_hires\.|\/large$|_in_1000x1000/.test(url);
+// Oficiální rub karty: server nepovoluje CORS, proto se ukládá výjimečně i neprůhledný.
+const CARD_BACK = "https://tcg.pokemon.com/assets/img/global/tcg-card-back-2x.jpg";
+// Jak dlouho čekat na síť při spuštění aplikace, než se použije uložená verze.
+const NAVIGATION_TIMEOUT = 3000;
 
 const scope = new URL(self.registration.scope);
 const local = (path) => new URL(path, scope).href;
@@ -90,19 +94,41 @@ async function cacheImage(request) {
     }
     return res;
   } catch {
-    return fetch(request);
+    const res = await fetch(request);
+    // Jediný neprůhledný obrázek (v kvótě se počítá víc, ale rub je v každém balíčku a offline chybí).
+    if (request.url === CARD_BACK && res.type === "opaque") await cache.put(request.url, res.clone());
+    return res;
   }
 }
 
-async function networkFirst(request) {
-  const cache = await caches.open(APP_CACHE);
-  try {
-    const res = await fetch(request);
-    if (res.ok) await cache.put(request, res.clone());
+function updateCache(cache, request) {
+  return fetch(request).then((res) => {
+    if (res.ok) cache.put(request, res.clone());
     return res;
-  } catch {
-    return (await cache.match(request)) ?? (await cache.match(local("./")));
-  }
+  });
+}
+
+// Data sad a ceny: hned z mezipaměti, na pozadí se obnoví pro příští načtení.
+// Dřív se při každém otevření sady čekalo na síť, na pomalém mobilním připojení i několik sekund.
+async function staleWhileRevalidate(event) {
+  const cache = await caches.open(APP_CACHE);
+  const hit = await cache.match(event.request);
+  const update = updateCache(cache, event.request);
+  if (!hit) return update;
+  event.waitUntil(update.catch(() => undefined));
+  return hit;
+}
+
+// Stránka aplikace: přednostně ze sítě (kvůli nové verzi), ale nejdéle pár sekund,
+// pak uložená verze. Síťová odpověď mezitím obnoví mezipaměť.
+async function navigation(event) {
+  const cache = await caches.open(APP_CACHE);
+  const network = updateCache(cache, event.request);
+  event.waitUntil(network.catch(() => undefined));
+  const cached = (await cache.match(event.request)) ?? (await cache.match(local("./")));
+  if (!cached) return network;
+  const timeout = new Promise((resolve) => setTimeout(() => resolve(cached), NAVIGATION_TIMEOUT));
+  return Promise.race([network.catch(() => cached), timeout]);
 }
 
 self.addEventListener("fetch", (event) => {
@@ -116,8 +142,10 @@ self.addEventListener("fetch", (event) => {
   }
   if (url.origin !== scope.origin) return;
 
-  if (request.mode === "navigation" || url.pathname.includes("/data/")) {
-    event.respondWith(networkFirst(request));
+  if (request.mode === "navigation") {
+    event.respondWith(navigation(event));
+  } else if (url.pathname.includes("/data/")) {
+    event.respondWith(staleWhileRevalidate(event));
   } else {
     // Soubory z buildu mají v názvu hash, takže se nemění.
     event.respondWith(cacheFirst(request, APP_CACHE));
