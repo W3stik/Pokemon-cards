@@ -1,4 +1,5 @@
 // Stav hry uložený v prohlížeči (localStorage): neotevřené balíčky a sbírka.
+import { isGodPack } from "./pack";
 import type { PulledCard, Variant } from "./types";
 
 /** Balíček s předem určeným obsahem (z regálu v obchodě). */
@@ -10,6 +11,8 @@ export interface PullRecord {
   setId: string;
   at: number;
   cards: { id: string; variant: Variant }[];
+  /** Byl to god pack. */
+  god?: true;
 }
 
 export interface GameState {
@@ -22,6 +25,8 @@ export interface GameState {
   firstSeen: Record<string, number>;
   /** Počet otevřených balíčků podle sady. */
   opened: Record<string, number>;
+  /** Počet otevřených god packů podle sady. */
+  godPacks: Record<string, number>;
   /** Posledních několik otevřených balíčků. */
   history: PullRecord[];
   /** Regál v obchodě: 10 nabízených balíčků každé sady. */
@@ -40,6 +45,7 @@ const empty = (): GameState => ({
   collection: {},
   firstSeen: {},
   opened: {},
+  godPacks: {},
   history: [],
   shelf: {},
   sealed: {},
@@ -105,7 +111,7 @@ export function sanitize(raw: unknown): GameState {
     ? raw.history.flatMap((r): PullRecord[] => {
         if (!isObject(r) || typeof r.setId !== "string" || !isTime(r.at)) return [];
         const cards = cardRefs(r.cards);
-        return cards ? [{ setId: r.setId, at: r.at, cards }] : [];
+        return cards ? [{ setId: r.setId, at: r.at, cards, ...(r.god === true ? { god: true as const } : {}) }] : [];
       })
     : [];
   return {
@@ -114,6 +120,7 @@ export function sanitize(raw: unknown): GameState {
     collection: numbers(raw.collection, isCount, isCollectionKey),
     firstSeen: numbers(raw.firstSeen, isTime),
     opened: numbers(raw.opened, isCount),
+    godPacks: numbers(raw.godPacks, isCount),
     history: history.slice(0, HISTORY_LIMIT),
     shelf: packLists(raw.shelf),
     sealed,
@@ -224,7 +231,14 @@ export function recordOpening(setId: string, cards: PulledCard[]): Set<string> {
       s.firstSeen[card.id] ??= now;
     }
     s.opened[setId] = (s.opened[setId] ?? 0) + 1;
-    s.history.unshift({ setId, at: now, cards: cards.map((c) => ({ id: c.card.id, variant: c.variant })) });
+    const god = isGodPack(cards);
+    if (god) s.godPacks[setId] = (s.godPacks[setId] ?? 0) + 1;
+    s.history.unshift({
+      setId,
+      at: now,
+      cards: cards.map((c) => ({ id: c.card.id, variant: c.variant })),
+      ...(god ? { god: true as const } : {}),
+    });
     s.history.length = Math.min(s.history.length, HISTORY_LIMIT);
     return fresh;
   });

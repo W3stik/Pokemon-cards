@@ -1,6 +1,6 @@
 import { loadCards, loadPools, loadSets, setIdOfCard } from "../data";
 import { packProfile, rarityInfo, VARIANT_LABEL } from "../odds";
-import { fromSealed, hintLevel, openPack } from "../pack";
+import { fromSealed, hintLevel, isGodPack, openPack } from "../pack";
 import { addPrice, type CardPrice, formatEur, formatTotal, formatUsd, loadSetPrices, type PriceTotal, variantPrice } from "../prices";
 import { collectionKey, getState, nextSealed, recordOpening } from "../store";
 import type { Card, PulledCard, SetInfo } from "../types";
@@ -217,6 +217,11 @@ class OpeningStage {
     const pile = h("div", { class: "pile" }, stack);
     enableTilt(pile);
     this.stage.append(pile, counter, h("p", { class: "stage__hint" }, "Klepni na kartu, nebo ji odhoď do strany"));
+    // God pack: celý balík zazáří a objeví se nápis (první karta je hned vzácná).
+    if (isGodPack(cards)) {
+      pile.classList.add("pile--god");
+      this.godBanner();
+    }
 
     const items = cards.map((pulled, i) => {
       const info = rarityInfo(pulled.card.rarity);
@@ -326,22 +331,34 @@ class OpeningStage {
     if (rank >= 8) flash();
   }
 
+  /** Nápis GOD PACK přes balík karet, s nejsilnější fanfárou a vibrací. */
+  private godBanner() {
+    const banner = h("div", { class: "god-banner", role: "status" }, "GOD PACK!");
+    this.stage.append(banner);
+    sfxHit(10);
+    if (!prefersReducedMotion()) flash();
+    setTimeout(() => banner.remove(), 2600);
+  }
+
   /** Otevře více balíčků naráz bez animace a ukáže souhrn. */
   private quickOpen(count: number) {
     const all: PulledCard[] = [];
     const fresh = new Set<string>();
+    let godPacks = 0;
     for (let i = 0; i < count && this.left() > 0; i++) {
       const r = this.draw();
       all.push(...r.cards);
       r.fresh.forEach((k) => fresh.add(k));
+      if (isGodPack(r.cards)) godPacks++;
     }
-    this.summary(all, fresh, count);
-    // Fanfára podle nejvzácnější karty ze všech otevřených balíčků.
+    this.summary(all, fresh, count, godPacks);
+    // Fanfára podle nejvzácnější karty ze všech otevřených balíčků (god pack má nejsilnější).
     const best = Math.max(-1, ...all.filter((c) => rarityInfo(c.card.rarity).hit).map((c) => rarityInfo(c.card.rarity).rank));
-    if (best >= 0) sfxHit(best);
+    if (godPacks) sfxHit(10);
+    else if (best >= 0) sfxHit(best);
   }
 
-  private summary(cards: PulledCard[], fresh: Set<string>, packs = 1) {
+  private summary(cards: PulledCard[], fresh: Set<string>, packs = 1, godPacks = packs === 1 && isGodPack(cards) ? 1 : 0) {
     clear(this.stage);
     clear(this.controls);
     this.updateRemaining();
@@ -413,11 +430,18 @@ class OpeningStage {
     this.stage.append(
       h(
         "div",
-        { class: "summary" },
+        { class: `summary${godPacks ? " summary--god" : ""}` },
         h(
           "div",
           { class: "summary__head" },
-          h("h2", null, packs > 1 ? `Otevřeno ${packs} balíčků` : "Tvůj balíček"),
+          h("h2", null, packs > 1 ? `Otevřeno ${packs} balíčků` : godPacks ? "GOD PACK!" : "Tvůj balíček"),
+          packs > 1 && godPacks
+            ? h("p", { class: "summary__god" }, godPacks === 1
+                ? "V balíčcích byl god pack!"
+                : godPacks < 5
+                  ? `V balíčcích byly ${godPacks} god packy!`
+                  : `V balíčcích bylo ${godPacks} god packů!`)
+            : null,
           h("p", null, `${cards.length} karet · ${fresh.size} nových do sbírky · hodnota `, total),
           packs > 1 ? h("div", { class: "row" }, h("span", { class: "muted" }, `Vzácných karet: ${hits.reduce((n, e) => n + e.count, 0)}`), toggle) : null,
         ),

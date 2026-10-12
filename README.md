@@ -9,6 +9,8 @@ a karty Pokémon TCG, šance na tah podle reálných měření a tržní ceny ka
   (obsah každého je určený předem a regál se uloží, takže obnovení stránky nic nepřelosuje; za vzatý balíček
   přijde na regál nový). Po deseti nebo jako booster box (36) se balíčky berou naslepo.
   U každé sady je tabulka **šancí na tah** se složením balíčku a odkazy na zdroje.
+  Ascended Heroes má navíc **god pack** (1 : 500): balíček, ve kterém je všech 10 karet vzácných
+  (Illustration Rare, full arty, Special Illustration Rare, výjimečně Mega Hyper Rare).
   <details><summary>Spoiler: tajný náznak</summary>
   Balíček na regálu, ve kterém je Illustration Rare / Ultra Rare nebo vzácnější karta, jednou za čas
   nenápadně problikne jiskřičkou. Bílá = IR/UR, zlatá a častější = SIR, duhová a nejčastější = zlatá karta,

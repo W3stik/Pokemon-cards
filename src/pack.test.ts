@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { PACKS, oddsTable, packProfile, packSize, rarityInfo, RARITIES } from "./odds";
-import { byRarity, fromSealed, hintLevel, openPack, toSealed } from "./pack";
+import { byRarity, fromSealed, hintLevel, isGodPack, openPack, toSealed } from "./pack";
 import { getState, nextSealed, pickFromShelf, recordOpening, resetState, setShelf } from "./store";
 import type { Card, SetInfo } from "./types";
 
@@ -28,7 +28,8 @@ describe("data a konfigurace šancí", () => {
   it("každá rarita v profilu existuje v datech sady a naopak má každá karta známou raritu", () => {
     for (const set of sets) {
       const pools = byRarity(cardsOf(set.id));
-      for (const slot of packProfile(set.id).slots) {
+      const profile = packProfile(set.id);
+      for (const slot of [...profile.slots, ...(profile.godPack?.slots ?? [])]) {
         for (const outcome of [slot.base, ...slot.hits]) {
           const size = outcome.rarities.reduce((n, r) => n + (pools.get(r)?.length ?? 0), 0);
           expect(size, `${set.id}: ${outcome.rarities.join("/")}`).toBeGreaterThan(0);
@@ -48,7 +49,7 @@ describe("data a konfigurace šancí", () => {
 
   it("součet šancí ve slotu nepřesáhne 100 %", () => {
     for (const [id, profile] of Object.entries(PACKS)) {
-      for (const slot of profile.slots) {
+      for (const slot of [...profile.slots, ...(profile.godPack?.slots ?? [])]) {
         const sum = slot.hits.reduce((n, h) => n + (h.p ?? 0), 0);
         expect(sum, `${id}: ${slot.label}`).toBeLessThan(1);
       }
@@ -130,6 +131,48 @@ describe("otevírání balíčků", () => {
     expect(rate("Illustration Rare")).toBeCloseTo(0.1097, 2);
     expect(rate("Ultra Rare")).toBeCloseTo(0.0806, 2);
     expect(rate("Special Illustration Rare")).toBeCloseTo(0.0125, 2);
+  });
+});
+
+describe("god pack", () => {
+  const profile = packProfile("me2pt5");
+  const pools = byRarity(cardsOf("me2pt5"));
+  /** Generátor, jehož první hod (losování god packu) padne vždy. */
+  const forcedGod = (seed: number) => {
+    const rng = seeded(seed);
+    let first = true;
+    return () => (first ? ((first = false), 0) : rng());
+  };
+
+  it("Ascended Heroes má god pack 1:500 a je v tabulce šancí", () => {
+    expect(profile.godPack?.p).toBe(1 / 500);
+    expect(oddsTable(profile).some((r) => r.label.startsWith("God pack") && r.p === 1 / 500)).toBe(true);
+  });
+
+  it("god pack má 10 vzácných karet ve správném pořadí a bez opakování", () => {
+    for (let seed = 1; seed <= 200; seed++) {
+      const pack = openPack(profile, pools, forcedGod(seed));
+      const r = pack.map((p) => p.card.rarity);
+      expect(pack).toHaveLength(10);
+      expect(isGodPack(pack)).toBe(true);
+      expect(r.slice(0, 4).every((x) => x === "Illustration Rare")).toBe(true);
+      expect(r.slice(4, 7).every((x) => x === "Ultra Rare" || x === "Mega Attack Rare")).toBe(true);
+      expect(r.slice(7, 9).every((x) => x === "Special Illustration Rare")).toBe(true);
+      expect(["Special Illustration Rare", "Mega Hyper Rare"]).toContain(r[9]);
+      expect(new Set(pack.map((p) => p.card.id)).size).toBe(10);
+    }
+  });
+
+  it("padá zhruba jednou za 500 balíčků a běžný balíček god pack není", () => {
+    const rng = seeded(11);
+    const n = 100_000;
+    let god = 0;
+    for (let i = 0; i < n; i++) if (isGodPack(openPack(profile, pools, rng))) god++;
+    // očekávání 200, směrodatná odchylka ~14
+    expect(god).toBeGreaterThan(150);
+    expect(god).toBeLessThan(250);
+    const me1 = byRarity(cardsOf("me1"));
+    for (let i = 0; i < 2000; i++) expect(isGodPack(openPack(packProfile("me1"), me1, rng))).toBe(false);
   });
 });
 

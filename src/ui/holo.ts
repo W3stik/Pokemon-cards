@@ -21,11 +21,25 @@ function setTilt(el: HTMLElement, x: number, y: number, active: boolean) {
   el.classList.toggle("is-tilting", active);
 }
 
+// Vyhlazený náklon: gyroskop posílá desítky drobně rozkmitaných hodnot za sekundu
+// a karty i balíčky se pak chvěly. Každá událost posune polohu jen o kus k nové hodnotě.
+let gx = 0.5;
+let gy = 0.5;
+const SMOOTHING = 0.15;
+
 function onOrientation(e: DeviceOrientationEvent) {
   if (e.beta === null || e.gamma === null) return;
   // Telefon držený v ruce mívá beta kolem 40°, proto střed posuneme.
-  const x = Math.min(1, Math.max(0, 0.5 + e.gamma / 50));
-  const y = Math.min(1, Math.max(0, 0.5 + (e.beta - 40) / 50));
+  const tx = Math.min(1, Math.max(0, 0.5 + e.gamma / 50));
+  const ty = Math.min(1, Math.max(0, 0.5 + (e.beta - 40) / 50));
+  const nx = gx + (tx - gx) * SMOOTHING;
+  const ny = gy + (ty - gy) * SMOOTHING;
+  // Nepatrné změny nepřekreslujeme.
+  if (Math.abs(nx - gx) < 0.001 && Math.abs(ny - gy) < 0.001) return;
+  gx = nx;
+  gy = ny;
+  const x = gx;
+  const y = gy;
   for (const ref of tilted) {
     const el = ref.deref();
     if (!el) {

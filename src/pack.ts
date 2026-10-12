@@ -26,8 +26,10 @@ function poolFor(outcome: Outcome, pools: Map<string, Card[]>): Card[] {
 export function openPack(profile: PackProfile, pools: Map<string, Card[]>, rng: Rng = Math.random): PulledCard[] {
   const pulled: PulledCard[] = [];
   const seen = new Set<string>();
+  // God pack se losuje jako první (jen u sad, které ho mají) a nahradí celé složení.
+  const slots = profile.godPack && rng() < profile.godPack.p ? profile.godPack.slots : profile.slots;
 
-  for (const slot of profile.slots) {
+  for (const slot of slots) {
     for (let i = 0; i < slot.count; i++) {
       let outcome = slot.base;
       let roll = rng();
@@ -67,6 +69,10 @@ export function fromSealed(sealed: { cards: { id: string; variant: PulledCard["v
   }
   return cards;
 }
+
+/** God pack: všechny karty balíčku jsou vzácné (běžný balíček má vždy Common / Uncommon). */
+export const isGodPack = (cards: { card: Card }[]): boolean =>
+  cards.length > 1 && cards.every((c) => rarityInfo(c.card.rarity).hit);
 
 /**
  * Síla tajného náznaku na obalu: 0 = nic, 1 = Illustration / Ultra Rare,

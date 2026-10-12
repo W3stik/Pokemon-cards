@@ -573,12 +573,18 @@ a.chip {
   inset: 0;
   transform-style: preserve-3d;
   transform: rotateX(calc(var(--rx, 0deg) * 1.3)) rotateY(calc(var(--ry, 0deg) * 1.6 + var(--spin)));
-  transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.3, 1.2);
+  /* bez pružného dokmitu: náklon z gyroskopu přichází pořád a dokmit by se neustále
+     restartoval, balíček se pak klepal */
+  transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 
+/* Při točení prstem jen otáčení, bez náklonu podle polohy prstu (to se k otáčení
+   přimíchávalo a balíček se kýval). Krátký přechod jen uhladí chycení balíčku. */
 .pack3d.is-dragging .pack3d__tilt {
-  transition: transform 0.05s linear;
+  transform: rotateY(var(--spin));
+  transition: transform 0.08s linear;
 }
+
 
 .pack3d__body {
   position: absolute;
@@ -809,7 +815,13 @@ a.chip {
     linear-gradient(rgb(0 0 0 / 0.45), rgb(0 0 0 / 0.45)),
     var(--art, none) 0 0 / 4000% 100% no-repeat,
     linear-gradient(180deg, var(--c2), var(--c1));
-  clip-path: inset(10% 0 4% 0 round 999px);
+  /* zbytek obalu: od řezu po zatavený spodek */
+  clip-path: inset(9.4% 0 1.5% 0 round 999px);
+}
+
+/* boky pruhu: od zataveného vršku po řez */
+.pack3d__piece--top .pack3d__side {
+  clip-path: inset(1.5% 0 90.6% 0 round 999px);
 }
 
 .pack3d__side--right {
@@ -915,7 +927,8 @@ a.chip {
 }
 
 .pack3d--big {
-  --depth: 9px;
+  /* tenčí obal: z boku méně viditelná mezera mezi přední a zadní stranou */
+  --depth: 6px;
   width: min(60vw, 270px);
   font-size: 18px;
   cursor: grab;
@@ -1398,6 +1411,7 @@ a.chip {
 /* --- Otevírání ------------------------------------------------------------ */
 
 .stage {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1556,6 +1570,92 @@ a.chip {
   to {
     transform: rotate(var(--a)) translateX(var(--d)) scale(0.2);
     opacity: 0;
+  }
+}
+
+/* --- God pack ------------------------------------------------------------- */
+
+/* Karty god packu září zlatě (stín, ne filter – ten by 3D balík karet rozbil). */
+.pile--god .pcard__inner {
+  animation: god-glow 1.4s ease-in-out infinite alternate;
+}
+
+@keyframes god-glow {
+  from {
+    box-shadow:
+      0 0 14px 2px rgb(255 214 90 / 0.65),
+      0 6px 16px rgb(0 0 0 / 0.45);
+  }
+  to {
+    box-shadow:
+      0 0 30px 8px rgb(255 140 230 / 0.75),
+      0 6px 16px rgb(0 0 0 / 0.45);
+  }
+}
+
+.god-banner {
+  position: absolute;
+  top: 38%;
+  left: 50%;
+  z-index: 30;
+  transform: translate(-50%, -50%);
+  font-size: clamp(2.2rem, 11vw, 4rem);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  color: #fff6c9;
+  text-shadow:
+    0 0 12px rgb(255 200 60 / 0.9),
+    0 0 32px rgb(255 120 220 / 0.8),
+    0 4px 0 rgb(120 60 0 / 0.6);
+  pointer-events: none;
+  animation: god-banner 2.6s ease-out forwards;
+}
+
+@keyframes god-banner {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.4) rotate(-8deg);
+  }
+  18% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.12) rotate(2deg);
+  }
+  30%,
+  75% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -60%) scale(1.05);
+  }
+}
+
+.summary--god .summary__head h2,
+.summary__god {
+  background: linear-gradient(90deg, #ffd65a, #ff8ce6, #7fd8ff, #ffd65a);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: god-text 4s linear infinite;
+}
+
+.summary--god .summary__head h2 {
+  font-size: 1.9rem;
+  font-weight: 900;
+}
+
+.summary__god {
+  margin: 0;
+  font-weight: 800;
+  font-size: 1.1rem;
+}
+
+@keyframes god-text {
+  to {
+    background-position: 300% 0;
   }
 }
 

@@ -68,10 +68,18 @@ export interface Source {
   url: string;
 }
 
+/** Vzácný balíček, ve kterém je každá karta „hit“ (místo běžného složení). */
+export interface GodPack {
+  /** Pravděpodobnost na balíček (0–1). */
+  p: number;
+  slots: Slot[];
+}
+
 export interface PackProfile {
   /** Barvy obalu balíčku. */
   colors: [string, string];
   slots: Slot[];
+  godPack?: GodPack;
   note?: string;
   sources: Source[];
 }
@@ -90,6 +98,14 @@ const uncommons = (count: number): Slot => ({
   count,
   hits: [],
   base: { rarities: ["Uncommon"], variant: "normal" },
+});
+
+/** Slot s pevnou raritou (bez losování vzácnějších výsledků), např. v god packu. */
+const fixedSlot = (label: string, count: number, rarities: string[]): Slot => ({
+  label,
+  count,
+  hits: [],
+  base: { rarities, variant: "normal" },
 });
 
 const reverse = (label = "Reverse holo"): Slot => ({
@@ -246,11 +262,30 @@ export const PACKS: Record<string, PackProfile> = {
       gold: 1 / 540,
       goldRarity: "Mega Hyper Rare",
     }),
-    note: "Mega Attack Rare zabírají místo Ultra Rare, proto jsou Ultra Rare vzácnější (1:21). God packy ve výpočtu nejsou.",
+    // God pack: oficiálně nepotvrzený, sběratelé ho natočili; komunitní odhad je 1:1500–1:4000,
+    // ve hře je schválně častější (1:500). Přesné složení nikde uvedené není, toto je návrh:
+    // 4× IR, 3× full art (Ultra / Mega Attack Rare), 2× SIR a na konci SIR, nebo 1:10 Mega Hyper Rare.
+    godPack: {
+      p: 1 / 500,
+      slots: [
+        fixedSlot("Illustration Rare", 4, ["Illustration Rare"]),
+        fixedSlot("Ultra Rare / Mega Attack Rare", 3, ["Ultra Rare", "Mega Attack Rare"]),
+        fixedSlot("Special Illustration Rare", 2, ["Special Illustration Rare"]),
+        {
+          label: "Special Illustration Rare / Mega Hyper Rare",
+          count: 1,
+          hits: [{ rarities: ["Mega Hyper Rare"], variant: "normal", p: 1 / 10 }],
+          base: { rarities: ["Special Illustration Rare"], variant: "normal" },
+        },
+      ],
+    },
+    note:
+      "Mega Attack Rare zabírají místo Ultra Rare, proto jsou Ultra Rare vzácnější (1:21). God pack (10 karet, všechny vzácné: 4× IR, 3× full art, 2–3× SIR, případně Mega Hyper Rare) oficiálně potvrzený není; sběratelé ho odhadují na 1:1500–1:4000, ve hře padá častěji (1:500) a jeho složení je odhad.",
     sources: [
       { label: "TCGplayer – Ascended Heroes Pull Rates", url: `${TCGPLAYER}Pok%C3%A9mon-TCG-Ascended-Heroes-Pull-Rates/60143d94-88a7-42ce-8e73-babd7b3fabd6/` },
       { label: "PokeBeach – Ascended Heroes pull rates", url: "https://www.pokebeach.com/2026/02/ascended-heroes-pull-rates-finally-determined-better-than-usual" },
       { label: "CardCodex – Ascended Heroes pull rates", url: "https://cardcodex.com/blog/ascended-heroes-pull-rates-explained/" },
+      { label: "TCGTalk – Ascended Heroes pull rates & god pack", url: "https://tcgtalk.com/guides/ascended-heroes-pull-rates-god-pack" },
     ],
   },
   me3: {
@@ -349,5 +384,6 @@ export function oddsTable(profile: PackProfile): { label: string; p: number }[] 
       rows.push({ label: name, p: (hit.p ?? 0) * slot.count });
     }
   }
+  if (profile.godPack) rows.push({ label: "God pack (všech 10 karet vzácných)", p: profile.godPack.p });
   return rows.sort((a, b) => b.p - a.p);
 }

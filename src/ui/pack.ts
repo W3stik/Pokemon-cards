@@ -110,7 +110,15 @@ export function packEl(set: SetInfo, opts: { large?: boolean; tilt?: boolean; hi
       h(
         "div",
         { class: "pack3d__body" },
-        h("div", { class: "pack3d__piece pack3d__piece--top" }, face("front"), face("back")),
+        h(
+          "div",
+          { class: "pack3d__piece pack3d__piece--top" },
+          face("front"),
+          face("back"),
+          // I pruh má boky, jinak jsou z boku vidět dvě oddělené hrany (přední a zadní strana).
+          h("div", { class: "pack3d__side pack3d__side--left" }),
+          h("div", { class: "pack3d__side pack3d__side--right" }),
+        ),
         h(
           "div",
           { class: "pack3d__piece pack3d__piece--main" },

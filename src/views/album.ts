@@ -90,6 +90,7 @@ async function renderOverview(root: HTMLElement) {
   const st = stats(all);
   const valueEl = h("strong", null, "…");
   const opened = Object.values(getState().opened).reduce((a, b) => a + b, 0);
+  const godPacks = Object.values(getState().godPacks).reduce((a, b) => a + b, 0);
 
   root.append(
     h("section", { class: "view-head" }, h("h1", null, "Sběratelské album")),
@@ -100,6 +101,7 @@ async function renderOverview(root: HTMLElement) {
       h("div", null, h("span", null, "Kusů celkem"), h("strong", null, String(st.copies))),
       h("div", null, h("span", null, "Duplikáty"), h("strong", null, `${st.extra}`)),
       h("div", null, h("span", null, "Otevřeno balíčků"), h("strong", null, String(opened))),
+      godPacks ? h("div", null, h("span", null, "God packy"), h("strong", null, String(godPacks))) : null,
       h("div", { class: "stats__wide" }, h("span", null, "Hodnota sbírky"), valueEl),
     ),
     h(
@@ -229,6 +231,9 @@ async function renderSetAlbum(root: HTMLElement, setId: string) {
         h("div", null, h("span", null, "Sesbíráno"), h("strong", null, `${st.unique} / ${st.total} (${pct.format(st.unique / st.total)})`)),
         h("div", null, h("span", null, "Duplikáty"), h("strong", null, `${st.dupeCards} karet · ${st.extra} kusů navíc`)),
         h("div", null, h("span", null, "Otevřeno balíčků"), h("strong", null, String(getState().opened[set.id] ?? 0))),
+        getState().godPacks[set.id]
+          ? h("div", null, h("span", null, "God packy"), h("strong", null, String(getState().godPacks[set.id])))
+          : null,
         h("div", null, h("span", null, "Hodnota"), valueEl),
       ),
       progress(st.unique / st.total),

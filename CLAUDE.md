@@ -34,9 +34,9 @@ Každá obrazovka se kreslí do nového kontejneru (pomalé načítání staré 
 | `scripts/fetch-images.mjs` | Přepíše `img`/`imgLarge` na WebP z TCGdex (`{image}/low.webp` ~17 kB, `{image}/high.webp` ~70 kB místo PNG 50/550 kB); každý soubor ověří HEAD požadavkem, jinak nechá původní (Classic Collection TCGdex obrázky v seznamu nemá). |
 | `public/data/*.json` | Commitnutá data: `sets.json` + jeden soubor na sadu (zmenšené karty: id, jméno, číslo, rarita, typy, obrázky). |
 | `scripts/fetch-prices.mjs` | Ceny z TCGdex pro všechny karty → `public/data/prices.json` (`{updated, source, cards: {id: {eur, eurReverse, usd, usdReverse}}}`). Sady páruje podle jména, karty podle čísla; podsady (`TCGDEX_SUBSETS`, Classic Collection = TCGdex `30th-c`, jiné číslování) podle normalizovaného jména. Karty bez ceny zkouší znovu na evropském serveru TCGdex (viz Nástrahy). Do `prices.json` zapisuje `stats` po sadách (oceněno, z evropského serveru, bez ceny, chyby) – logy CI bez admin práv nejdou číst, statistika na webu ano. Chybějící ceny doplní z posledního nasazení (`PRICES_FALLBACK_URL`). |
-| `src/odds.ts` | **Rarity** (`RARITIES`: pořadí, barva, typ lesku, zda je to „hit“) a **profily balíčků** (`PACKS`): sloty, šance a zdroje pro každou sadu. `DEFAULT_PACK` pro sadu bez profilu. |
-| `src/pack.ts` | `openPack(profile, pools, rng)` – v každém slotu losuje vzácné výsledky podle šance, jinak výchozí raritu; bez opakování karty+provedení v balíčku. `toSealed/fromSealed` (uložitelná podoba balíčku), `hintLevel` (síla tajného náznaku). |
-| `src/store.ts` | Stav hry v `localStorage` pod klíčem `pokemon-packs:state:v1`: `packs` (počty neotevřených), `collection` (klíč `idKarty|provedení` → kusy), `firstSeen`, `opened`, `history`, `shelf` (regál 10 balíčků na sadu), `sealed` (vybrané balíčky s daným obsahem, jsou součástí `packs`). Každá změna jde přes `mutate()`, která nejdřív znovu načte uložený stav (dvě okna si nepřepisují karty); událost `storage` převezme změny z jiného okna. `sanitize()` kontroluje stav z úložiště i ze zálohy (`parseBackup`, `importState`). |
+| `src/odds.ts` | **Rarity** (`RARITIES`: pořadí, barva, typ lesku, zda je to „hit“) a **profily balíčků** (`PACKS`): sloty, šance a zdroje pro každou sadu; volitelný `godPack` (Ascended Heroes: 1:500, 4× IR, 3× UR/MAR, 2× SIR, poslední SIR nebo 1:10 MHR – složení i šance jsou herní, komunitní odhad je 1:1500–1:4000). `DEFAULT_PACK` pro sadu bez profilu. |
+| `src/pack.ts` | `openPack(profile, pools, rng)` – v každém slotu losuje vzácné výsledky podle šance, jinak výchozí raritu; bez opakování karty+provedení v balíčku. `toSealed/fromSealed` (uložitelná podoba balíčku), `hintLevel` (síla tajného náznaku). God pack se losuje jako první hod (jen u sad s `godPack`); `isGodPack` = všechny karty jsou hit. |
+| `src/store.ts` | Stav hry v `localStorage` pod klíčem `pokemon-packs:state:v1`: `packs` (počty neotevřených), `collection` (klíč `idKarty|provedení` → kusy), `firstSeen`, `opened`, `history`, `godPacks` (počet otevřených god packů, v historii `god: true`), `shelf` (regál 10 balíčků na sadu), `sealed` (vybrané balíčky s daným obsahem, jsou součástí `packs`). Každá změna jde přes `mutate()`, která nejdřív znovu načte uložený stav (dvě okna si nepřepisují karty); událost `storage` převezme změny z jiného okna. `sanitize()` kontroluje stav z úložiště i ze zálohy (`parseBackup`, `importState`). |
 | `src/storage.ts` | Trvalé úložiště (`navigator.storage.persist`, žádá se po prvních kartách v `main.ts`), datum poslední zálohy a připomínka zálohy. |
 | `src/prices.ts` | Ceny: 1) `data/prices.json` z buildu, 2) živě Pokémon TCG API po sadách (limit 8 s na požadavek, jedno opakování při 5xx, po neúspěchu 10 min pauza, cache 12 h v localStorage), 3) `tcgdexPrice` živě pro jednu kartu v detailu. Součty přes `addPrice`/`formatTotal` (měna bez cen se nezobrazí jako 0). |
 | `src/tcgdexPricing.js` | Výklad cen TCGdex sdílený aplikací i `scripts/fetch-prices.mjs` (čisté JS + `.d.ts`, aby ho Node spustil bez překladu). |
@@ -119,6 +119,9 @@ kopii aplikace pod stejný účet, service worker by mazal mezipaměť té druh�
 - Odtrhávací pruh a zbytek obalu jsou dvě kopie stejné fotky s `clip-path`; pruh má malý přesah,
   jinak je mezi díly vlasová spára. Pruh leží o 0,5 px před zbytkem: ve stejné rovině překryv
   při otáčení přeblikával (z-fighting).
+- Točení balíčku: při tažení (`is-dragging`) jen `rotateY(var(--spin))`, bez náklonu podle prstu;
+  náklon z gyroskopu je vyhlazený (`holo.ts`) a přechod bez pružného dokmitu – jinak se balíček
+  klepal. Boky má i trhací pruh, jinak se z boku „roztrojil“ (oddělené hrany přední a zadní strany).
 - Na 3D prvky balíčku nedávej `filter` (ztmavení boků je vrstva gradientu) – Chrome je pak při otáčení
   překresluje a problikávají.
 - `calc(var(--x) / 1deg)` (dělení jednotkou) starší prohlížeče neumí – nepoužívat.
@@ -143,9 +146,8 @@ kopii aplikace pod stejný účet, service worker by mazal mezipaměť té druh�
 
 Seřazeno podle přínosu:
 
-1. „God pack“ (vzácný balíček plný IR/SIR) u sad, kde existuje (Ascended Heroes), jako samostatný výsledek v profilu.
-2. Herní ekonomika: prodej duplikátů za mince podle tržní ceny, nákup balíčků za mince.
-3. „Master set“ v albu: kompletnost včetně reverse/Poké Ball/Master Ball provedení; statistiky nejlepších tahů a historie hodnoty sbírky.
-4. Synchronizace sbírky mezi zařízeními (dnes jen ruční záloha do souboru).
-5. Starší sady / automatická kontrola nových sad v CI (nová sada bez profilu v `PACKS` použije `DEFAULT_PACK`).
-6. Virtualizace mřížky alba pro velké sady (Ascended Heroes má 295 karet) a `npm run e2e` v CI.
+1. Herní ekonomika: prodej duplikátů za mince podle tržní ceny, nákup balíčků za mince.
+2. „Master set“ v albu: kompletnost včetně reverse/Poké Ball/Master Ball provedení; statistiky nejlepších tahů a historie hodnoty sbírky.
+3. Synchronizace sbírky mezi zařízeními (dnes jen ruční záloha do souboru).
+4. Starší sady / automatická kontrola nových sad v CI (nová sada bez profilu v `PACKS` použije `DEFAULT_PACK`).
+5. Virtualizace mřížky alba pro velké sady (Ascended Heroes má 295 karet) a `npm run e2e` v CI.

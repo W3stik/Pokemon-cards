@@ -1,4 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import type { Card } from "./types";
 
 // Úložiště prohlížeče v paměti; store se načte až potom (dynamický import).
 const storage = new Map<string, string>();
@@ -59,6 +60,33 @@ describe("záloha sbírky", () => {
     expect(store.getState().packs).toEqual({});
     expect(store.getState().collection).toEqual({ "me2-1|reverse": 2 });
     expect(store.stateSummary()).toEqual({ cards: 2, packs: 0 });
+  });
+});
+
+describe("god packy ve statistikách", () => {
+  const card = (id: string, rarity: string): Card => ({
+    id,
+    name: id,
+    number: 1,
+    rarity,
+    supertype: "Pokémon",
+    subtypes: [],
+    types: [],
+    hp: null,
+    artist: null,
+    img: "",
+    imgLarge: "",
+  });
+
+  it("otevřený god pack se započítá a označí v historii", () => {
+    store.addPacks("me2pt5", 2);
+    const god = Array.from({ length: 10 }, (_, i) => ({ card: card(`me2pt5-${200 + i}`, "Illustration Rare"), variant: "normal" as const }));
+    store.recordOpening("me2pt5", god);
+    store.recordOpening("me2pt5", [{ card: card("me2pt5-1", "Common"), variant: "normal" }, ...god.slice(1)]);
+    expect(store.getState().godPacks).toEqual({ me2pt5: 1 });
+    expect(store.getState().history.map((h) => h.god ?? false)).toEqual([false, true]);
+    // přežije uložení a načtení zálohy
+    expect(store.parseBackup(store.exportState()).godPacks).toEqual({ me2pt5: 1 });
   });
 });
 
