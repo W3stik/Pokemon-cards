@@ -9,11 +9,12 @@ import { parseTcgdexPricing } from "../src/tcgdexPricing.js";
 const API = "https://api.tcgdex.net/v2/en";
 const DATA = join(dirname(fileURLToPath(import.meta.url)), "..", "public", "data");
 const CONCURRENCY = 8;
+const HEADERS = { "User-Agent": "BoosterLab-prices (github.com/W3stik/Pokemon-cards)" };
 
 async function getJson(url, tries = 3) {
   for (let i = 1; ; i++) {
     try {
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(20000) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
     } catch (err) {
@@ -30,7 +31,7 @@ async function pool(items, fn) {
     Array.from({ length: CONCURRENCY }, async () => {
       while (next < items.length) {
         const i = next++;
-        results[i] = await fn(items[i]).catch(() => undefined);
+        results[i] = await fn(items[i]).catch((err) => ({ error: err.message }));
       }
     }),
   );
@@ -67,6 +68,8 @@ function pairByName(ours, remoteCards) {
 const sets = JSON.parse(await readFile(join(DATA, "sets.json"), "utf8"));
 const tcgdexSets = await getJson(`${API}/sets`);
 const cards = {};
+/** Statistika po sadách, uloží se i do prices.json (logy CI nejsou vždy po ruce). */
+const stats = {};
 
 for (const set of sets) {
   const remote = tcgdexSets.find((s) => s.name.toLowerCase() === set.name.toLowerCase());
@@ -89,18 +92,49 @@ for (const set of sets) {
     pairs.push(...pairByName(all.filter((c) => c.prefix === prefix), sub.cards));
   }
 
-  const details = await pool(pairs, ([, c]) => getJson(`${API}/cards/${c.id}`));
-  let priced = 0;
+  const fetchCard = ([, c]) => getJson(`${API}/cards/${c.id}`);
+  const details = await pool(pairs, fetchCard);
+  // Neúspěšné požadavky ještě jednou, po jednom a s větší trpělivostí.
+  for (let i = 0; i < pairs.length; i++) {
+    if (!details[i]?.error) continue;
+    await new Promise((r) => setTimeout(r, 1000));
+    details[i] = await getJson(`${API}/cards/${pairs[i][1].id}`, 4).catch((err) => ({ error: err.message }));
+  }
+
+  const st = { cards: all.length, matched: pairs.length, priced: 0, noPricing: 0, failed: 0, error: undefined };
   pairs.forEach(([id], i) => {
+    if (details[i]?.error) {
+      st.failed++;
+      st.error ??= details[i].error;
+      return;
+    }
     const price = parseTcgdexPricing(details[i]?.pricing);
     if (Object.keys(price).length) {
       cards[id] = price;
-      priced++;
-    }
+      st.priced++;
+    } else st.noPricing++;
   });
-  console.log(`${set.id.padEnd(10)} ${remote.id.padEnd(8)} ${priced}/${all.length} karet s cenou`);
+  stats[set.id] = st;
+  console.log(
+    `${set.id.padEnd(10)} ${remote.id.padEnd(8)} ${st.priced}/${all.length} karet s cenou` +
+      (st.noPricing ? `, ${st.noPricing} bez ceny v TCGdex` : "") +
+      (st.failed ? `, ${st.failed} chyb (${st.error})` : ""),
+  );
 }
 
-const out = { updated: new Date().toISOString(), source: "tcgdex", cards };
+// Karty, které se tentokrát nepovedlo ocenit, doplní poslední známé ceny (v CI z nasazeného webu).
+const fallbackUrl = process.env.PRICES_FALLBACK_URL;
+if (fallbackUrl) {
+  const previous = await getJson(fallbackUrl).catch(() => null);
+  let filled = 0;
+  for (const [id, price] of Object.entries(previous?.cards ?? {})) {
+    if (cards[id]) continue;
+    cards[id] = price;
+    filled++;
+  }
+  console.log(previous ? `Doplněno ${filled} cen z minulého nasazení` : "Minulé ceny nejsou k dispozici");
+}
+
+const out = { updated: new Date().toISOString(), source: "tcgdex", stats, cards };
 await writeFile(join(DATA, "prices.json"), JSON.stringify(out));
 console.log(`Uloženo ${Object.keys(cards).length} cen do public/data/prices.json`);

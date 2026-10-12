@@ -27,11 +27,13 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      # Ceny z TCGdex se přibalí k aplikaci. Když služba neodpoví, použijí se ceny
-      # z posledního nasazení, a když nejsou ani ty, build pokračuje bez nich.
+      # Ceny z TCGdex se přibalí k aplikaci. Karty, které se nepovede ocenit, doplní ceny
+      # z posledního nasazení; když selže celé stahování, použije se celý minulý soubor.
       - name: Ceny karet
+        env:
+          PRICES_FALLBACK_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/data/prices.json
         run: |
-          npm run prices || curl -sfL "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/data/prices.json" -o public/data/prices.json || echo "::warning::Ceny karet nejsou k dispozici"
+          npm run prices || curl -sfL "$PRICES_FALLBACK_URL" -o public/data/prices.json || echo "::warning::Ceny karet nejsou k dispozici"
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
