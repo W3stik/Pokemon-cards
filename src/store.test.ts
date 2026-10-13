@@ -90,6 +90,33 @@ describe("god packy ve statistikách", () => {
   });
 });
 
+describe("Síň slávy", () => {
+  const card = (id: string, rarity: string): Card => ({
+    id, name: id, number: 1, rarity, supertype: "Pokémon", subtypes: [], types: [], hp: null, artist: null, img: "", imgLarge: "",
+  });
+
+  it("uloží jen dobré balíčky a natrvalo (přežijí historii i zálohu)", () => {
+    store.addPacks("me1", 40);
+    const common = { card: card("me1-1", "Common"), variant: "normal" as const };
+    const sir = { card: card("me1-177", "Special Illustration Rare"), variant: "normal" as const };
+    store.recordOpening("me1", [common, sir]);
+    for (let i = 0; i < 35; i++) store.recordOpening("me1", [common]);
+    expect(store.getState().history).toHaveLength(30);
+    expect(store.getState().hallOfFame).toHaveLength(1);
+    expect(store.getState().hallOfFame[0].cards.map((c) => c.id)).toEqual(["me1-1", "me1-177"]);
+    expect(store.parseBackup(store.exportState()).hallOfFame).toHaveLength(1);
+  });
+
+  it("doplnění z historie nevytvoří duplikáty", () => {
+    store.addPacks("me1", 1);
+    store.recordOpening("me1", [{ card: card("me1-177", "Special Illustration Rare"), variant: "normal" }]);
+    const record = store.getState().hallOfFame[0];
+    store.addToHall([record, { ...record, at: record.at - 1000 }]);
+    expect(store.getState().hallOfFame).toHaveLength(2);
+    expect(store.getState().hallOfFame[0].at).toBeGreaterThan(store.getState().hallOfFame[1].at);
+  });
+});
+
 describe("více oken", () => {
   it("změna nepřepíše to, co mezitím uložilo jiné okno", () => {
     store.addPacks("me1", 1);

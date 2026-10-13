@@ -77,6 +77,63 @@ function stats(owned: Owned[]) {
   return { unique, dupeCards, extra, copies, total: owned.length };
 }
 
+// --- Statistiky přehledu jen ze sbírky ------------------------------------------
+// Přehled alba dřív načítal karty všech sad (24 souborů, ~1,5 MB), jen aby spočítal
+// kompletnost. Stačí ale sbírka (klíče „id karty|provedení“) a počty karet ze sets.json.
+
+interface SetSummary {
+  set: SetInfo;
+  unique: number;
+  dupeCards: number;
+  extra: number;
+  copies: number;
+  total: number;
+}
+
+/** Sada, do které karta patří (podsady jako me55c → me55 podle nejdelší shody id). */
+function ownerOf(cardId: string, sets: SetInfo[]): SetInfo | undefined {
+  const sid = setIdOfCard(cardId);
+  return sets.find((s) => s.id === sid) ?? sets.filter((s) => sid.startsWith(s.id)).sort((a, b) => b.id.length - a.id.length)[0];
+}
+
+function summarize(sets: SetInfo[]) {
+  const copiesById = new Map<string, number>();
+  const entries: { id: string; variant: Variant; n: number }[] = [];
+  for (const [key, n] of Object.entries(getState().collection)) {
+    const cut = key.lastIndexOf("|");
+    const id = key.slice(0, cut);
+    entries.push({ id, variant: key.slice(cut + 1) as Variant, n });
+    copiesById.set(id, (copiesById.get(id) ?? 0) + n);
+  }
+  const perSet = new Map<string, SetSummary>(
+    sets.map((set) => [set.id, { set, unique: 0, dupeCards: 0, extra: 0, copies: 0, total: set.total }]),
+  );
+  for (const [id, copies] of copiesById) {
+    const owner = ownerOf(id, sets);
+    const sum = owner && perSet.get(owner.id);
+    if (!sum) continue;
+    sum.unique++;
+    sum.copies += copies;
+    if (copies > 1) {
+      sum.dupeCards++;
+      sum.extra += copies - 1;
+    }
+  }
+  return { perSet: [...perSet.values()], entries };
+}
+
+const sumStats = (list: SetSummary[]) =>
+  list.reduce(
+    (a, s) => ({
+      unique: a.unique + s.unique,
+      dupeCards: a.dupeCards + s.dupeCards,
+      extra: a.extra + s.extra,
+      copies: a.copies + s.copies,
+      total: a.total + s.total,
+    }),
+    { unique: 0, dupeCards: 0, extra: 0, copies: 0, total: 0 },
+  );
+
 function progress(value: number) {
   return h("div", { class: "progress" }, h("div", { class: "progress__bar", style: `width: ${value * 100}%` }));
 }
@@ -85,16 +142,19 @@ function progress(value: number) {
 
 async function renderOverview(root: HTMLElement) {
   const sets = await loadSets();
-  const perSet = await Promise.all(sets.map(async (s) => ({ set: s, owned: ownedOf(await loadCards(s.id)) })));
-
-  const all = perSet.flatMap((p) => p.owned);
-  const st = stats(all);
+  const { perSet, entries } = summarize(sets);
+  const st = sumStats(perSet);
   const valueEl = h("strong", null, "…");
   const opened = Object.values(getState().opened).reduce((a, b) => a + b, 0);
   const godPacks = Object.values(getState().godPacks).reduce((a, b) => a + b, 0);
 
   root.append(
-    h("section", { class: "view-head" }, h("h1", null, "Sběratelské album")),
+    h(
+      "section",
+      { class: "view-head view-head--row" },
+      h("h1", null, "Sběratelské album"),
+      h("a", { class: "btn", href: "#/stats" }, "📊 Statistiky a síň slávy"),
+    ),
     h(
       "div",
       { class: "stats" },
@@ -107,7 +167,7 @@ async function renderOverview(root: HTMLElement) {
     ),
     // Sady podle éry; otevřené jsou éry, ze kterých už něco máš (a nejnovější).
     ...groupBySeries(perSet, (p) => p.set.series).map(({ series, items }, i) => {
-      const era = stats(items.flatMap((p) => p.owned));
+      const era = sumStats(items);
       return eraSection({
         view: "album",
         series,
@@ -117,8 +177,8 @@ async function renderOverview(root: HTMLElement) {
           h(
             "div",
             { class: "album-sets" },
-            ...items.map(({ set, owned }) => {
-              const s = stats(owned);
+            ...items.map((s) => {
+              const { set } = s;
               return h(
                 "a",
                 { class: "album-set", href: `#/album/${set.id}` },
@@ -133,13 +193,14 @@ async function renderOverview(root: HTMLElement) {
     }),
   );
 
-  const ownedSets = perSet.filter((p) => p.owned.some((o) => o.total > 0));
-  if (ownedSets.length === 0) {
+  if (entries.length === 0) {
     valueEl.textContent = formatEur(0);
     return;
   }
-  const prices = await loadSetPrices(ownedSets.flatMap((p) => priceIds(p.owned.map((o) => o.card))));
-  valueEl.textContent = formatTotal(collectionValue(all, prices));
+  const prices = await loadSetPrices([...new Set(entries.map((e) => setIdOfCard(e.id)))]);
+  const value: PriceTotal = {};
+  for (const e of entries) addPrice(value, variantPrice(prices[e.id], e.variant), e.n);
+  valueEl.textContent = formatTotal(value);
 }
 
 // --- Album jedné sady ------------------------------------------------------

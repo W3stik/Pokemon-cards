@@ -1,5 +1,5 @@
 // Stav hry uložený v prohlížeči (localStorage): neotevřené balíčky a sbírka.
-import { isGodPack } from "./pack";
+import { isGodPack, isHallWorthy } from "./pack";
 import type { PulledCard, Variant } from "./types";
 
 /** Balíček s předem určeným obsahem (z regálu v obchodě). */
@@ -29,6 +29,8 @@ export interface GameState {
   godPacks: Record<string, number>;
   /** Posledních několik otevřených balíčků. */
   history: PullRecord[];
+  /** Síň slávy: natrvalo uložené balíčky s opravdu dobrými kartami (viz isHallWorthy). */
+  hallOfFame: PullRecord[];
   /** Regál v obchodě: 10 nabízených balíčků každé sady. */
   shelf: Record<string, SealedPack[]>;
   /** Vybrané balíčky z regálu čekající na otevření (jsou součástí počtu v `packs`). */
@@ -37,6 +39,7 @@ export interface GameState {
 
 const KEY = "pokemon-packs:state:v1";
 const HISTORY_LIMIT = 30;
+const HALL_LIMIT = 2000;
 const VARIANTS: Variant[] = ["normal", "reverse", "pokeball", "masterball"];
 
 const empty = (): GameState => ({
@@ -47,6 +50,7 @@ const empty = (): GameState => ({
   opened: {},
   godPacks: {},
   history: [],
+  hallOfFame: [],
   shelf: {},
   sealed: {},
 });
@@ -107,13 +111,15 @@ export function sanitize(raw: unknown): GameState {
     list.length = Math.min(list.length, packs[setId] ?? 0);
     if (list.length === 0) delete sealed[setId];
   }
-  const history = Array.isArray(raw.history)
-    ? raw.history.flatMap((r): PullRecord[] => {
-        if (!isObject(r) || typeof r.setId !== "string" || !isTime(r.at)) return [];
-        const cards = cardRefs(r.cards);
-        return cards ? [{ setId: r.setId, at: r.at, cards, ...(r.god === true ? { god: true as const } : {}) }] : [];
-      })
-    : [];
+  const records = (list: unknown): PullRecord[] =>
+    Array.isArray(list)
+      ? list.flatMap((r): PullRecord[] => {
+          if (!isObject(r) || typeof r.setId !== "string" || !isTime(r.at)) return [];
+          const cards = cardRefs(r.cards);
+          return cards ? [{ setId: r.setId, at: r.at, cards, ...(r.god === true ? { god: true as const } : {}) }] : [];
+        })
+      : [];
+  const history = records(raw.history);
   return {
     version: 1,
     packs,
@@ -122,6 +128,7 @@ export function sanitize(raw: unknown): GameState {
     opened: numbers(raw.opened, isCount),
     godPacks: numbers(raw.godPacks, isCount),
     history: history.slice(0, HISTORY_LIMIT),
+    hallOfFame: records(raw.hallOfFame).slice(0, HALL_LIMIT),
     shelf: packLists(raw.shelf),
     sealed,
   };
@@ -233,14 +240,29 @@ export function recordOpening(setId: string, cards: PulledCard[]): Set<string> {
     s.opened[setId] = (s.opened[setId] ?? 0) + 1;
     const god = isGodPack(cards);
     if (god) s.godPacks[setId] = (s.godPacks[setId] ?? 0) + 1;
-    s.history.unshift({
+    const record: PullRecord = {
       setId,
       at: now,
       cards: cards.map((c) => ({ id: c.card.id, variant: c.variant })),
       ...(god ? { god: true as const } : {}),
-    });
+    };
+    s.history.unshift(record);
     s.history.length = Math.min(s.history.length, HISTORY_LIMIT);
+    if (isHallWorthy(cards)) {
+      s.hallOfFame.unshift(record);
+      s.hallOfFame.length = Math.min(s.hallOfFame.length, HALL_LIMIT);
+    }
     return fresh;
+  });
+}
+
+/** Doplní do Síně slávy balíčky z historie, které tam ještě nejsou (uložené před jejím zavedením). */
+export function addToHall(records: PullRecord[]) {
+  if (records.length === 0) return;
+  mutate((s) => {
+    const known = new Set(s.hallOfFame.map((r) => `${r.setId}@${r.at}`));
+    const fresh = records.filter((r) => !known.has(`${r.setId}@${r.at}`));
+    s.hallOfFame = [...s.hallOfFame, ...fresh].sort((a, b) => b.at - a.at).slice(0, HALL_LIMIT);
   });
 }
 

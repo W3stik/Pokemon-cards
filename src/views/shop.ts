@@ -5,7 +5,7 @@ import type { SetInfo } from "../types";
 import { h, toast } from "../ui/dom";
 import { openModal } from "../ui/modal";
 import { eraSection, groupBySeries, plural } from "../ui/eras";
-import { formatDate, packEl } from "../ui/pack";
+import { formatDate, packThumb } from "../ui/pack";
 
 /** Hromadné balíčky se berou naslepo; jednotlivý balíček si hráč vybírá z regálu. */
 const BULK = [
@@ -74,7 +74,7 @@ function setTile(set: SetInfo): HTMLElement {
   return h(
     "article",
     { class: "shop-tile" },
-    h("div", { class: "shop-tile__pack" }, packEl(set, { tilt: true })),
+    h("div", { class: "shop-tile__pack" }, packThumb(set)),
     h(
       "div",
       { class: "shop-tile__body" },

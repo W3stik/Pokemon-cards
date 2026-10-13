@@ -67,6 +67,36 @@ function rememberRatio(setId: string, ratio: number) {
 }
 
 /**
+ * Lehký náhled balíčku pro seznamy (obchod, inventář): jen fotka s nakláněním
+ * a odleskem pod kurzorem. 3D model z CSS vrstev u desítek balíčků naráz zatěžoval
+ * telefon; plnohodnotný balíček je na regálu a při otevírání.
+ */
+export function packThumb(set: SetInfo): HTMLElement {
+  const art = packArtUrl(set.id);
+  const ratio = ratios[set.id] ?? 0.55;
+  const fallback = () =>
+    h("div", { class: "packthumb__fallback", style: `--c1: ${packProfile(set.id).colors[0]}; --c2: ${packProfile(set.id).colors[1]}` },
+      h("img", { src: set.logo, alt: "", draggable: "false", loading: "lazy" }),
+    );
+  const el = h("div", { class: "packthumb", style: `--ratio: ${ratio}`, role: "img", "aria-label": `Balíček ${set.name}` });
+  if (art) {
+    const img = h("img", { class: "packthumb__img", src: art, alt: "", draggable: "false", loading: "lazy", decoding: "async" });
+    img.addEventListener("load", () => {
+      const r = img.naturalWidth / img.naturalHeight;
+      el.style.setProperty("--ratio", String(r));
+      rememberRatio(set.id, r);
+    });
+    img.addEventListener("error", () => img.replaceWith(fallback()));
+    el.append(img);
+  } else {
+    el.append(fallback());
+  }
+  el.append(h("div", { class: "packthumb__glare" }));
+  enableTilt(el, { gyro: false });
+  return el;
+}
+
+/**
  * Zadní strana obalu: fotku rubu nemáme, proto vlastní potisk v barvách sady
  * (zatavené okraje, šev uprostřed, logo sady). Kreslí se celá na obou dílech
  * obalu (pruh i zbytek), takže na sebe přesně navazují.

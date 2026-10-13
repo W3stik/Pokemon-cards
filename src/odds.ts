@@ -576,6 +576,35 @@ export const DEFAULT_PACK: PackProfile = {
 
 export const packProfile = (setId: string): PackProfile => PACKS[setId] ?? DEFAULT_PACK;
 
+/**
+ * Očekávaný počet karet každé rarity v jednom balíčku (včetně god packu). Výsledek slotu
+ * s více raritami se dělí podle počtu karet každé z nich v sadě (poolSizes).
+ */
+export function expectedPerPack(profile: PackProfile, poolSizes: Map<string, number>): Map<string, number> {
+  const out = new Map<string, number>();
+  const distribute = (rarities: string[], amount: number) => {
+    const sizes = rarities.map((r) => poolSizes.get(r) ?? 0);
+    const total = sizes.reduce((a, b) => a + b, 0);
+    if (!total) return;
+    rarities.forEach((r, i) => out.set(r, (out.get(r) ?? 0) + (amount * sizes[i]) / total));
+  };
+  const addSlots = (slots: Slot[], weight: number) => {
+    for (const slot of slots) {
+      let rest = 1;
+      for (const hit of slot.hits) {
+        const p = hit.p ?? 0;
+        rest -= p;
+        if (hit.variant === "normal") distribute(hit.rarities, weight * slot.count * p);
+      }
+      if (slot.base.variant === "normal") distribute(slot.base.rarities, weight * slot.count * rest);
+    }
+  };
+  const god = profile.godPack?.p ?? 0;
+  addSlots(profile.slots, 1 - god);
+  if (profile.godPack) addSlots(profile.godPack.slots, god);
+  return out;
+}
+
 /** Celkový počet karet v balíčku. */
 export const packSize = (profile: PackProfile): number =>
   profile.slots.reduce((n, s) => n + s.count, 0);

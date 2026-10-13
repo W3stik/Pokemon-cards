@@ -7,6 +7,7 @@ import { renderOpen } from "./views/open";
 import { renderPick } from "./views/pick";
 import { renderSettings } from "./views/settings";
 import { renderShop } from "./views/shop";
+import { renderStats } from "./views/stats";
 
 const view = document.getElementById("view")!;
 const packBadge = document.getElementById("pack-badge")!;
@@ -17,10 +18,11 @@ const routes: Record<string, (root: HTMLElement, arg?: string) => void | Promise
   album: renderAlbum,
   more: renderSettings,
   pick: renderPick,
+  stats: renderStats,
 };
 
 /** Podstránky, které v navigaci patří pod jinou záložku. */
-const TAB_OF: Record<string, string> = { pick: "shop" };
+const TAB_OF: Record<string, string> = { pick: "shop", stats: "album" };
 
 let renderId = 0;
 

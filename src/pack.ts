@@ -70,6 +70,13 @@ export function fromSealed(sealed: { cards: { id: string; variant: PulledCard["v
   return cards;
 }
 
+/** Od jaké rarity (rank) se balíček uloží do Síně slávy: Ultra Rare / full art a vzácnější. */
+export const HALL_MIN_RANK = 7;
+
+/** Balíček do Síně slávy: god pack, nebo aspoň jedna karta od HALL_MIN_RANK. */
+export const isHallWorthy = (cards: { card: Card }[]): boolean =>
+  isGodPack(cards) || cards.some((c) => rarityInfo(c.card.rarity).rank >= HALL_MIN_RANK);
+
 /** God pack: všechny karty balíčku jsou vzácné (běžný balíček má vždy Common / Uncommon). */
 export const isGodPack = (cards: { card: Card }[]): boolean =>
   cards.length > 1 && cards.every((c) => rarityInfo(c.card.rarity).hit);

@@ -7,7 +7,7 @@ import type { Card, PulledCard, SetInfo } from "../types";
 import { animationEnd, append, clear, h, prefersReducedMotion, sleep } from "../ui/dom";
 import { CARD_BACK_URL, cardBack, cardEl, enableTilt, preload } from "../ui/holo";
 import { groupBySeries } from "../ui/eras";
-import { packEl, prefetchPackArt } from "../ui/pack";
+import { packEl, packThumb, prefetchPackArt } from "../ui/pack";
 import { createPackModel, type PackModel } from "../ui/packModel";
 import { fxPrefs, setFxPrefs, sfxHit, sfxSwipe, sfxTear, unlockAudio } from "../ui/sfx";
 import { openCardModal } from "./cardModal";
@@ -43,7 +43,7 @@ async function renderInventory(root: HTMLElement) {
           h(
             "a",
             { class: "inventory__item", href: `#/open/${s.id}` },
-            packEl(s, { tilt: true }),
+            packThumb(s),
             h("strong", null, s.name),
             h("span", { class: "chip" }, `${packs[s.id]}×`),
           ),

@@ -14,7 +14,7 @@ npm install
 npm run dev        # vývojový server http://localhost:5173
 npm test           # Vitest: data, šance, generátor, regál (pack.test.ts), stav a záloha (store.test.ts), ceny (prices.test.ts)
 npm run build      # tsc --noEmit + vite build → dist/  (vždy před commitem)
-npm run e2e        # Playwright průchod celou aplikací nad buildem, snímky v e2e-shots/
+npm run e2e        # Playwright průchod celou aplikací nad buildem, snímky v e2e-shots/ (běží i v CI před nasazením)
                    # (poprvé: npx playwright install chromium); obrázky a API podvrhuje
 npm run data       # stáhne sady ér SERIES + EXTRA_SETS do public/data (pak i obrázky z TCGdex)
 npm run prices     # ceny z TCGdex → public/data/prices.json (gitignored, dělá to CI)
@@ -45,9 +45,10 @@ Každá obrazovka se kreslí do nového kontejneru (pomalé načítání staré 
 | `src/views/shop.ts` | Obchod: „1 balíček“ vede na regál, „10 balíčků“ a „Booster box (36)“ přidají balíčky naslepo; okno „Šance a zdroje“. |
 | `src/views/pick.ts` | Regál: 10 předem vylosovaných balíčků (uložené ve `state.shelf`, obnovení stránky je nepřelosuje). Vzatý balíček jde do `sealed` a jeho místo zaplní nový. Balíček s IR/UR a vzácnější kartou má **tajnou jiskřičku** (`hintLevel` 1–3). |
 | `src/views/open.ts` | Otevírání: obsah dalšího balíčku se losuje dopředu (`prepare`, do sbírky se zapíše až při roztržení v `draw`), aby se obrázky karet stáhly, než hráč balíček roztrhne; v přehledu se připravuje další. 3D balíček (tažení přes horní pruh = roztržení, jinde = otáčení, klepnutí = roztržení) → karty vyjedou jako 3D balík lícem nahoru → klepnutím/tažením se odhazují → přehled. Vybraný balíček z regálu se otevře s uloženým obsahem (`nextSealed`). Vzácná karta se při odkrytí rozzáří (`revealHit`, stupňuje se podle ranku: RR záře a částice, IR/UR paprsky a poskočení, SIR reflektor, konfety a záblesk, zlaté/BWR zlaté paprsky, zlaté konfety a otřes; když je pod aktuální kartou IR+, prosvítá její barva – `pile--tease`). „Otevřít vše“ seskupuje stejné karty. |
-| `src/views/album.ts` | Přehled sad (kompletnost, duplikáty, hodnota) a album sady (filtry, rarita, hledání, řazení podle čísla/rarity/jména/ceny/počtu). |
+| `src/views/album.ts` | Přehled sad (kompletnost, duplikáty, hodnota – počítá se jen ze sbírky a `sets.json`, bez načítání karet všech sad) a album sady (filtry, rarita, hledání, řazení podle čísla/rarity/jména/ceny/počtu). |
+| `src/views/stats.ts` | Statistiky (`#/stats`, odkaz z alba): **měřák štěstí** (skutečné kusy podle rarity ze sbírky proti `opened × expectedPerPack`, souhrn od IR výš, filtr sady) a **Síň slávy** (`state.hallOfFame`: natrvalo balíčky s rank ≥ `HALL_MIN_RANK` = 7, tj. UR/full art a vzácnější, a god packy; doplní se i z historie; řazení nejnovější/nejcennější). |
 | `src/views/cardModal.ts` | Detail karty: 3D prohlížeč, počty podle provedení, ceny, celoobrazovkový režim. |
-| `src/ui/pack.ts` | 3D model balíčku (`packEl`), rub je vlastní potisk (`backDesign`: barvy sady, zatavené okraje, šev, logo), ID produktů TCGplayer (`PACK_PRODUCTS`) a URL fotek, jiskřička náznaku. Velký balíček začne s malou fotkou a velkou vymění po načtení; poměr stran fotek se pamatuje v localStorage (`pokemon-packs:pack-ratios`); `prefetchPackArt` na regálu a v zásobě. |
+| `src/ui/pack.ts` | `packThumb`: lehký náhled (fotka + naklánění) pro obchod a inventář; 3D model balíčku z CSS (`packEl`) na regálu, rub je vlastní potisk (`backDesign`: barvy sady, zatavené okraje, šev, logo), ID produktů TCGplayer (`PACK_PRODUCTS`) a URL fotek, jiskřička náznaku. Velký balíček začne s malou fotkou a velkou vymění po načtení; poměr stran fotek se pamatuje v localStorage (`pokemon-packs:pack-ratios`); `prefetchPackArt` na regálu a v zásobě. |
 | `src/ui/packModel.ts` | **3D model balíčku ve WebGL** (bez knihovny) pro obrazovku otevírání: uzavřený „polštářek“ (tloušťka `thickness(u, v)`, nulová na krajích a v zatavených okrajích), horní pruh je samostatná síť se společnou hranou (`CUT_V`). Líc = fotka obalu (malá, pak velká; textura 1024×2048 s mipmapami), rub = canvas v barvách profilu sady (`drawBack`: záře doplňkové barvy, šev, logo, drobný text, čárový kód; světlý obal → tmavý text). Shader: difuzní světlo, odlesk fólie, řez při tahu, jiskřička náznaku. Ovládání jako `card3d` (tažení, setrvačnost, vyhlazený gyroskop, houpání), roztržení `tear()`. Po roztržení se kontext WebGL uvolní. Bez WebGL `open.ts` použije CSS balíček (`cssPack`). |
 | `src/ui/sfx.ts` | Zvuky (syntetizované přes Web Audio, žádné soubory) a vibrace: roztržení, odhození, fanfára podle ranku rarity. `unlockAudio()` volat v obsluze klepnutí. Nastavení `pokemon-packs:fx` (Více, tlačítko 🔊 při otevírání). |
 | `src/ui/holo.ts` | 2D karta s holo vrstvami (`cardEl`; typ lesku `shine-*` podle `RARITIES.shine`: holo, ex, cosmos (Classic Collection), illus (třpytky), etched (rýhy), sir, gold, neon (Futuristic), dark (BWR); vrstvy `--glitter`, `--rainbow`, `--etch` jsou v `.pcard`), naklánění kurzorem/gyroskopem (`enableTilt`), rub karty (`cardBack`, oficiální obrázek + náhradní design), `preload`. |
@@ -90,7 +91,7 @@ Black White Rare (1:1789), část 30th Celebration.
 
 ## Nasazení
 
-Workflow `.github/workflows/pages.yml`: test → `npm run prices` (smí selhat) → build →
+Workflow `.github/workflows/pages.yml`: test → `npm run prices` (smí selhat) → build → **`npm run e2e`** (Playwright; když selže, nenasadí se a snímky jsou v artefaktu `e2e-shots`) →
 artefakt → **deploy na GitHub Pages jen z výchozí větve `main`** (push, denní cron 5:17 UTC kvůli cenám,
 ruční spuštění). Předpoklad: *Settings → Pages → Source: GitHub Actions*. Adresa:
 https://w3stik.github.io/Pokemon-cards/. Vite má `base: "./"`, takže build funguje v podsložce Pages.
