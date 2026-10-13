@@ -1,6 +1,7 @@
-// Kouřový test celé aplikace v Chromiu (Playwright): obchod → regál → otevření
-// balíčku → album → 3D detail karty. Obrázky a API se podvrhují, takže test
-// běží i bez internetu a nezávisí na cizích serverech.
+// Kouřový test celé aplikace v Chromiu (Playwright): obchod (éry) → regál → otevření
+// balíčku (3D model ve WebGL) → album → 3D detail karty → statistiky. Obrázky a API se
+// podvrhují, takže test běží i bez internetu a nezávisí na cizích serverech.
+// Spouští se i v CI před každým nasazením (.github/workflows/pages.yml).
 //
 //   npm run build && npm run e2e            (snímky obrazovky uloží do e2e-shots/)
 //
@@ -34,15 +35,31 @@ try {
   const page = await ctx.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  await page.route(/images\.(scrydex|pokemontcg)/, (r) => r.fulfill({ contentType: "image/svg+xml", body: CARD }));
-  await page.route(/tcgplayer-cdn/, (r) => r.fulfill({ contentType: "image/svg+xml", body: PACK }));
-  await page.route(/tcg\.pokemon\.com/, (r) => r.fulfill({ contentType: "image/svg+xml", body: BACK }));
+  // CORS hlavička: 3D model balíčku načítá fotku obalu s crossOrigin (textura WebGL).
+  const image = (body) => (r) =>
+    r.fulfill({ contentType: "image/svg+xml", body, headers: { "Access-Control-Allow-Origin": "*" } });
+  await page.route(/images\.(scrydex|pokemontcg)|assets\.tcgdex\.net/, image(CARD));
+  await page.route(/tcgplayer-cdn/, image(PACK));
+  await page.route(/tcg\.pokemon\.com/, image(BACK));
   await page.route(/api\.(pokemontcg\.io|tcgdex\.net)/, (r) => r.abort());
 
-  // Obchod
+  const noHorizontalScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
+
+  // Obchod: sady podle éry, zavřená éra se vykreslí až po rozbalení
   await page.goto(url);
   await page.waitForSelector(".shop-tile");
-  check((await page.locator(".shop-tile").count()) === 10, "obchod ukazuje 10 sad");
+  const eras = await page.locator(".era").count();
+  check(eras >= 2, `obchod má sady rozdělené do ${eras} ér`);
+  check((await page.locator(".era").first().locator(".shop-tile").count()) > 0, "nejnovější éra je otevřená");
+  // pořadí první zavřené éry (lokátor „:not([open])“ by po rozbalení ukazoval jinam)
+  const closedIndex = await page.locator(".era").evaluateAll((els) => els.findIndex((e) => !e.open));
+  const closed = page.locator(".era").nth(closedIndex);
+  check((await closed.locator(".shop-tile").count()) === 0, "zavřená éra se nevykresluje");
+  await closed.locator("summary").click();
+  // obsah se vytvoří v události toggle, ta přichází až po kliknutí
+  await closed.locator(".shop-tile").first().waitFor({ timeout: 5000 }).catch(() => undefined);
+  check((await closed.locator(".shop-tile").count()) > 0, "po rozbalení éry se ukážou její sady");
+  check(await noHorizontalScroll(), "obchod nepřetéká do šířky");
   await page.screenshot({ path: join(SHOTS, "1-shop.png") });
 
   // Regál: výběr balíčku, regál se po obnovení nezmění
@@ -62,16 +79,19 @@ try {
   await page.screenshot({ path: join(SHOTS, "2-shelf.png") });
   await page.getByText("Vzít a otevřít").click();
 
-  // Otevření: roztržení, karty jdou odhodit, obsah odpovídá vybranému balíčku
-  await page.waitForSelector(".pack3d--big");
-  await page.locator(".pack3d--big").click({ force: true });
+  // Otevření: 3D model (WebGL), roztržení klepnutím, karty jdou odhodit
+  await page.waitForSelector(".packgl canvas, .pack3d--big");
+  check((await page.locator(".packgl canvas").count()) === 1, "balíček je 3D model ve WebGL");
+  await page.waitForTimeout(800);
+  await page.screenshot({ path: join(SHOTS, "3a-pack.png") });
+  await page.locator(".packgl canvas, .pack3d--big").first().click({ force: true });
   await page.waitForSelector(".pile");
   await page.waitForTimeout(900);
   const pile = await page.locator(".pile__item img.pcard__img").evaluateAll((els) =>
     els.map((e) => e.getAttribute("alt")),
   );
   check(pile.length > 0, `balíček obsahuje ${pile.length} karet`);
-  await page.screenshot({ path: join(SHOTS, "3-pile.png") });
+  await page.screenshot({ path: join(SHOTS, "3b-pile.png") });
   for (let i = 0; i < 15 && !(await page.locator(".summary").count()); i++) {
     await page.locator(".pile").click({ force: true });
     await page.waitForTimeout(650);
@@ -95,6 +115,16 @@ try {
   check((await page.locator(".viewer .card3d").count()) === 1, "3D prohlížeč jde otevřít přes celou obrazovku");
   await page.keyboard.press("Escape");
   check((await page.locator(".viewer").count()) === 0 && (await page.locator(".modal").count()) === 1, "Esc zavře jen celou obrazovku");
+
+  // Statistiky: měřák štěstí a Síň slávy (detail karty se při přechodu sám zavře)
+  await page.goto(`${url}#/stats`);
+  await page.waitForSelector(".luck__verdict");
+  await page.waitForTimeout(300);
+  check((await page.locator(".modal").count()) === 0, "detail karty se při přechodu na jinou obrazovku zavře");
+  check((await page.locator("h2", { hasText: "Měřák štěstí" }).count()) === 1, "statistiky ukazují měřák štěstí");
+  check((await page.locator("h2", { hasText: "Síň slávy" }).count()) === 1, "statistiky ukazují Síň slávy");
+  check(await noHorizontalScroll(), "statistiky nepřetékají do šířky");
+  await page.screenshot({ path: join(SHOTS, "6-stats.png"), fullPage: true });
 
   check(errors.length === 0, `bez chyb JavaScriptu${errors.length ? `: ${errors.join(" | ")}` : ""}`);
 } finally {

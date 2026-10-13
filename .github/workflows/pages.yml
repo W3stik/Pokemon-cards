@@ -35,6 +35,17 @@ jobs:
         run: |
           npm run prices || curl -sfL "$PRICES_FALLBACK_URL" -o public/data/prices.json || echo "::warning::Ceny karet nejsou k dispozici"
       - run: npm run build
+      # Průchod celou aplikací v Chromiu (Playwright): když neprojde, nic se nenasadí.
+      - name: Test celé aplikace (Playwright)
+        run: |
+          npx playwright install --with-deps chromium
+          npm run e2e
+      - name: Snímky z neúspěšného testu
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-shots
+          path: e2e-shots
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

@@ -46,6 +46,7 @@ function openFullscreen(card: Card, variant: Variant, missing: boolean) {
   const close = () => {
     overlay.remove();
     document.removeEventListener("keydown", onKey, { capture: true });
+    window.removeEventListener("hashchange", close);
   };
   const onKey = (e: KeyboardEvent) => {
     if (e.key === "Escape") {
@@ -68,6 +69,8 @@ function openFullscreen(card: Card, variant: Variant, missing: boolean) {
   );
   // Esc zavře nejdřív celou obrazovku, ne detail karty pod ní.
   document.addEventListener("keydown", onKey, { capture: true });
+  // přechod na jinou obrazovku zavře i celoobrazovkový prohlížeč
+  window.addEventListener("hashchange", close);
   document.body.append(overlay);
 }
 
