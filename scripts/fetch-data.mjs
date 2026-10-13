@@ -47,11 +47,22 @@ function cardNumber(c) {
   return Number(c.number);
 }
 
+// Chybné rarity ve zdroji (ověřeno proti TCGdex a Bulbapedii): Victini z Black Bolt a White
+// Flare je Black White Rare (ve zdroji „Rare“, takže by padal jako obyčejná karta), Archen
+// č. 131 z White Flare je Illustration Rare (ve zdroji „Uncommon“).
+const RARITY_FIXES = {
+  "zsv10pt5-171": "Black White Rare",
+  "rsv10pt5-172": "Black White Rare",
+  "rsv10pt5-131": "Illustration Rare",
+};
+
+const rarityOf = (c) => RARITY_FIXES[c.id] ?? (c.rarity === "MEGA_ATTACK_RARE" ? "Mega Attack Rare" : c.rarity);
+
 const slimCard = (c) => ({
   id: c.id,
   name: c.name,
   number: cardNumber(c),
-  rarity: c.rarity === "MEGA_ATTACK_RARE" ? "Mega Attack Rare" : c.rarity,
+  rarity: rarityOf(c),
   supertype: c.supertype,
   subtypes: c.subtypes ?? [],
   types: c.types ?? [],

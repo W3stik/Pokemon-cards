@@ -188,7 +188,8 @@ const blackWhite = (colors: [string, string]): PackProfile => ({
       label: "Reverse / Master Ball / Illustration",
       count: 1,
       hits: [
-        { rarities: ["Black White Rare"], variant: "normal", p: 1 / 1789 },
+        // dvě karty (Victini + Zekrom ex / Reshiram ex), každá zhruba 1:1800
+        { rarities: ["Black White Rare"], variant: "normal", p: 2 / 1789 },
         { rarities: ["Special Illustration Rare"], variant: "normal", p: 1 / 80 },
         { rarities: ["Illustration Rare"], variant: "normal", p: 0.1639 },
         { rarities: REVERSE_POOL, variant: "masterball", p: 1 / 19 },
@@ -206,11 +207,12 @@ const blackWhite = (colors: [string, string]): PackProfile => ({
     },
   ],
   note:
-    "Black White Rare nebyla ve vzorku TCGplayer (700+ balíčků) ani jednou, šance 1:1789 je komunitní odhad. Poké Ball vzor ~1:3, Master Ball vzor ~1:19.",
+    "Black White Rare jsou v sadě dvě (Victini a Zekrom ex / Reshiram ex). Ve vzorku TCGplayer (700+ balíčků) nepadla ani jednou; šance zhruba 1:1800 na každou z nich je komunitní odhad (Pack Magik uvádí u Victini 1:1000). Poké Ball vzor ~1:3, Master Ball vzor ~1:19.",
   sources: [
     { label: "Deltia's Gaming – Black Bolt / White Flare Pull Rates (data TCGplayer)", url: "https://deltiasgaming.com/?p=299238" },
     { label: "CardCodex – Black Bolt / White Flare pull rates", url: "https://cardcodex.com/blog/black-bolt-white-flare-pull-rates/" },
     { label: "TCGTalk – Black Bolt value guide", url: "https://tcgtalk.com/guides/black-bolt-pack-opening-value-guide" },
+    { label: "Bulbapedia – Victini (Black Bolt 171), Black White Rare", url: "https://bulbapedia.bulbagarden.net/wiki/Victini_(Black_Bolt_171)" },
   ],
 });
 

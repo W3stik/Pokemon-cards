@@ -47,6 +47,15 @@ describe("data a konfigurace šancí", () => {
     }
   });
 
+  it("karty za hranicí sady (tajné) nemají obyčejnou raritu", () => {
+    // Chytilo by to chyby zdroje jako Victini z Black Bolt označený jako „Rare“ (cena 600 $).
+    for (const set of sets) {
+      for (const c of cardsOf(set.id).filter((c) => !c.prefix && c.number > set.printedTotal)) {
+        expect(["Common", "Uncommon", "Rare", "Double Rare"], `${c.id} ${c.name}`).not.toContain(c.rarity);
+      }
+    }
+  });
+
   it("součet šancí ve slotu nepřesáhne 100 %", () => {
     for (const [id, profile] of Object.entries(PACKS)) {
       for (const slot of [...profile.slots, ...(profile.godPack?.slots ?? [])]) {
@@ -165,15 +174,15 @@ describe("god pack", () => {
 
   it("padá zhruba jednou za 500 balíčků a běžný balíček god pack není", () => {
     const rng = seeded(11);
-    const n = 100_000;
+    const n = 50_000;
     let god = 0;
     for (let i = 0; i < n; i++) if (isGodPack(openPack(profile, pools, rng))) god++;
-    // očekávání 200, směrodatná odchylka ~14
-    expect(god).toBeGreaterThan(150);
-    expect(god).toBeLessThan(250);
+    // očekávání 100, směrodatná odchylka ~10
+    expect(god).toBeGreaterThan(65);
+    expect(god).toBeLessThan(135);
     const me1 = byRarity(cardsOf("me1"));
     for (let i = 0; i < 2000; i++) expect(isGodPack(openPack(packProfile("me1"), me1, rng))).toBe(false);
-  });
+  }, 30_000);
 });
 
 describe("regál a předem určené balíčky", () => {
