@@ -5,6 +5,7 @@ import { countsFor, getState } from "../store";
 import type { Card, SetInfo, Variant } from "../types";
 import { h } from "../ui/dom";
 import { card3dViewer } from "../ui/card3d";
+import { closeOnBack, trapFocus } from "../ui/history";
 import { openModal } from "../ui/modal";
 
 const dateFmt = new Intl.DateTimeFormat("cs-CZ", { dateStyle: "medium", timeStyle: "short" });
@@ -43,15 +44,28 @@ function priceBlock(price: CardPrice | undefined): HTMLElement {
 /** Karta ve 3D přes celou obrazovku. */
 function openFullscreen(card: Card, variant: Variant, missing: boolean) {
   const viewer = card3dViewer(card, variant, { missing });
-  const close = () => {
+  let closed = false;
+  const finish = () => {
+    if (closed) return false;
+    closed = true;
     overlay.remove();
     document.removeEventListener("keydown", onKey, { capture: true });
     window.removeEventListener("hashchange", close);
+    return true;
   };
+  // Zpět zavře jen celou obrazovku, detail karty pod ní zůstane.
+  const releaseHistory = closeOnBack(finish);
+  const close = () => {
+    if (finish()) releaseHistory();
+  };
+  // Esc a Tab patří jen tomuto oknu, ne detailu karty pod ním.
   const onKey = (e: KeyboardEvent) => {
     if (e.key === "Escape") {
       e.stopImmediatePropagation();
       close();
+    } else if (e.key === "Tab") {
+      e.stopImmediatePropagation();
+      focusTrap(e);
     }
   };
   const overlay = h(
@@ -67,6 +81,7 @@ function openFullscreen(card: Card, variant: Variant, missing: boolean) {
       h("button", { class: "btn btn--primary", onclick: close }, "Zavřít"),
     ),
   );
+  const focusTrap = trapFocus(overlay);
   // Esc zavře nejdřív celou obrazovku, ne detail karty pod ní.
   document.addEventListener("keydown", onKey, { capture: true });
   // přechod na jinou obrazovku zavře i celoobrazovkový prohlížeč

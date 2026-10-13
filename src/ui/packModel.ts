@@ -17,6 +17,13 @@ export interface PackModel {
   el: HTMLElement;
   /** Přehraje roztržení (pruh odletí, obal spadne); splní se po skončení animace. */
   tear(): Promise<void>;
+  /**
+   * Připraví model na další balíček téže sady (celý, neroztržený). Při „Otevřít další“
+   * se tak nevytváří nový kontext WebGL ani se znovu nenahrávají textury.
+   */
+  reset(next: { hint?: number; onTear: () => void }): void;
+  /** Model jde ještě použít (kontext WebGL nebyl uvolněn ani ztracen). */
+  usable(): boolean;
 }
 
 interface Options {
@@ -26,6 +33,11 @@ interface Options {
   onTear: () => void;
   /** Volá se při každém dotyku (např. odemčení zvuku). */
   onPointerDown?: () => void;
+  /**
+   * Obrazovka, na které model žije, pořád existuje. Když je plátno mimo stránku (karty,
+   * přehled), smyčka se jen pozastaví; uvolní se až po odchodu z obrazovky.
+   */
+  alive?: () => boolean;
 }
 
 // Tvar obalu (výška obalu = 1).
@@ -584,7 +596,8 @@ export function createPackModel(set: SetInfo, opts: Options): PackModel | null {
   const TEAR_MS = 1150;
 
   // Jiskřička
-  const hint = opts.hint ?? 0;
+  let hint = opts.hint ?? 0;
+  let onTear = opts.onTear;
   let sparkPeriod = -1;
   let spark = [0.5, 0.5];
   const sparkOffset = Math.random() * 10;
@@ -612,7 +625,7 @@ export function createPackModel(set: SetInfo, opts: Options): PackModel | null {
       cut = cutTarget;
       if (cut >= 1) {
         dragging = null;
-        opts.onTear();
+        onTear();
       }
     } else {
       yaw += dx * 0.6;
@@ -634,7 +647,7 @@ export function createPackModel(set: SetInfo, opts: Options): PackModel | null {
     el.classList.remove("is-dragging");
     if (tearStart) return;
     if (!d.moved) {
-      opts.onTear();
+      onTear();
       return;
     }
     if (d.mode === "tear") cutTarget = 0;
@@ -679,9 +692,20 @@ export function createPackModel(set: SetInfo, opts: Options): PackModel | null {
     gl.drawElements(gl.TRIANGLES, mesh.count, gl.UNSIGNED_SHORT, 0);
   };
 
-  const started = performance.now();
+  let started = performance.now();
   let frame = 0;
   let destroyed = false;
+  let paused = false;
+  /** Pozastavená smyčka: čeká, až se plátno vrátí na stránku, nebo až obrazovka zanikne. */
+  const waitForReturn = () =>
+    setTimeout(() => {
+      if (destroyed || !paused) return;
+      if (el.isConnected) {
+        paused = false;
+        frame = requestAnimationFrame(tick);
+      } else if (!(opts.alive?.() ?? false)) destroy();
+      else waitForReturn();
+    }, 1000);
   const destroy = () => {
     destroyed = true;
     cancelAnimationFrame(frame);
@@ -692,8 +716,18 @@ export function createPackModel(set: SetInfo, opts: Options): PackModel | null {
 
   const tick = (now: number) => {
     if (destroyed) return;
-    if (!el.isConnected && now - started > 1000) {
-      destroy();
+    if (!el.isConnected) {
+      // Hned po vytvoření ještě plátno na stránce být nemusí.
+      if (now - started < 1000) {
+        frame = requestAnimationFrame(tick);
+        return;
+      }
+      if (!(opts.alive?.() ?? false)) {
+        destroy();
+        return;
+      }
+      paused = true;
+      waitForReturn();
       return;
     }
     frame = requestAnimationFrame(tick);
@@ -812,12 +846,26 @@ export function createPackModel(set: SetInfo, opts: Options): PackModel | null {
         dragging = null;
         el.classList.remove("is-dragging");
         tearStart = performance.now();
-        tearDone = () => {
-          resolve();
-          // po odhalení karet se plátno zahodí (uvolní se grafická paměť)
-          setTimeout(destroy, 0);
-        };
+        tearDone = resolve;
         if (destroyed) resolve();
       }),
+    reset: (next) => {
+      hint = next.hint ?? 0;
+      onTear = next.onTear;
+      tearStart = 0;
+      tearDone = null;
+      cut = cutTarget = 0;
+      dragging = null;
+      touched = false;
+      yaw = pitch = vyaw = vpitch = 0;
+      sparkPeriod = -1;
+      started = performance.now();
+      el.classList.remove("is-dragging");
+      if (paused && !destroyed) {
+        paused = false;
+        frame = requestAnimationFrame(tick);
+      }
+    },
+    usable: () => !destroyed,
   };
 }

@@ -1,0 +1,79 @@
+/* --- Základ: barvy, písmo, typografie --------------------------------------- */
+
+:root {
+  color-scheme: dark;
+  --bg: #11131a;
+  --bg-2: #181b25;
+  --surface: #1f2330;
+  --surface-2: #282d3d;
+  --border: #343a4f;
+  --text: #eef1f7;
+  --muted: #9aa3b8;
+  --accent: #ffcb3d;
+  --accent-ink: #1b1600;
+  --danger: #ff5d5d;
+  --radius: 14px;
+  --tabbar-h: 64px;
+  --card-ratio: 63 / 88;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  /* Stránka se nepřibližuje (dvojí klepnutí ani dva prsty), jen se posouvá. Prvky
+     s vlastním gestem mají touch-action: none. Blokování v JS je v main.ts. */
+  touch-action: pan-x pan-y;
+}
+
+html,
+body {
+  margin: 0;
+  background: radial-gradient(1200px 600px at 50% -200px, #232a45 0%, var(--bg) 60%) fixed, var(--bg);
+  color: var(--text);
+  min-height: 100%;
+}
+
+body {
+  padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 16px);
+  -webkit-tap-highlight-color: transparent;
+}
+
+a {
+  color: var(--accent);
+}
+
+h1,
+h2,
+h3 {
+  margin: 0 0 8px;
+  line-height: 1.2;
+}
+
+h1 {
+  font-size: 1.6rem;
+}
+
+h2 {
+  font-size: 1.15rem;
+}
+
+h3 {
+  font-size: 1rem;
+  margin-top: 16px;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.small {
+  font-size: 0.82rem;
+}
+
+.hidden {
+  display: none !important;
+}
+
+img {
+  max-width: 100%;
+}

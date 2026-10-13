@@ -1,0 +1,269 @@
+/* --- Karta a holo efekty -------------------------------------------------- */
+
+.pcard {
+  --mx: 50%;
+  --my: 50%;
+  --rx: 0deg;
+  --ry: 0deg;
+  --o: 0;
+  --pos: 50% 50%;
+  --hyp: 0;
+  position: relative;
+  width: 100%;
+  aspect-ratio: var(--card-ratio);
+  border-radius: 4.6% / 3.3%;
+  transition: transform 0.25s ease-out;
+}
+
+/* 3D natočení (a vlastní vrstva) jen při naklánění: trvalá 3D vrstva u každé karty
+   (album má až 295 karet) vyčerpala grafickou paměť telefonu a prohlížeč pak obrázky
+   zahazoval a kreslil znovu – chvíli byla vidět jen barva. Třídu přepíná enableTilt. */
+.pcard.is-tilting {
+  transform: perspective(900px) rotateX(var(--rx)) rotateY(var(--ry));
+  will-change: transform;
+}
+
+.pcard:not(.is-tilting) .pcard__glare {
+  display: none;
+}
+
+.pcard__inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  overflow: hidden;
+  background: #2a2f40;
+  box-shadow: 0 6px 16px rgb(0 0 0 / 0.45);
+}
+
+.pcard__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  user-select: none;
+}
+
+.pcard__shine,
+.pcard__glare {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.pcard__glare {
+  background: radial-gradient(circle at var(--mx) var(--my), rgb(255 255 255 / 0.55), transparent 55%);
+  mix-blend-mode: overlay;
+  opacity: calc(var(--o) * 0.9);
+  transition: opacity 0.3s;
+}
+
+.pcard__shine {
+  mix-blend-mode: color-dodge;
+  background-size: 260% 260%;
+  background-position: var(--pos);
+  transition: opacity 0.3s;
+}
+
+.shine-none .pcard__shine {
+  display: none;
+}
+
+.shine-holo .pcard__shine {
+  background-image: repeating-linear-gradient(
+    115deg,
+    hsl(0 90% 60% / 0.55) 0%,
+    hsl(50 95% 60% / 0.55) 4%,
+    hsl(140 85% 55% / 0.55) 8%,
+    hsl(200 95% 60% / 0.55) 12%,
+    hsl(280 85% 65% / 0.55) 16%,
+    hsl(360 90% 60% / 0.55) 20%
+  );
+  opacity: calc(0.12 + var(--o) * 0.35);
+}
+
+/* Třpytky: tři vrstvy teček s různou roztečí, takže vzor nepůsobí pravidelně. */
+.pcard {
+  --glitter:
+    radial-gradient(circle at 13% 27%, rgb(255 255 255 / 0.95) 0 0.7px, transparent 1.4px),
+    radial-gradient(circle at 61% 71%, rgb(255 255 255 / 0.9) 0 0.6px, transparent 1.3px),
+    radial-gradient(circle at 83% 13%, rgb(255 255 255 / 0.95) 0 0.9px, transparent 1.6px);
+  --glitter-size: 23px 29px, 31px 37px, 41px 43px;
+  --rainbow: repeating-linear-gradient(
+    125deg,
+    hsl(330 90% 65% / 0.6) 0%,
+    hsl(40 95% 60% / 0.6) 5%,
+    hsl(110 85% 60% / 0.6) 10%,
+    hsl(190 95% 60% / 0.6) 15%,
+    hsl(260 90% 70% / 0.6) 20%,
+    hsl(330 90% 65% / 0.6) 25%
+  );
+  /* jemné rýhy jako na „etched“ full art kartách */
+  --etch: repeating-linear-gradient(45deg, rgb(255 255 255 / 0.2) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(-45deg, rgb(255 255 255 / 0.12) 0 1px, transparent 1px 4px);
+}
+
+/* Double Rare (ex): výrazný duhový přeliv přes klasické holo. */
+.shine-ex .pcard__shine {
+  background-image:
+    linear-gradient(
+      110deg,
+      transparent 22%,
+      hsl(185 100% 70% / 0.55) 36%,
+      hsl(300 100% 78% / 0.55) 46%,
+      hsl(50 100% 72% / 0.55) 56%,
+      transparent 70%
+    ),
+    var(--rainbow);
+  background-size: 250% 250%, 300% 300%;
+  opacity: calc(0.16 + var(--o) * 0.45);
+}
+
+/* Classic Collection: vesmírné „cosmos“ holo starých karet. */
+.shine-cosmos .pcard__shine {
+  background-image:
+    radial-gradient(circle at 20% 30%, hsl(320 100% 75% / 0.9) 0 1px, transparent 2px),
+    radial-gradient(circle at 70% 60%, hsl(190 100% 70% / 0.9) 0 1.4px, transparent 2.4px),
+    radial-gradient(circle at 45% 85%, hsl(55 100% 70% / 0.9) 0 0.9px, transparent 1.8px),
+    radial-gradient(circle at 50% 50%, hsl(260 90% 70% / 0.35) 0 6px, transparent 9px),
+    var(--rainbow);
+  background-size: 17px 19px, 27px 23px, 21px 31px, 53px 47px, 300% 300%;
+  opacity: calc(0.22 + var(--o) * 0.45);
+}
+
+/* Illustration Rare: pastelová duha s třpytkami. */
+.shine-illus .pcard__shine {
+  background-image:
+    var(--glitter),
+    repeating-linear-gradient(
+      120deg,
+      hsl(200 90% 80% / 0.5) 0%,
+      hsl(300 80% 85% / 0.5) 8%,
+      hsl(50 90% 80% / 0.5) 16%,
+      hsl(200 90% 80% / 0.5) 24%
+    );
+  background-size: var(--glitter-size), 300% 300%;
+  opacity: calc(0.2 + var(--o) * 0.5);
+}
+
+/* Ultra Rare / Mega Attack Rare: rýhovaná textura s duhou. */
+.shine-etched .pcard__shine {
+  background-image: var(--etch), var(--rainbow);
+  background-size: auto, auto, 300% 300%;
+  opacity: calc(0.2 + var(--o) * 0.5);
+}
+
+/* Special Illustration Rare: textura, třpytky a silná duha dohromady. */
+.shine-sir .pcard__shine {
+  background-image: var(--glitter), var(--etch), var(--rainbow);
+  background-size: var(--glitter-size), auto, auto, 260% 260%;
+  opacity: calc(0.28 + var(--o) * 0.55);
+}
+
+/* Futuristic Rare: neonové linky. */
+.shine-neon .pcard__shine {
+  background-image:
+    repeating-linear-gradient(0deg, hsl(185 100% 65% / 0.45) 0 1px, transparent 1px 4px),
+    linear-gradient(120deg, hsl(185 100% 60% / 0.6), hsl(300 100% 65% / 0.6) 50%, hsl(185 100% 60% / 0.6));
+  background-size: auto, 250% 250%;
+  opacity: calc(0.22 + var(--o) * 0.5);
+}
+
+.shine-gold .pcard__shine {
+  background-image: var(--glitter), linear-gradient(
+    120deg,
+    transparent 20%,
+    hsl(45 100% 70% / 0.7) 35%,
+    hsl(35 90% 45% / 0.4) 45%,
+    hsl(50 100% 80% / 0.8) 55%,
+    transparent 75%
+  );
+  background-size: var(--glitter-size), 260% 260%;
+  mix-blend-mode: soft-light;
+  opacity: calc(0.35 + var(--o) * 0.6);
+}
+
+.shine-dark .pcard__shine {
+  background-image:
+    var(--glitter),
+    repeating-linear-gradient(115deg, rgb(255 255 255 / 0.18) 0 6%, rgb(0 0 0 / 0.18) 6% 12%),
+    linear-gradient(120deg, transparent 25%, rgb(255 255 255 / 0.55) 45%, rgb(160 160 160 / 0.3) 55%, transparent 75%);
+  background-size: var(--glitter-size), 300% 300%, 260% 260%;
+  mix-blend-mode: screen;
+  opacity: calc(0.15 + var(--o) * 0.45);
+}
+
+.variant-pokeball .pcard__shine,
+.variant-masterball .pcard__shine {
+  background-image:
+    radial-gradient(circle, transparent 38%, rgb(255 255 255 / 0.55) 41%, transparent 47%),
+    repeating-linear-gradient(115deg, hsl(0 90% 60% / 0.5) 0%, hsl(200 95% 60% / 0.5) 10%, hsl(0 90% 60% / 0.5) 20%);
+  background-size: 22px 22px, 300% 300%;
+  opacity: calc(0.25 + var(--o) * 0.4);
+}
+
+.variant-masterball .pcard__shine {
+  background-image:
+    radial-gradient(circle, transparent 38%, hsl(285 90% 75% / 0.7) 41%, transparent 47%),
+    repeating-linear-gradient(115deg, hsl(285 90% 60% / 0.55) 0%, hsl(320 95% 65% / 0.55) 10%, hsl(285 90% 60% / 0.55) 20%);
+}
+
+.pcard--missing .pcard__img {
+  filter: grayscale(1) brightness(0.5);
+  opacity: 0.35;
+}
+
+.pcard--missing .pcard__shine,
+.pcard--missing .pcard__glare {
+  display: none;
+}
+
+/* Rub karty */
+.pback {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 4.6% / 3.3%;
+  border: 6px solid #e8edf6;
+  background:
+    radial-gradient(circle at 50% 50%, #3d6fd8 0 18%, transparent 19%),
+    radial-gradient(circle at 50% 50%, #1b2d6b 0 40%, transparent 41%),
+    repeating-conic-gradient(from 0deg, #2449a8 0 10deg, #1d3c8f 10deg 20deg);
+  box-shadow: 0 6px 16px rgb(0 0 0 / 0.45);
+  overflow: hidden;
+}
+
+.pback--photo {
+  border: 0;
+  background: #1d3c8f;
+}
+
+.pback__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  user-select: none;
+}
+
+.pback__ring {
+  position: absolute;
+  inset: 32%;
+  border-radius: 50%;
+  border: 5px solid #ffcb3d;
+  box-shadow: 0 0 18px #ffcb3d;
+}
+
+.pback__label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 10%;
+  color: #ffcb3d;
+  font-weight: 900;
+  font-size: 0.8rem;
+  letter-spacing: 0.25em;
+  text-align: center;
+}

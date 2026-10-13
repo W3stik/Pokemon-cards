@@ -22,7 +22,8 @@ npm run images     # obrázky karet → WebP z TCGdex (součást npm run data)
 ```
 
 Bez frameworku: DOM se staví helperem `h()` z `src/ui/dom.ts`. Routing je hash (`#/shop`,
-`#/pick/:setId`, `#/open[/:setId]`, `#/album[/:setId]`, `#/more`) v `src/main.ts`.
+`#/pick/:setId`, `#/open[/:setId]`, `#/album[/:setId]`, `#/stats`, `#/replay/:at`, `#/more`) v `src/main.ts`.
+Styly jsou v `src/styles/` po oblastech; pořadí importů v `index.css` je pořadí kaskády.
 Každá obrazovka se kreslí do nového kontejneru (pomalé načítání staré obrazovky nepřepíše novou).
 
 ## Mapa kódu
@@ -36,24 +37,26 @@ Každá obrazovka se kreslí do nového kontejneru (pomalé načítání staré 
 | `scripts/fetch-prices.mjs` | Ceny z TCGdex pro všechny karty → `public/data/prices.json` (`{updated, source, cards: {id: {eur, eurReverse, usd, usdReverse}}}`). Sady páruje podle jména, karty podle čísla; podsady (`TCGDEX_SUBSETS`, Classic Collection = TCGdex `30th-c`, jiné číslování) podle normalizovaného jména. Karty bez ceny zkouší znovu na evropském serveru TCGdex (viz Nástrahy). Do `prices.json` zapisuje `stats` po sadách (oceněno, z evropského serveru, bez ceny, chyby) – logy CI bez admin práv nejdou číst, statistika na webu ano. Chybějící ceny doplní z posledního nasazení (`PRICES_FALLBACK_URL`). |
 | `src/odds.ts` | **Rarity** (`RARITIES`: pořadí, barva, typ lesku, zda je to „hit“) a **profily balíčků** (`PACKS`): sloty, šance a zdroje pro každou sadu; volitelný `godPack` (Ascended Heroes: 1:500, 4× IR, 3× UR/MAR, 2× SIR, poslední SIR nebo 1:10 MHR – složení i šance jsou herní, komunitní odhad je 1:1500–1:4000). `DEFAULT_PACK` pro sadu bez profilu. |
 | `src/pack.ts` | `openPack(profile, pools, rng)` – v každém slotu losuje vzácné výsledky podle šance, jinak výchozí raritu; bez opakování karty+provedení v balíčku. `toSealed/fromSealed` (uložitelná podoba balíčku), `hintLevel` (síla tajného náznaku). God pack se losuje jako první hod (jen u sad s `godPack`); `isGodPack` = všechny karty jsou hit. |
-| `src/store.ts` | Stav hry v `localStorage` pod klíčem `pokemon-packs:state:v1`: `packs` (počty neotevřených), `collection` (klíč `idKarty|provedení` → kusy), `firstSeen`, `opened`, `history`, `godPacks` (počet otevřených god packů, v historii `god: true`), `shelf` (regál 10 balíčků na sadu), `sealed` (vybrané balíčky s daným obsahem, jsou součástí `packs`). Každá změna jde přes `mutate()`, která nejdřív znovu načte uložený stav (dvě okna si nepřepisují karty); událost `storage` převezme změny z jiného okna. `sanitize()` kontroluje stav z úložiště i ze zálohy (`parseBackup`, `importState`). |
+| `src/store.ts` | Stav hry v `localStorage` pod klíčem `pokemon-packs:state:v1`: `packs` (počty neotevřených), `collection` (klíč `idKarty|provedení` → kusy), `firstSeen`, `opened`, `history`, `godPacks` (počet otevřených god packů, v historii `god: true`), `shelf` (regál 10 balíčků na sadu), `sealed` (vybrané balíčky s daným obsahem, jsou součástí `packs`), `hallOfFame` (jen god packy, limit 500). Otevření zapisuje `recordOpening`, „Otevřít vše“ `recordOpenings` jedním uložením (stav s plnou sbírkou má kolem 1 MB, uložení pro každý balíček zvlášť bylo znát). Každá změna jde přes `mutate()`, která nejdřív znovu načte uložený stav (dvě okna si nepřepisují karty); událost `storage` převezme změny z jiného okna. `sanitize()` kontroluje stav z úložiště i ze zálohy (`parseBackup`, `importState`). |
 | `src/storage.ts` | Trvalé úložiště (`navigator.storage.persist`, žádá se po prvních kartách v `main.ts`), datum poslední zálohy a připomínka zálohy. |
-| `src/prices.ts` | Ceny: 1) `data/prices.json` z buildu, 2) živě Pokémon TCG API po sadách (limit 8 s na požadavek, jedno opakování při 5xx, po neúspěchu 10 min pauza, cache 12 h v localStorage), 3) `tcgdexPrice` živě pro jednu kartu v detailu. Součty přes `addPrice`/`formatTotal` (měna bez cen se nezobrazí jako 0). |
+| `src/prices.ts` | Ceny: `data/prices.json` z buildu (TCGdex, obnovuje CI denně) a `tcgdexPrice` živě pro jednu kartu v detailu. Záloha přes Pokémon TCG API je pryč (API je nespolehlivé a TCGdex má ceny všech sad); staré klíče `pokemon-packs:prices:*` se z localStorage mažou. Součty přes `addPrice`/`formatTotal` (měna bez cen se nezobrazí jako 0). |
 | `src/tcgdexPricing.js` | Výklad cen TCGdex sdílený aplikací i `scripts/fetch-prices.mjs` (čisté JS + `.d.ts`, aby ho Node spustil bez překladu). |
-| `src/data.ts` | Načítání `sets.json` a karet sady (cache), `setIdOfCard`, `cardNumber`. |
+| `src/data.ts` | Načítání `sets.json` a karet sady (cache), `setIdOfCard`, `setOfCard` (sada karty včetně podsad, používá album i statistiky), `cardNumber`. |
 | `src/ui/eras.ts` | Třídění podle éry: `groupBySeries`, rozbalovací `eraSection` (obsah se vytvoří až při otevření, stav v localStorage `pokemon-packs:eras:*`), `plural`. Používá obchod, inventář (nadpisy) a přehled alba. |
 | `src/views/shop.ts` | Obchod: „1 balíček“ vede na regál, „10 balíčků“ a „Booster box (36)“ přidají balíčky naslepo; okno „Šance a zdroje“. |
 | `src/views/pick.ts` | Regál: 10 předem vylosovaných balíčků (uložené ve `state.shelf`, obnovení stránky je nepřelosuje). Vzatý balíček jde do `sealed` a jeho místo zaplní nový. Balíček s IR/UR a vzácnější kartou má **tajnou jiskřičku** (`hintLevel` 1–3). |
-| `src/views/open.ts` | Otevírání: obsah dalšího balíčku se losuje dopředu (`prepare`, do sbírky se zapíše až při roztržení v `draw`), aby se obrázky karet stáhly, než hráč balíček roztrhne; v přehledu se připravuje další. 3D balíček (tažení přes horní pruh = roztržení, jinde = otáčení, klepnutí = roztržení) → karty vyjedou jako 3D balík lícem nahoru → klepnutím/tažením se odhazují → přehled. Vybraný balíček z regálu se otevře s uloženým obsahem (`nextSealed`). Vzácná karta se při odkrytí rozzáří (`revealHit`, stupňuje se podle ranku: RR záře a částice, IR/UR paprsky a poskočení, SIR reflektor, konfety a záblesk, zlaté/BWR zlaté paprsky, zlaté konfety a otřes; když je pod aktuální kartou IR+, prosvítá její barva – `pile--tease`). „Otevřít vše“ seskupuje stejné karty. |
-| `src/views/album.ts` | Přehled sad (kompletnost, duplikáty, hodnota – počítá se jen ze sbírky a `sets.json`, bez načítání karet všech sad) a album sady (filtry, rarita, hledání, řazení podle čísla/rarity/jména/ceny/počtu). |
-| `src/views/stats.ts` | Statistiky (`#/stats`, odkaz z alba): **měřák štěstí** (skutečné kusy podle rarity ze sbírky proti `opened × expectedPerPack`, souhrn od IR výš, filtr sady) a **Síň slávy** (`state.hallOfFame`: natrvalo balíčky s rank ≥ `HALL_MIN_RANK` = 7, tj. UR/full art a vzácnější, a god packy; doplní se i z historie; řazení nejnovější/nejcennější). |
-| `src/views/cardModal.ts` | Detail karty: 3D prohlížeč, počty podle provedení, ceny, celoobrazovkový režim. |
+| `src/views/open.ts` | Otevírání: obsah dalšího balíčku se losuje dopředu (`prepare`, do sbírky se zapíše až při roztržení v `draw`), aby se obrázky karet stáhly, než hráč balíček roztrhne; v přehledu se připravuje další. 3D balíček (tažení přes horní pruh = roztržení, jinde = otáčení, klepnutí = roztržení) → karty vyjedou jako 3D balík lícem nahoru → klepnutím/tažením se odhazují → přehled. Vybraný balíček z regálu se otevře s uloženým obsahem (`nextSealed`). Vzácné karty leží **rubem nahoru** s aurou v barvě rarity; klepnutí je nabije (`flipOver`: zvednutí a chvění, délka `CHARGE_MS` podle úrovně, zvuk `sfxCharge`), otočí a spustí efekty (`revealHit` → `src/ui/reveal.ts`: úroveň `tierOf(rank)`; tlaková vlna, hvězdičky, paprsky, reflektor, nápis rarity, barevný záblesk, zlatý déšť a otřes). Neotočenou kartu nejde odhodit. S omezenými animacemi leží lícem. „Otevřít vše“ seskupuje stejné karty a ukládá jedním zápisem. Model balíčku (`this.model`) je jeden pro celou obrazovku, „Otevřít další“ ho jen resetuje. **Klávesnice**: Enter/mezerník roztrhne balíček, otočí nebo odhodí kartu, šipky ji odhodí do strany, v přehledu Enter otevře další (posluchač na `document`, ignoruje tlačítka, pole a otevřená okna). **Přehrávání** (`renderReplay`, `#/replay/<at>`): god pack ze Síně slávy se otevře znovu se stejnými kartami (`replay`), nic se nezapisuje. |
+| `src/views/album.ts` | Přehled sad (kompletnost, duplikáty, hodnota – počítá se jen ze sbírky a `sets.json`, bez načítání karet všech sad) a album sady (filtry, rarita, hledání s prodlevou 160 ms, řazení podle čísla/rarity/jména/ceny/počtu). |
+| `src/views/stats.ts` | Statistiky (`#/stats`, odkaz z alba): **měřák štěstí** (skutečné kusy podle rarity ze sbírky proti `opened × expectedPerPack`, souhrn od IR výš, filtr sady) a **Síň slávy** (`state.hallOfFame`: natrvalo jen god packy se všemi kartami, doplní se i z historie; každý jde „▶ Otevřít znovu“ → `#/replay/<at>`; řazení nejnovější/nejcennější od dvou záznamů). Dřívější verze ukládala i balíčky s UR a vzácnějšími, `sanitize()` je při načtení vyřadí. |
+| `src/views/cardModal.ts` | Detail karty: 3D prohlížeč, počty podle provedení, ceny, celoobrazovkový režim (vlastní Zpět, Esc a Tab nad detailem). |
+| `src/ui/modal.ts`, `src/ui/history.ts` | Modální okno (`openModal`). `closeOnBack`: okno si přidá záznam do historie, takže **Zpět na Androidu zavře jen okno**; při zavření jinak se záznam odebere (`history.back()`, vlastní popstate se ignorují). Okna tvoří zásobník, Zpět zavře vrchní. `trapFocus` drží Tab uvnitř okna. |
 | `src/ui/pack.ts` | `packThumb`: lehký náhled (fotka + naklánění) pro obchod a inventář; 3D model balíčku z CSS (`packEl`) na regálu, rub je vlastní potisk (`backDesign`: barvy sady, zatavené okraje, šev, logo), ID produktů TCGplayer (`PACK_PRODUCTS`) a URL fotek, jiskřička náznaku. Velký balíček začne s malou fotkou a velkou vymění po načtení; poměr stran fotek se pamatuje v localStorage (`pokemon-packs:pack-ratios`); `prefetchPackArt` na regálu a v zásobě. |
-| `src/ui/packModel.ts` | **3D model balíčku ve WebGL** (bez knihovny) pro obrazovku otevírání: uzavřený „polštářek“ (tloušťka `thickness(u, v)`, nulová na krajích a v zatavených okrajích), horní pruh je samostatná síť se společnou hranou (`CUT_V`). Líc = fotka obalu (malá, pak velká; textura 1024×2048 s mipmapami), rub = canvas v barvách profilu sady (`drawBack`: záře doplňkové barvy, šev, logo, drobný text, čárový kód; světlý obal → tmavý text). Shader: difuzní světlo, odlesk fólie, řez při tahu, jiskřička náznaku. Ovládání jako `card3d` (tažení, setrvačnost, vyhlazený gyroskop, houpání), roztržení `tear()`. Po roztržení se kontext WebGL uvolní. Bez WebGL `open.ts` použije CSS balíček (`cssPack`). |
+| `src/ui/packModel.ts` | **3D model balíčku ve WebGL** (bez knihovny) pro obrazovku otevírání: uzavřený „polštářek“ (tloušťka `thickness(u, v)`, nulová na krajích a v zatavených okrajích), horní pruh je samostatná síť se společnou hranou (`CUT_V`). Líc = fotka obalu (malá, pak velká; textura 1024×2048 s mipmapami), rub = canvas v barvách profilu sady (`drawBack`: záře doplňkové barvy, šev, logo, drobný text, čárový kód; světlý obal → tmavý text). Shader: difuzní světlo, odlesk fólie, řez při tahu, jiskřička náznaku. Ovládání jako `card3d` (tažení, setrvačnost, vyhlazený gyroskop, houpání), roztržení `tear()`, `reset()` pro další balíček (bez nového kontextu WebGL a textur). Mimo stránku (karty, přehled) se smyčka pozastaví; kontext se uvolní až po odchodu z obrazovky (`alive`). Bez WebGL `open.ts` použije CSS balíček (`cssPack`). |
+| `src/ui/reveal.ts` | Efekty odhalení vzácné karty podle úrovně rarity (`tierOf`, `CHARGE_MS`, `shockwave`, `stars`, `rays`, `flash`, `rarityBanner`, `goldRain`, `shake`). CSS v `src/styles/reveal.css`; nabíjení animuje vnitřní `.flip`, ne `.pile__item` (ta má animaci vyjetí, která by se jinak spustila znovu). |
 | `src/ui/sfx.ts` | Zvuky (syntetizované přes Web Audio, žádné soubory) a vibrace: roztržení, odhození, fanfára podle ranku rarity. `unlockAudio()` volat v obsluze klepnutí. Nastavení `pokemon-packs:fx` (Více, tlačítko 🔊 při otevírání). |
 | `src/ui/holo.ts` | 2D karta s holo vrstvami (`cardEl`; typ lesku `shine-*` podle `RARITIES.shine`: holo, ex, cosmos (Classic Collection), illus (třpytky), etched (rýhy), sir, gold, neon (Futuristic), dark (BWR); vrstvy `--glitter`, `--rainbow`, `--etch` jsou v `.pcard`), naklánění kurzorem/gyroskopem (`enableTilt`), rub karty (`cardBack`, oficiální obrázek + náhradní design), `preload`. |
 | `src/ui/card3d.ts` | 3D model karty (líc, rub, hrany) a prohlížeč s tažením, setrvačností, otočením a gyroskopem. |
-| `public/sw.js` | Service worker: app shell, soubory buildu a data offline (data stale-while-revalidate, stránka ze sítě s limitem 3 s), obrázky cache-first přes CORS (opaque odpovědi se neukládají kvůli kvótě). Malé obrázky v `card-images` (limit 2000), velké (`_hires`, `/large`, `_in_1000x1000`) v `card-images-large` (limit 150). Řádek `const BUILD = …` při buildu přepíše plugin ve `vite.config.ts` (verze = hash sw.js + názvů souborů), takže se verze mění sama a stará mezipaměť se smaže. `main.ts` pak nabídne „Nová verze – Obnovit“. Rub karty (bez CORS) se jako jediný ukládá i neprůhledný. |
+| `public/sw.js` | Service worker: app shell a soubory buildu (`app-<verze>`), data v mezipaměti `card-data` (stale-while-revalidate, nová verze aplikace je znovu nestahuje, jen doplní chybějící sady a obnoví `sets.json`), stránka ze sítě s limitem 3 s, obrázky cache-first přes CORS (opaque odpovědi se neukládají kvůli kvótě). Malé obrázky v `card-images` (limit 2000), velké (`_hires`, `/large`, `_in_1000x1000`) v `card-images-large` (limit 150). Řádek `const BUILD = …` při buildu přepíše plugin ve `vite.config.ts` (verze = hash sw.js + názvů souborů), takže se verze mění sama a stará mezipaměť se smaže. `main.ts` pak nabídne „Nová verze – Obnovit“. Rub karty (bez CORS) se jako jediný ukládá i neprůhledný. |
 
 ## Data a externí zdroje (co je ověřené)
 
@@ -65,7 +68,7 @@ Ověřováno 12. 10. 2026 z GitHub Actions (sandbox, kde aplikace vznikla, měl 
 | Obrázky karet `images.pokemontcg.io`, `images.scrydex.com` | 200, CORS `*` |
 | Fotky obalů `tcgplayer-cdn.tcgplayer.com/product/{id}_in_1000x1000.jpg` / `_400w.jpg` | 200, CORS `*`; fotky jsou těsně oříznuté (bez bílého okraje), poměr ~0,5–0,55 |
 | Rub karty `tcg.pokemon.com/assets/img/global/tcg-card-back-2x.jpg` | 200, **bez CORS** → zobrazí se, ale service worker ho offline neuloží |
-| `api.pokemontcg.io/v2/cards` | **nespolehlivé** – střídavě 200 a 500 (projekt přechází na placený Scrydex) |
+| `api.pokemontcg.io/v2/cards` | **nespolehlivé** – střídavě 200 a 500 (projekt přechází na placený Scrydex); aplikace ho od 13. 10. 2026 nepoužívá |
 | TCGdex `api.tcgdex.net/v2/en` | funguje, CORS `*`; ceny má pro všech 24 sad (všech 4 818 karet; Black Bolt č. 80 po opravě čísla), u 30th Celebration a Classic Collection jen Cardmarket (EUR), TCGplayer zatím chybí |
 | `tcgcsv.com` (export katalogu TCGplayer) | funguje, vyžaduje vlastní `User-Agent`; odtud jsou ID produktů v `PACK_PRODUCTS` |
 
@@ -106,6 +109,7 @@ kopii aplikace pod stejný účet, service worker by mazal mezipaměť té druh�
   `h()` proto nastavuje `loading`/`decoding` jako první. Do 13. 10. 2026 to bylo obráceně a album
   stahovalo všechny obrázky naráz (Ascended Heroes 244 požadavků, viditelné karty čekaly ve frontě).
 
+- Ve skrytém panelu prohlížeče (Claude Browser, headless) CSS animace neběží a snímek zachytí jejich začátek. Pro snímky efektů animace zastav: `document.getAnimations().forEach(a => { a.pause(); a.currentTime = 450 })`.
 - **Grafická paměť telefonu**: karta (`.pcard`) nesmí být v klidu 3D vrstva (`will-change`, 3D
   transform) – stovky vrstev v albu vyčerpaly paměť a obrázky se po chvíli kreslily se zpožděním.
   3D natočení a odlesk jen s třídou `is-tilting` (přepíná `enableTilt`); dlaždice alba a přehledu
@@ -117,6 +121,9 @@ kopii aplikace pod stejný účet, service worker by mazal mezipaměť té druh�
   (otevřená stará stránka najde své soubory) a index.html se při nenačteném skriptu jednou sám
   obnoví. Režim navigace je `request.mode === "navigate"` (12. 10. 2026 tu byla chyba
   `"navigation"` a aplikace po nasazení zůstala na telefonu prázdná).
+  Data sad (`card-data`) přežívají nové verze: změněný soubor existující sady se k uživateli dostane
+  až při dalším načtení (stale-while-revalidate). Při zásadní změně dat (jiná id karet) mezipaměť
+  přejmenuj (`DATA_CACHE`), aby se stáhla znovu, a starou smaž v `activate`.
 
 - **TCGdex má GeoDNS**: z Evropy `api.tcgdex.net` vede na 51.255.35.48, z USA (runnery GitHub Actions)
   na 142.44.242.175 a servery nemají stejná data – 12. 10. 2026 americký neměl ceny 30th Celebration.
@@ -145,7 +152,11 @@ kopii aplikace pod stejný účet, service worker by mazal mezipaměť té druh�
 - Zvýraznění řezu (`.pack3d__cut`) má `box-shadow` – při nulové délce musí mít `opacity: 0`, jinak svítí tečka.
 - Animace s `animation-delay` měněnou za běhu nejdou spolehlivě „zmrazit“ pro snímek; v testech
   raději animaci vypni (`animation: none`) a nastav stav natvrdo.
-- Esc v celoobrazovkovém prohlížeči se zachytává ve fázi capture, aby nezavřel i detail pod ním.
+- Esc a Tab v celoobrazovkovém prohlížeči se zachytávají ve fázi capture, aby nezavřely detail pod ním
+  (Tab by jinak focus trap detailu přesunul zpět do detailu).
+- Okno zavřené jinak než Zpět volá `history.back()`; ten je asynchronní a jeho popstate se nesmí
+  brát jako Zpět dalšího okna (`ownBacks` v `history.ts`). Id záznamu obsahuje `performance.timeOrigin`,
+  po obnovení stránky s otevřeným oknem by se jinak id opakovala.
 
 ## Konvence
 
@@ -166,4 +177,4 @@ Seřazeno podle přínosu:
 2. „Master set“ v albu: kompletnost včetně reverse/Poké Ball/Master Ball provedení; statistiky nejlepších tahů a historie hodnoty sbírky.
 3. Synchronizace sbírky mezi zařízeními (dnes jen ruční záloha do souboru).
 4. Další starší sady (Sword & Shield: Crown Zenith s Galarian Gallery, Lost Origin… s Trainer Gallery jako podsadami) / automatická kontrola nových sad v CI (nová sada bez profilu v `PACKS` použije `DEFAULT_PACK`).
-5. Virtualizace mřížky alba pro velké sady (Ascended Heroes má 295 karet) a `npm run e2e` v CI.
+5. Virtualizace mřížky alba pro velké sady (Ascended Heroes má 295 karet).

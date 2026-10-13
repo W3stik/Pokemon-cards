@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { expectedPerPack, PACKS, oddsTable, packProfile, packSize, rarityInfo, RARITIES } from "./odds";
-import { byRarity, fromSealed, hintLevel, isGodPack, isHallWorthy, openPack, toSealed } from "./pack";
+import { byRarity, fromSealed, hintLevel, isGodPack, openPack, toSealed } from "./pack";
 import { getState, nextSealed, pickFromShelf, recordOpening, resetState, setShelf } from "./store";
 import type { Card, SetInfo } from "./types";
 import { PACK_PRODUCTS } from "./ui/pack";
@@ -147,7 +147,7 @@ describe("otevírání balíčků", () => {
   });
 });
 
-describe("měřák štěstí a Síň slávy", () => {
+describe("měřák štěstí", () => {
   const poolSizes = (id: string) => new Map([...byRarity(cardsOf(id))].map(([r, list]) => [r, list.length]));
 
   it("očekávané počty odpovídají šancím a skutečnému losování", () => {
@@ -165,15 +165,6 @@ describe("měřák štěstí a Síň slávy", () => {
     for (let i = 0; i < n; i++) sir += openPack(profile, pools, rng).filter((p) => p.card.rarity === "Special Illustration Rare").length;
     expect(sir / n).toBeCloseTo(e2.get("Special Illustration Rare")!, 2);
   }, 30_000);
-
-  it("do Síně slávy jdou jen balíčky s Ultra Rare a vzácnější kartou", () => {
-    const cards = cardsOf("me1");
-    const pack = (...rarities: string[]) => rarities.map((r) => ({ card: cards.find((c) => c.rarity === r)! }));
-    expect(isHallWorthy(pack("Common", "Illustration Rare", "Double Rare"))).toBe(false);
-    expect(isHallWorthy(pack("Common", "Ultra Rare"))).toBe(true);
-    expect(isHallWorthy(pack("Common", "Special Illustration Rare"))).toBe(true);
-    expect(isHallWorthy(pack("Mega Hyper Rare"))).toBe(true);
-  });
 });
 
 describe("god pack", () => {

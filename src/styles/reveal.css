@@ -1,0 +1,462 @@
+/* --- Odhalení vzácné karty (src/ui/reveal.ts, open.ts) ----------------------- */
+
+/* Vzácná karta leží rubem nahoru; štítek s raritou se ukáže až po otočení. */
+.pile__item.is-facedown .flip {
+  transform: rotateY(180deg);
+}
+
+.pile__item.is-facedown .pile__tag {
+  visibility: hidden;
+}
+
+/* Nabití: karta (rubem nahoru) se zvedne a chvěje, chvění sílí s úrovní rarity.
+   Animuje se vnitřní .flip, ne celá karta – ta má vlastní animaci vyjetí z balíčku,
+   která by se po skončení nabíjení spustila znovu. */
+.pile__item.is-charging .flip {
+  transition: none;
+  animation: charge var(--charge, 500ms) cubic-bezier(0.4, 0, 0.9, 0.6) forwards;
+}
+
+.pile__item.tier-3.is-charging .flip,
+.pile__item.tier-4.is-charging .flip {
+  animation-name: charge-strong;
+}
+
+@keyframes charge {
+  0% {
+    transform: rotateY(180deg) translateZ(0) rotateZ(0) scale(1);
+  }
+  20%,
+  40%,
+  60%,
+  80% {
+    transform: rotateY(180deg) translateZ(30px) rotateZ(-1.2deg) scale(1.03);
+  }
+  30%,
+  50%,
+  70%,
+  90% {
+    transform: rotateY(180deg) translateZ(30px) rotateZ(1.2deg) scale(1.03);
+  }
+  100% {
+    transform: rotateY(180deg) translateZ(60px) rotateZ(0) scale(1.08);
+  }
+}
+
+@keyframes charge-strong {
+  0% {
+    transform: rotateY(180deg) translateZ(0) rotateZ(0) scale(1);
+  }
+  15%,
+  35%,
+  55%,
+  75% {
+    transform: rotateY(180deg) translate3d(-3px, -2px, 40px) rotateZ(-2deg) scale(1.04);
+  }
+  25%,
+  45%,
+  65%,
+  85% {
+    transform: rotateY(180deg) translate3d(3px, 1px, 40px) rotateZ(2deg) scale(1.05);
+  }
+  100% {
+    transform: rotateY(180deg) translateZ(60px) rotateZ(0) scale(1.08);
+  }
+}
+
+/* Otočení na líc: karta se při tom zvedne k divákovi a dosedne s mírným přeskokem. */
+.pile__item.is-flipping .flip {
+  transition: none;
+  animation: flip-reveal 0.65s cubic-bezier(0.3, 0.7, 0.35, 1.15);
+}
+
+@keyframes flip-reveal {
+  0% {
+    transform: rotateY(180deg) translateZ(60px) scale(1.08);
+  }
+  50% {
+    transform: rotateY(90deg) translateZ(90px) scale(1.14);
+  }
+  100% {
+    transform: rotateY(0deg) translateZ(0) scale(1);
+  }
+}
+
+/* Po otočení přejede přes holo fólii pruh světla. */
+.pile__item.is-revealed .flip__front::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 4.6% / 3.3%;
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    rgb(255 255 255 / 0.15) 42%,
+    rgb(255 255 255 / 0.85) 50%,
+    color-mix(in srgb, var(--rc) 60%, white) 54%,
+    transparent 66%
+  );
+  background-size: 260% 100%;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  animation: holo-sweep 1.1s 0.15s ease-out both;
+}
+
+@keyframes holo-sweep {
+  from {
+    background-position: 130% 0;
+  }
+  to {
+    background-position: -40% 0;
+  }
+}
+
+.is-revealed .pcard__inner {
+  box-shadow:
+    0 0 26px 6px var(--rc),
+    0 6px 16px rgb(0 0 0 / 0.45);
+}
+
+/* Karta po otočení poskočí. */
+.pile__item.is-pop .flip__front {
+  animation: card-pop 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.4);
+}
+
+@keyframes card-pop {
+  0% {
+    scale: 1;
+  }
+  35% {
+    scale: 1.1;
+  }
+  100% {
+    scale: 1;
+  }
+}
+
+/* Štítek rarity po odhalení „dopadne“ a zazáří. */
+.pile__item.is-revealed.is-hit .pile__tag .badge:last-child {
+  animation: badge-stamp 0.55s 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.5) both;
+  box-shadow: 0 0 14px var(--rc);
+}
+
+@keyframes badge-stamp {
+  from {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Aura: rub vzácné karty září barvou rarity, u vzácnějších víc a rychleji;
+   při nabíjení se rozhoří naplno. */
+.pile::before {
+  content: "";
+  position: absolute;
+  inset: -16%;
+  border-radius: 40px;
+  background: radial-gradient(closest-side, var(--tease, transparent) 35%, transparent);
+  opacity: 0;
+  transition:
+    opacity 0.4s,
+    inset 0.4s;
+  pointer-events: none;
+}
+
+.pile--tease::before {
+  animation: aura 1.3s ease-in-out infinite alternate;
+}
+
+.pile--tier-3::before,
+.pile--tier-4::before {
+  inset: -24%;
+  animation-duration: 0.8s;
+}
+
+.pile--charging::before {
+  inset: -30%;
+  opacity: 0.95;
+  animation: none;
+}
+
+@keyframes aura {
+  from {
+    opacity: 0.3;
+  }
+  to {
+    opacity: 0.75;
+  }
+}
+
+/* Tlaková vlna z karty */
+.shockwave {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 70%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border: 4px solid var(--c);
+  border-radius: 50%;
+  box-shadow:
+    0 0 24px var(--c),
+    inset 0 0 18px var(--c);
+  pointer-events: none;
+  z-index: 6;
+  animation: shockwave 0.95s cubic-bezier(0.1, 0.7, 0.3, 1) both;
+}
+
+@keyframes shockwave {
+  from {
+    scale: 0.3;
+    opacity: 1;
+  }
+  to {
+    scale: 2.8;
+    opacity: 0;
+    border-width: 1px;
+  }
+}
+
+/* Hvězdičky (čtyřcípé) rozletující se z karty */
+.stars {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  pointer-events: none;
+}
+
+.stars i {
+  position: absolute;
+  left: 50%;
+  top: 45%;
+  width: var(--s);
+  height: var(--s);
+  margin: calc(var(--s) / -2);
+  background: var(--c);
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  filter: drop-shadow(0 0 4px var(--c));
+  animation: star-fly var(--t) var(--d) cubic-bezier(0.15, 0.8, 0.3, 1) both;
+}
+
+@keyframes star-fly {
+  0% {
+    transform: translate(0, 0) scale(0.2) rotate(0);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  50% {
+    transform: translate(calc(var(--dx) * 0.85), calc(var(--dy) * 0.85)) scale(1.2) rotate(90deg);
+  }
+  65% {
+    transform: translate(calc(var(--dx) * 0.92), calc(var(--dy) * 0.92)) scale(0.7) rotate(120deg);
+  }
+  80% {
+    transform: translate(calc(var(--dx) * 0.97), calc(var(--dy) * 0.97)) scale(1.1) rotate(150deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--dx), calc(var(--dy) + 20px)) scale(0.3) rotate(180deg);
+    opacity: 0;
+  }
+}
+
+/* Paprsky světla za kartou: dvě vrstvy otáčející se proti sobě */
+.rays,
+.rays::after {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 270%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  -webkit-mask: radial-gradient(closest-side, #000 18%, transparent 70%);
+  mask: radial-gradient(closest-side, #000 18%, transparent 70%);
+  pointer-events: none;
+}
+
+.rays {
+  background: repeating-conic-gradient(from 0deg, var(--rc) 0deg 6deg, transparent 6deg 22deg);
+  filter: blur(1.5px);
+  animation:
+    rays-spin 9s linear infinite,
+    rays-fade 2.8s ease-out forwards;
+}
+
+.rays::after {
+  content: "";
+  width: 100%;
+  background: repeating-conic-gradient(from 11deg, rgb(255 255 255 / 0.55) 0deg 3deg, transparent 3deg 30deg);
+  animation: rays-spin 6s linear infinite reverse;
+}
+
+.rays--gold {
+  background: repeating-conic-gradient(from 0deg, #ffd65a 0deg 6deg, rgb(255 243 176 / 0.6) 6deg 9deg, transparent 9deg 18deg);
+}
+
+@keyframes rays-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+@keyframes rays-fade {
+  0% {
+    opacity: 0;
+    scale: 0.5;
+  }
+  12% {
+    opacity: 0.85;
+    scale: 1;
+  }
+  70% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 0;
+    scale: 1.1;
+  }
+}
+
+/* Reflektor: okolí na chvíli ztmavne (SIR a vzácnější) */
+.stage::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: radial-gradient(circle at 50% 42%, transparent 18%, rgb(0 0 0 / 0.75) 58%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s;
+}
+
+.stage--spotlight::after {
+  opacity: 1;
+}
+
+/* balík karet a nápis zůstávají nad ztmavením */
+.stage--spotlight .pile {
+  z-index: 21;
+}
+
+/* Velký nápis rarity nad kartou */
+.rarity-banner {
+  position: absolute;
+  top: 2%;
+  left: 50%;
+  z-index: 25;
+  width: max-content;
+  max-width: 92vw;
+  translate: -50% 0;
+  font-size: clamp(1.3rem, 6.5vw, 2.2rem);
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-align: center;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow:
+    0 0 10px var(--c),
+    0 0 26px var(--c),
+    0 3px 0 rgb(0 0 0 / 0.5);
+  pointer-events: none;
+  animation: banner-in 2.6s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+.rarity-banner--gold {
+  background: linear-gradient(90deg, #fff3b0, #ffd65a, #ffb800, #fff3b0);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: none;
+  filter: drop-shadow(0 0 10px rgb(255 200 60 / 0.9)) drop-shadow(0 3px 0 rgb(80 40 0 / 0.6));
+  animation:
+    banner-in 2.6s cubic-bezier(0.2, 0.8, 0.3, 1) both,
+    god-text 2s linear infinite;
+}
+
+@keyframes banner-in {
+  0% {
+    opacity: 0;
+    letter-spacing: 0.6em;
+    transform: scale(1.4);
+  }
+  18% {
+    opacity: 1;
+    letter-spacing: 0.06em;
+    transform: scale(1);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+/* Déšť zlatých hvězd přes scénu */
+.gold-rain {
+  position: absolute;
+  inset: 0;
+  z-index: 24;
+  pointer-events: none;
+}
+
+.gold-rain i {
+  position: absolute;
+  top: -20px;
+  width: var(--s);
+  height: var(--s);
+  background: #ffd65a;
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  filter: drop-shadow(0 0 5px #ffd65a);
+  animation: gold-fall var(--t) var(--d) linear both;
+}
+
+@keyframes gold-fall {
+  0% {
+    transform: translate(0, 0) rotate(0) scale(0.6);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--sway), 80vh) rotate(540deg) scale(1);
+    opacity: 0;
+  }
+}
+
+/* Otřes u zlatých karet a Black White Rare */
+.pile.is-shake {
+  animation: shake 0.55s ease-in-out;
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  15% {
+    translate: -9px 3px;
+  }
+  30% {
+    translate: 8px -3px;
+  }
+  45% {
+    translate: -6px 3px;
+  }
+  60% {
+    translate: 5px -2px;
+  }
+  80% {
+    translate: -2px 1px;
+  }
+}

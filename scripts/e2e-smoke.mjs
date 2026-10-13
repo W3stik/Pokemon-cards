@@ -1,5 +1,6 @@
 // Kouřový test celé aplikace v Chromiu (Playwright): obchod (éry) → regál → otevření
-// balíčku (3D model ve WebGL) → album → 3D detail karty → statistiky. Obrázky a API se
+// balíčku (3D model ve WebGL) → album → 3D detail karty (Esc, Zpět) → statistiky →
+// přehrání god packu ze Síně slávy (klávesnicí). Obrázky a API se
 // podvrhují, takže test běží i bez internetu a nezávisí na cizích serverech.
 // Spouští se i v CI před každým nasazením (.github/workflows/pages.yml).
 //
@@ -92,10 +93,15 @@ try {
   );
   check(pile.length > 0, `balíček obsahuje ${pile.length} karet`);
   await page.screenshot({ path: join(SHOTS, "3b-pile.png") });
-  for (let i = 0; i < 15 && !(await page.locator(".summary").count()); i++) {
+  // Vzácné karty leží rubem nahoru: první klepnutí je otočí (nabití + otočení až ~1,7 s),
+  // další je odhodí.
+  let flipped = 0;
+  for (let i = 0; i < 40 && !(await page.locator(".summary").count()); i++) {
+    if (await page.locator(".pile__item.is-current.is-facedown").count()) flipped++;
     await page.locator(".pile").click({ force: true });
-    await page.waitForTimeout(650);
+    await page.waitForTimeout(900);
   }
+  if (flipped) check(true, `vzácné karty se otočily z rubu (${flipped}×)`);
   check((await page.locator(".summary").count()) === 1, "po odhození všech karet se ukáže přehled");
   await page.screenshot({ path: join(SHOTS, "4-summary.png"), fullPage: true });
 
@@ -115,6 +121,26 @@ try {
   check((await page.locator(".viewer .card3d").count()) === 1, "3D prohlížeč jde otevřít přes celou obrazovku");
   await page.keyboard.press("Escape");
   check((await page.locator(".viewer").count()) === 0 && (await page.locator(".modal").count()) === 1, "Esc zavře jen celou obrazovku");
+  // Zpět (Android) zavře jen okno, obrazovka zůstane
+  const albumHash = await page.evaluate(() => location.hash);
+  await page.getByRole("button", { name: "⛶ Celá obrazovka" }).click();
+  await page.evaluate(() => history.back());
+  await page.waitForTimeout(400);
+  check((await page.locator(".viewer").count()) === 0 && (await page.locator(".modal").count()) === 1, "Zpět zavře celou obrazovku, detail karty zůstane");
+  await page.evaluate(() => history.back());
+  await page.waitForTimeout(400);
+  check(
+    (await page.locator(".modal").count()) === 0 && (await page.evaluate(() => location.hash)) === albumHash,
+    "Zpět zavře detail karty a album zůstane otevřené",
+  );
+  await page.locator(".album-tile").first().click();
+  await page.waitForSelector(".modal .card3d");
+  let outside = 0;
+  for (let i = 0; i < 20; i++) {
+    await page.keyboard.press("Tab");
+    if (!(await page.evaluate(() => !!document.activeElement?.closest(".modal")))) outside++;
+  }
+  check(outside === 0, "Tab zůstává uvnitř okna");
 
   // Statistiky: měřák štěstí a Síň slávy (detail karty se při přechodu sám zavře)
   await page.goto(`${url}#/stats`);
@@ -125,6 +151,47 @@ try {
   check((await page.locator("h2", { hasText: "Síň slávy" }).count()) === 1, "statistiky ukazují Síň slávy");
   check(await noHorizontalScroll(), "statistiky nepřetékají do šířky");
   await page.screenshot({ path: join(SHOTS, "6-stats.png"), fullPage: true });
+
+  // Síň slávy: god pack jde znovu „otevřít“, karty ani statistiky se nemění.
+  // (God pack padá 1:500, proto se do Síně slávy vloží otevřený balíček označený jako god.)
+  const progress = () =>
+    page.evaluate(() => {
+      const s = JSON.parse(localStorage.getItem("pokemon-packs:state:v1"));
+      return JSON.stringify([s.collection, s.opened, s.packs, s.history.length]);
+    });
+  await page.evaluate(() => {
+    const key = "pokemon-packs:state:v1";
+    const s = JSON.parse(localStorage.getItem(key));
+    s.hallOfFame.unshift({ ...s.history[0], god: true });
+    localStorage.setItem(key, JSON.stringify(s));
+  });
+  await page.reload();
+  await page.waitForSelector(".hall__replay");
+  check((await page.locator(".hall__pack").count()) === 1, "Síň slávy ukazuje god pack");
+  await page.locator(".hall__pack").first().scrollIntoViewIfNeeded();
+  await page.screenshot({ path: join(SHOTS, "6b-hall.png") });
+  const before = await progress();
+  await page.locator(".hall__replay").first().click();
+  await page.waitForSelector(".packgl canvas, .pack3d--big");
+  check((await page.getByText("Přehrávání").count()) > 0, "přehrávání god packu se otevře");
+  // značka na plátně: po „Přehrát znovu“ má zůstat stejný model (žádný nový kontext WebGL)
+  await page.locator(".packgl canvas").evaluate((c) => (c.dataset.e2e = "first"));
+  await page.waitForTimeout(500);
+  // klávesnice: Enter roztrhne balíček, Enter otáčí a odhazuje karty
+  await page.keyboard.press("Enter");
+  await page.waitForSelector(".pile");
+  await page.waitForTimeout(900);
+  for (let i = 0; i < 40 && !(await page.locator(".summary").count()); i++) {
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(700);
+  }
+  check((await page.locator(".summary").count()) === 1, "přehrávání jde projít klávesnicí až do přehledu");
+  check((await page.getByRole("button", { name: "▶ Přehrát znovu" }).count()) === 1, "přehled přehrávání nabízí Přehrát znovu");
+  check((await progress()) === before, "přehrávání nepřidalo karty ani neubralo balíčky");
+  await page.screenshot({ path: join(SHOTS, "7-replay.png"), fullPage: true });
+  await page.getByRole("button", { name: "▶ Přehrát znovu" }).click();
+  await page.waitForSelector(".packgl canvas");
+  check((await page.locator('.packgl canvas[data-e2e="first"]').count()) === 1, "další balíček použije stejný 3D model");
 
   check(errors.length === 0, `bez chyb JavaScriptu${errors.length ? `: ${errors.join(" | ")}` : ""}`);
 } finally {

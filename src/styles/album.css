@@ -1,0 +1,177 @@
+/* --- Album ---------------------------------------------------------------- */
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.stats > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.stats span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.stats strong {
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats__wide {
+  grid-column: 1 / -1;
+}
+
+.progress {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.progress__bar {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #7ee0b5, var(--accent));
+}
+
+.album-sets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 12px;
+}
+
+.album-set {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.album-set img {
+  height: 56px;
+  object-fit: contain;
+  align-self: flex-start;
+}
+
+.album-head {
+  margin-bottom: 14px;
+}
+
+.album-head__logo {
+  display: block;
+  height: 80px;
+  margin: 8px 0 14px;
+  object-fit: contain;
+}
+
+.back {
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.toolbar {
+  position: sticky;
+  /* Těsně pod horní lištu (49 px), jinak v mezeře prosvítají karty. */
+  top: calc(48px + env(safe-area-inset-top));
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 10px 0;
+  margin-bottom: 8px;
+  background: var(--bg);
+}
+
+.album-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(30%, 140px), 1fr));
+  gap: 14px 10px;
+}
+
+.album-tile {
+  animation: none;
+}
+
+.album-tile--missing .album-tile__meta {
+  opacity: 0.6;
+}
+
+.count-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  z-index: 2;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 0.8rem;
+  font-weight: 900;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.5);
+}
+
+.rarity-chip {
+  padding: 1px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--rc);
+  color: var(--rc);
+  font-weight: 800;
+  font-size: 0.7rem;
+}
+
+.variant-chip {
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.rarity-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+.card-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.card-detail__card {
+  max-width: 340px;
+  width: 100%;
+  margin: 0 auto;
+  padding-top: 14px;
+}
+
+.card-detail__info p {
+  margin: 6px 0;
+}
+
+.owned-list {
+  padding-left: 18px;
+  margin: 6px 0;
+  line-height: 1.6;
+}

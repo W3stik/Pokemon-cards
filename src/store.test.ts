@@ -90,30 +90,53 @@ describe("god packy ve statistikách", () => {
   });
 });
 
-describe("Síň slávy", () => {
+describe("Síň slávy a hromadné otevírání", () => {
   const card = (id: string, rarity: string): Card => ({
     id, name: id, number: 1, rarity, supertype: "Pokémon", subtypes: [], types: [], hp: null, artist: null, img: "", imgLarge: "",
   });
+  const god = Array.from({ length: 10 }, (_, i) => ({ card: card(`me2pt5-${200 + i}`, "Illustration Rare"), variant: "normal" as const }));
+  const normal = [{ card: card("me1-1", "Common"), variant: "normal" as const }, { card: card("me1-177", "Special Illustration Rare"), variant: "normal" as const }];
 
-  it("uloží jen dobré balíčky a natrvalo (přežijí historii i zálohu)", () => {
-    store.addPacks("me1", 40);
-    const common = { card: card("me1-1", "Common"), variant: "normal" as const };
-    const sir = { card: card("me1-177", "Special Illustration Rare"), variant: "normal" as const };
-    store.recordOpening("me1", [common, sir]);
-    for (let i = 0; i < 35; i++) store.recordOpening("me1", [common]);
+  it("ukládá natrvalo jen god packy", () => {
+    store.addPacks("me2pt5", 40);
+    store.recordOpening("me2pt5", normal);
+    store.recordOpening("me2pt5", god);
+    for (let i = 0; i < 35; i++) store.recordOpening("me2pt5", normal);
     expect(store.getState().history).toHaveLength(30);
     expect(store.getState().hallOfFame).toHaveLength(1);
-    expect(store.getState().hallOfFame[0].cards.map((c) => c.id)).toEqual(["me1-1", "me1-177"]);
+    expect(store.getState().hallOfFame[0].god).toBe(true);
     expect(store.parseBackup(store.exportState()).hallOfFame).toHaveLength(1);
   });
 
-  it("doplnění z historie nevytvoří duplikáty", () => {
-    store.addPacks("me1", 1);
-    store.recordOpening("me1", [{ card: card("me1-177", "Special Illustration Rare"), variant: "normal" }]);
-    const record = store.getState().hallOfFame[0];
-    store.addToHall([record, { ...record, at: record.at - 1000 }]);
-    expect(store.getState().hallOfFame).toHaveLength(2);
-    expect(store.getState().hallOfFame[0].at).toBeGreaterThan(store.getState().hallOfFame[1].at);
+  it("starší záznamy Síně slávy bez god packu se při načtení zahodí", () => {
+    const backup = store.parseBackup(
+      JSON.stringify({
+        version: 1,
+        collection: {},
+        hallOfFame: [
+          { setId: "me1", at: 2, cards: [{ id: "me1-177", variant: "normal" }] },
+          { setId: "me2pt5", at: 1, cards: [{ id: "me2pt5-200", variant: "normal" }], god: true },
+        ],
+      }),
+    );
+    expect(backup.hallOfFame.map((r) => r.at)).toEqual([1]);
+  });
+
+  it("Otevřít vše zapíše všechny balíčky jedním uložením se stejným výsledkem", () => {
+    store.addPacks("me1", 5);
+    const writes = { n: 0 };
+    const orig = localStorage.setItem;
+    localStorage.setItem = (k: string, v: string) => (writes.n++, orig.call(localStorage, k, v));
+    const fresh = store.recordOpenings("me1", [normal, normal, normal]);
+    localStorage.setItem = orig;
+    expect(writes.n).toBe(1);
+    expect(fresh[0].size).toBe(2);
+    expect(fresh[1].size).toBe(0);
+    expect(store.getState().packs.me1).toBe(2);
+    expect(store.getState().opened.me1).toBe(3);
+    expect(store.getState().collection["me1-177|normal"]).toBe(3);
+    // každý balíček má vlastní čas
+    expect(new Set(store.getState().history.slice(0, 3).map((r) => r.at)).size).toBe(3);
   });
 });
 

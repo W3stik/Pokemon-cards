@@ -1,0 +1,41 @@
+/* --- Telefon a omezený pohyb (musí být poslední) ------------------------------ */
+
+@media (max-width: 640px) {
+  .card-detail {
+    grid-template-columns: 1fr;
+  }
+
+  .card-detail__card {
+    max-width: 230px;
+    padding-top: 26px;
+  }
+
+  .shop-tile__pack {
+    width: 88px;
+  }
+
+  /* Na telefonu by přilepený panel filtrů zabíral čtvrtinu obrazovky: odscrolluje se
+     s albem a výběry jsou v jednom řádku. */
+  .toolbar {
+    position: static;
+  }
+
+  .toolbar .field--grow {
+    flex-basis: 100%;
+  }
+
+  .toolbar .field:not(.field--grow) {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

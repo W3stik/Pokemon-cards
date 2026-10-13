@@ -36,6 +36,15 @@ export async function loadPools(setId: string): Promise<Map<string, Card[]>> {
   return pools;
 }
 
+/**
+ * Sada, do které karta patří: přesná shoda id, jinak nejdelší sada, jejímž id karta
+ * začíná (podsady jako me55c Classic Collection → me55).
+ */
+export function setOfCard(cardId: string, sets: SetInfo[]): SetInfo | undefined {
+  const sid = setIdOfCard(cardId);
+  return sets.find((s) => s.id === sid) ?? sets.filter((s) => sid.startsWith(s.id)).sort((a, b) => b.id.length - a.id.length)[0];
+}
+
 /** Id sady, ze které karta pochází (u podsad např. me55c → me55). */
 export const setIdOfCard = (cardId: string) => cardId.slice(0, cardId.lastIndexOf("-"));
 

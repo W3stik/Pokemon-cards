@@ -5,6 +5,9 @@
 const BUILD = { version: "dev", assets: [] };
 
 const APP_CACHE = `app-${BUILD.version}`;
+// Data sad a ceny: vlastní mezipaměť nezávislá na verzi aplikace. Dřív je každá nová verze
+// stahovala znovu (~1,7 MB), i když se nezměnila; obnovují se průběžně (stale-while-revalidate).
+const DATA_CACHE = "card-data";
 // Malé obrázky (karty v mřížce, obaly v obchodě) a zvlášť velké (detail karty,
 // otevírání), které zabírají mnohem víc místa. Při nedostatku místa prohlížeč
 // maže data webu vcelku, i se sbírkou, proto mají velké obrázky malý limit.
@@ -39,11 +42,15 @@ self.addEventListener("install", (event) => {
       await cache.addAll(
         ["./", "manifest.webmanifest", "icons/icon.svg", "icons/icon-192.png", ...BUILD.assets].map(fresh),
       );
-      // Data všech sad, aby šlo otevírat balíčky i bez připojení.
+      // Data všech sad, aby šlo otevírat balíčky i bez připojení: seznam sad vždy čerstvý,
+      // soubory sad jen ty, které v mezipaměti ještě nejsou (nové sady).
+      const data = await caches.open(DATA_CACHE);
       const res = await fetch(fresh("data/sets.json"));
       const sets = await res.clone().json();
-      await cache.put(local("data/sets.json"), res);
-      await cache.addAll(sets.map((s) => fresh(`data/${s.id}.json`)));
+      await data.put(local("data/sets.json"), res);
+      const missing = [];
+      for (const set of sets) if (!(await data.match(local(`data/${set.id}.json`)))) missing.push(fresh(`data/${set.id}.json`));
+      await data.addAll(missing);
       await self.skipWaiting();
     })(),
   );
@@ -137,7 +144,7 @@ function updateCache(cache, request) {
 // Data sad a ceny: hned z mezipaměti, na pozadí se obnoví pro příští načtení.
 // Dřív se při každém otevření sady čekalo na síť, na pomalém mobilním připojení i několik sekund.
 async function staleWhileRevalidate(event) {
-  const cache = await caches.open(APP_CACHE);
+  const cache = await caches.open(DATA_CACHE);
   const hit = await cache.match(event.request);
   const update = updateCache(cache, event.request);
   if (!hit) return update;

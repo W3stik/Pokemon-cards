@@ -1,8 +1,7 @@
 // Statistiky: měřák štěstí (kolik vzácných karet padlo proti očekávání podle šancí)
 // a Síň slávy (natrvalo uložené balíčky s opravdu dobrými kartami).
-import { loadCards, loadSets, setIdOfCard } from "../data";
-import { expectedPerPack, packProfile, rarityInfo, VARIANT_LABEL } from "../odds";
-import { isHallWorthy } from "../pack";
+import { loadCards, loadSets, setIdOfCard, setOfCard } from "../data";
+import { expectedPerPack, packProfile, rarityInfo } from "../odds";
 import { addPrice, formatTotal, loadSetPrices, type PriceTotal, variantPrice } from "../prices";
 import { addToHall, getState, type PullRecord } from "../store";
 import type { Card, SetInfo, Variant } from "../types";
@@ -23,12 +22,6 @@ async function cardsById(setIds: string[]): Promise<Map<string, Card>> {
   for (const cards of await Promise.all(setIds.map((id) => loadCards(id)))) for (const c of cards) map.set(c.id, c);
   return map;
 }
-
-/** Sada, ze které karta je (podsady jako me55c patří do me55). */
-const parentSet = (cardId: string, sets: SetInfo[]) => {
-  const sid = setIdOfCard(cardId);
-  return sets.find((s) => s.id === sid) ?? sets.filter((s) => sid.startsWith(s.id)).sort((a, b) => b.id.length - a.id.length)[0];
-};
 
 // --- Měřák štěstí -------------------------------------------------------------
 
@@ -51,7 +44,7 @@ function luckRows(sets: SetInfo[], cards: Map<string, Card>, setFilter: string):
     const packs = opened[set.id] ?? 0;
     if (!packs) continue;
     const pool = new Map<string, number>();
-    for (const c of cards.values()) if (parentSet(c.id, sets)?.id === set.id) pool.set(c.rarity, (pool.get(c.rarity) ?? 0) + 1);
+    for (const c of cards.values()) if (setOfCard(c.id, sets)?.id === set.id) pool.set(c.rarity, (pool.get(c.rarity) ?? 0) + 1);
     for (const [rarity, perPack] of expectedPerPack(packProfile(set.id), pool)) {
       if (rarityInfo(rarity).rank >= LUCK_MIN_RANK) row(rarity).expected += perPack * packs;
     }
@@ -60,7 +53,7 @@ function luckRows(sets: SetInfo[], cards: Map<string, Card>, setFilter: string):
   for (const [key, n] of Object.entries(collection)) {
     const card = cards.get(key.slice(0, key.lastIndexOf("|")));
     if (!card || rarityInfo(card.rarity).rank < LUCK_MIN_RANK) continue;
-    if (setFilter && parentSet(card.id, sets)?.id !== setFilter) continue;
+    if (setFilter && setOfCard(card.id, sets)?.id !== setFilter) continue;
     row(card.rarity).actual += n;
   }
   return [...rows.values()]
@@ -160,58 +153,52 @@ function hallSection(sets: SetInfo[], cards: Map<string, Card>): HTMLElement {
     h("option", { value: "new" }, "Nejnovější"),
     h("option", { value: "value" }, "Nejcennější"),
   );
-  const more = h("button", { class: "btn btn--ghost" }, "Zobrazit další");
   let prices: Awaited<ReturnType<typeof loadSetPrices>> = {};
-  let shown = 20;
 
   const pulled = (r: PullRecord) =>
-    r.cards.flatMap((ref) => {
-      const card = cards.get(ref.id);
-      return card ? [{ card, variant: ref.variant as Variant }] : [];
-    });
+    r.cards
+      .flatMap((ref) => {
+        const card = cards.get(ref.id);
+        return card ? [{ card, variant: ref.variant as Variant }] : [];
+      })
+      .sort((a, b) => rarityInfo(b.card.rarity).rank - rarityInfo(a.card.rarity).rank);
   const valueOf = (r: PullRecord) => {
     const t: PriceTotal = {};
     for (const ref of r.cards) addPrice(t, variantPrice(prices[ref.id], ref.variant));
     return t;
   };
+  const amount = (t: PriceTotal) => t.eur ?? t.usd ?? 0;
 
   const render = () => {
     const entries = [...hall];
-    if (sort.value === "value") entries.sort((a, b) => (valueOf(b).eur ?? valueOf(b).usd ?? 0) - (valueOf(a).eur ?? valueOf(a).usd ?? 0));
+    if (sort.value === "value") entries.sort((a, b) => amount(valueOf(b)) - amount(valueOf(a)));
     list.replaceChildren(
-      ...entries.slice(0, shown).map((r) => {
+      ...entries.map((r) => {
         const set = sets.find((s) => s.id === r.setId);
-        const hits = pulled(r)
-          .filter((p) => rarityInfo(p.card.rarity).rank >= 6)
-          .sort((a, b) => rarityInfo(b.card.rarity).rank - rarityInfo(a.card.rarity).rank);
         return h(
           "article",
-          { class: `hall__pack${r.god ? " hall__pack--god" : ""}` },
+          { class: "hall__pack hall__pack--god" },
           h(
             "div",
             { class: "hall__head" },
             h("strong", null, set?.name ?? r.setId),
-            r.god ? h("span", { class: "badge hall__god" }, "GOD PACK") : null,
+            h("span", { class: "badge hall__god" }, "GOD PACK"),
             h("span", { class: "muted small" }, dateFmt.format(r.at)),
             h("span", { class: "hall__value" }, Object.keys(prices).length ? formatTotal(valueOf(r)) : ""),
           ),
           h(
             "div",
             { class: "hall__cards" },
-            ...hits.map((p) =>
+            ...pulled(r).map((p) =>
               h(
                 "button",
                 { class: "hall__card", onclick: () => set && openCardModal(p.card, set), title: `${p.card.name} – ${p.card.rarity}` },
                 cardEl(p.card, p.variant),
-                h(
-                  "span",
-                  { class: "rarity-chip", style: `--rc: ${rarityInfo(p.card.rarity).color}` },
-                  rarityInfo(p.card.rarity).short,
-                ),
-                p.variant !== "normal" ? h("span", { class: "muted small" }, VARIANT_LABEL[p.variant]) : null,
+                h("span", { class: "rarity-chip", style: `--rc: ${rarityInfo(p.card.rarity).color}` }, rarityInfo(p.card.rarity).short),
               ),
             ),
           ),
+          h("a", { class: "btn btn--primary hall__replay", href: `#/replay/${r.at}` }, "▶ Otevřít znovu"),
         );
       }),
     );
@@ -220,17 +207,12 @@ function hallSection(sets: SetInfo[], cards: Map<string, Card>): HTMLElement {
         h(
           "p",
           { class: "muted" },
-          "Zatím tu nic není. Sem se natrvalo uloží každý balíček s Ultra Rare, full artem, alt artem, SIR, zlatou kartou nebo god pack.",
+          "Zatím žádný god pack. Padá v Ascended Heroes zhruba jednou za 500 balíčků; každý se tu uloží natrvalo a půjde kdykoli znovu otevřít.",
         ),
       );
     }
-    more.classList.toggle("hidden", entries.length <= shown);
   };
   sort.addEventListener("change", render);
-  more.addEventListener("click", () => {
-    shown += 20;
-    render();
-  });
   render();
   if (hall.length) {
     loadSetPrices([...new Set(hall.flatMap((r) => r.cards.map((c) => setIdOfCard(c.id))))]).then((p) => {
@@ -246,11 +228,14 @@ function hallSection(sets: SetInfo[], cards: Map<string, Card>): HTMLElement {
       "div",
       { class: "row luck__head" },
       h("h2", null, "Síň slávy", h("span", { class: "muted" }, ` · ${hall.length}`)),
-      h("label", { class: "field" }, sort),
+      hall.length > 1 ? h("label", { class: "field" }, sort) : null,
     ),
-    h("p", { class: "muted small" }, "Balíčky, ve kterých padla Ultra Rare / full art nebo vzácnější karta, a god packy. Ukládají se natrvalo (i do zálohy)."),
+    h(
+      "p",
+      { class: "muted small" },
+      "Tvoje god packy, uložené natrvalo (i v záloze). Každý můžeš znovu otevřít – projde celé roztržení a odhalení, jen se karty do sbírky už nepřidají.",
+    ),
     list,
-    more,
   );
 }
 
@@ -263,13 +248,8 @@ export async function renderStats(root: HTMLElement) {
   const setIds = sets.filter((s) => needed.has(s.id)).map((s) => s.id);
   const cards = await cardsById(setIds);
 
-  // Balíčky z historie z doby před Síní slávy se do ní doplní.
-  addToHall(
-    state.history.filter((r) => {
-      const pulled = r.cards.flatMap((ref) => (cards.get(ref.id) ? [{ card: cards.get(ref.id)! }] : []));
-      return pulled.length === r.cards.length && isHallWorthy(pulled);
-    }),
-  );
+  // God packy z historie, otevřené dřív, než vznikla Síň slávy, se do ní doplní.
+  addToHall(state.history.filter((r) => r.god));
 
   root.append(
     h(

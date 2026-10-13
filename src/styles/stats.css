@@ -1,0 +1,133 @@
+/* --- Statistiky: měřák štěstí a Síň slávy ------------------------------------ */
+
+.luck__head {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.luck__verdict {
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-weight: 700;
+  background: var(--surface-2);
+}
+
+.luck__verdict--good {
+  background: rgb(60 200 120 / 0.18);
+  color: #8ef0b4;
+}
+
+.luck__verdict--bad {
+  background: rgb(255 93 93 / 0.15);
+  color: #ffa3a3;
+}
+
+.luck__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.luck__table th,
+.luck__table td {
+  padding: 6px 4px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.luck__table td:nth-child(2),
+.luck__table td:nth-child(3) {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.luck__table td:last-child {
+  width: 30%;
+}
+
+/* pruh: střed (50 %) = přesně podle šancí */
+.luck__bar {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.luck__bar::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--muted);
+}
+
+.luck__bar i {
+  display: block;
+  height: 100%;
+  background: var(--muted);
+}
+
+.luck__bar--good i {
+  background: #5fd38f;
+}
+
+.luck__bar--bad i {
+  background: #ff7b7b;
+}
+
+.hall {
+  display: grid;
+  gap: 12px;
+}
+
+.hall__pack {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.hall__pack--god {
+  border-color: #ffd65a;
+  box-shadow: 0 0 18px rgb(255 214 90 / 0.25);
+}
+
+.hall__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.hall__god {
+  background: linear-gradient(90deg, #ffd65a, #ff8ce6);
+  color: #1a1206;
+}
+
+.hall__value {
+  margin-left: auto;
+  font-weight: 700;
+}
+
+.hall__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 10px;
+}
+
+.hall__card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}

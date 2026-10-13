@@ -21,8 +21,11 @@ a karty Pokémon TCG, šance na tah podle reálných měření a tržní ceny ka
 - **Otevírání ve 3D**: balíček má přední a zadní stranu i boky, pohupuje se a naklání podle prstu, myši
   nebo náklonu telefonu; tažením ho jde otočit. Roztrhneš ho tažením přes horní okraj (nebo klepnutím),
   horní pruh odletí a karty vyjedou z balíčku jako 3D balík lícem nahoru. Kartu odhodíš klepnutím nebo
-  tažením do strany. Když se objeví vzácná karta, rozzáří se barvou rarity a vybuchne částicemi,
-  u SIR a zlatých karet navíc problikne obrazovka. Jde i otevřít bez animace nebo všechny balíčky naráz.
+  tažením do strany. Vzácné karty leží rubem nahoru a září barvou rarity; klepnutím se nabijí, otočí
+  a vybuchnou efekty, které sílí s raritou (tlaková vlna, hvězdičky, paprsky, u SIR ztmavení a nápis,
+  u zlatých karet zlatý déšť a otřes). Jde i otevřít bez animace nebo všechny balíčky naráz.
+  Na počítači jde všechno i klávesnicí: Enter / mezerník roztrhne balíček a otočí nebo odhodí kartu,
+  šipky ji odhodí do strany.
 - **Holo efekty**: lesk podle rarity (holo, duhový, zlatý, Black White) a reverse holo včetně vzorů
   Poké Ball / Master Ball. Reaguje na myš, prst i náklon telefonu.
 - **Album**: přehled všech sad s procentem kompletnosti. Album sady zobrazuje všechny karty
@@ -34,6 +37,8 @@ a karty Pokémon TCG, šance na tah podle reálných měření a tržní ceny ka
   Dlaždice v albu se naklánějí pod kurzorem.
 - **Detail karty**: 3D náhled s holo efektem, počty podle provedení a duplikáty, datum prvního získání
   a ceny z Cardmarket (EUR) a TCGplayer (USD) s odkazy.
+- **Statistiky a Síň slávy**: měřák štěstí (kolik vzácných karet ti padlo proti očekávání) a natrvalo
+  uložené god packy, které jde kdykoli znovu „otevřít“ – celé roztržení i odhalení, jen bez nových karet.
 - **Hodnota sbírky** podle aktuálních cen, **záloha** sbírky do souboru a obnovení na jiném zařízení.
 - Funguje **offline**: data sad jsou součástí aplikace, obrázky karet se po prvním zobrazení ukládají.
 
@@ -69,7 +74,7 @@ Adresa bude https://w3stik.github.io/Pokemon-cards/.
 | Obrázky karet | CDN Pokémon TCG API / Scrydex | načítají se za běhu |
 | Fotky obalů | CDN TCGplayer (ID produktů „Booster Pack“ v `src/ui/pack.ts`, z exportu katalogu na [tcgcsv.com](https://tcgcsv.com)) | načítají se za běhu |
 | Rub karty | tcg.pokemon.com | načítá se za běhu |
-| Ceny | [TCGdex](https://tcgdex.dev) (Cardmarket + TCGplayer) přibalené při buildu (`npm run prices`, CI denně); chybějící sady živě z [Pokémon TCG API](https://pokemontcg.io), v detailu karty živě z TCGdex | build + za běhu (12 h cache) |
+| Ceny | [TCGdex](https://tcgdex.dev) (Cardmarket + TCGplayer) přibalené při buildu (`npm run prices`, CI denně); v detailu karty živě z TCGdex | build + detail karty |
 | Šance na tah | TCGplayer Authentication Center a komunitní statistiky, viz `src/odds.ts` | ručně |
 
 `npm run data` stáhne všechny booster sady ér v `SERIES` a vybrané starší sady z `EXTRA_SETS` (`scripts/fetch-data.mjs`). Podsada
@@ -96,7 +101,7 @@ s malým vzorkem (Black White Rare, Chaos Rising) jsou to odhady, poznámka u sa
 ├── src/pack.ts         generátor balíčků (+ pack.test.ts)
 ├── src/store.ts        sbírka a neotevřené balíčky v localStorage
 ├── src/storage.ts      trvalé úložiště a připomínka zálohy
-├── src/prices.ts       ceny z TCGdex / Pokémon TCG API
+├── src/prices.ts       ceny z TCGdex
 └── src/views/          obchod, regál, otevírání, album, detail karty, nastavení
 ```
 

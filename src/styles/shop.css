@@ -1,0 +1,211 @@
+/* --- Obchod a inventář: éry, dlaždice, náhled balíčku, ceny a šance ---------- */
+
+/* --- Éry (rozbalovací sekce sad) --------------------------------------------- */
+
+.era {
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+}
+
+.era__summary {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 14px 16px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.era__summary::-webkit-details-marker {
+  display: none;
+}
+
+.era__summary::before {
+  content: "▸";
+  color: var(--muted);
+  transition: rotate 0.2s;
+}
+
+.era[open] > .era__summary::before {
+  rotate: 90deg;
+}
+
+.era__title {
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.era__meta {
+  margin-left: auto;
+  font-size: 0.85rem;
+  text-align: right;
+}
+
+.era__body {
+  padding: 0 12px 14px;
+}
+
+.era-heading {
+  margin: 22px 0 12px;
+  font-size: 1.15rem;
+}
+
+.era-heading:first-of-type {
+  margin-top: 8px;
+}
+
+.shop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 480px), 1fr));
+  gap: 14px;
+}
+
+.shop-tile {
+  display: flex;
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+/* Lehký náhled balíčku (obchod, inventář) */
+.packthumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: var(--ratio, 0.55);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 10px 22px rgb(0 0 0 / 0.45);
+  transition: transform 0.3s ease-out;
+}
+
+.packthumb.is-tilting {
+  transform: perspective(700px) rotateX(var(--rx)) rotateY(var(--ry)) scale(1.03);
+}
+
+.packthumb__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.packthumb__fallback {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  padding: 12%;
+  background: linear-gradient(160deg, var(--c1), var(--c2));
+}
+
+.packthumb__fallback img {
+  width: 100%;
+}
+
+/* lesk fólie, posouvá se s kurzorem */
+.packthumb__glare {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at var(--mx, 50%) var(--my, 30%), rgb(255 255 255 / 0.45), transparent 50%),
+    linear-gradient(115deg, transparent 35%, rgb(255 255 255 / 0.12) 48%, transparent 60%);
+  mix-blend-mode: overlay;
+  opacity: calc(0.35 + var(--o, 0) * 0.65);
+  pointer-events: none;
+}
+
+.shop-tile__pack {
+  flex: 0 0 auto;
+  width: 112px;
+}
+
+.shop-tile__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.shop-tile__body p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.shop-tile__buy {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.shop-tile__buy .btn {
+  padding: 6px 4px;
+  font-size: 0.85rem;
+}
+
+.shop-tile__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.shop-tile__footer .btn {
+  min-height: 38px;
+  padding: 6px 12px;
+}
+
+.odds__table,
+.prices {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.odds__table th,
+.odds__table td,
+.prices th,
+.prices td {
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.odds__table td:nth-child(n + 2),
+.odds__table th:nth-child(n + 2),
+.prices td {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.odds__table td:nth-child(n + 2) {
+  white-space: nowrap;
+}
+
+.prices th {
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.odds__slots {
+  padding-left: 22px;
+  line-height: 1.6;
+}
+
+.odds__note {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: 0.88rem;
+}
+
+.odds__sources ul {
+  padding-left: 18px;
+  line-height: 1.7;
+  font-size: 0.9rem;
+}

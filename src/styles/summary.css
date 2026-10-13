@@ -1,0 +1,194 @@
+/* --- God pack a přehled po otevření (záblesk, karty, inventář) --------------- */
+
+/* Karty god packu září zlatě (stín, ne filter – ten by 3D balík karet rozbil). */
+.pile--god .pcard__inner {
+  animation: god-glow 1.4s ease-in-out infinite alternate;
+}
+
+@keyframes god-glow {
+  from {
+    box-shadow:
+      0 0 14px 2px rgb(255 214 90 / 0.65),
+      0 6px 16px rgb(0 0 0 / 0.45);
+  }
+  to {
+    box-shadow:
+      0 0 30px 8px rgb(255 140 230 / 0.75),
+      0 6px 16px rgb(0 0 0 / 0.45);
+  }
+}
+
+.god-banner {
+  position: absolute;
+  top: 38%;
+  left: 50%;
+  z-index: 30;
+  transform: translate(-50%, -50%);
+  font-size: clamp(2.2rem, 11vw, 4rem);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  color: #fff6c9;
+  text-shadow:
+    0 0 12px rgb(255 200 60 / 0.9),
+    0 0 32px rgb(255 120 220 / 0.8),
+    0 4px 0 rgb(120 60 0 / 0.6);
+  pointer-events: none;
+  animation: god-banner 2.6s ease-out forwards;
+}
+
+@keyframes god-banner {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.4) rotate(-8deg);
+  }
+  18% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.12) rotate(2deg);
+  }
+  30%,
+  75% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -60%) scale(1.05);
+  }
+}
+
+.summary--god .summary__head h2,
+.summary__god {
+  background: linear-gradient(90deg, #ffd65a, #ff8ce6, #7fd8ff, #ffd65a);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: god-text 4s linear infinite;
+}
+
+.summary--god .summary__head h2 {
+  font-size: 1.9rem;
+  font-weight: 900;
+}
+
+.summary__god {
+  margin: 0;
+  font-weight: 800;
+  font-size: 1.1rem;
+}
+
+@keyframes god-text {
+  to {
+    background-position: 300% 0;
+  }
+}
+
+.flash {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: #fff;
+  pointer-events: none;
+  animation: flash 0.6s ease-out forwards;
+}
+
+/* záblesk v barvě rarity: bílý střed, barevný okraj */
+.flash--tinted {
+  background: radial-gradient(circle at 50% 42%, #fff 0%, color-mix(in srgb, var(--c) 70%, white) 30%, color-mix(in srgb, var(--c) 40%, transparent) 75%);
+  animation-duration: 0.75s;
+}
+
+@keyframes flash {
+  from {
+    opacity: 0.85;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.summary {
+  width: 100%;
+}
+
+.summary__head p {
+  margin: 4px 0;
+}
+
+.summary__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(30%, 150px), 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.summary__item,
+.album-tile {
+  position: relative;
+  /* Karty mimo obrazovku se nevykreslují (velké sady mají stovky karet). */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 240px;
+  /* content-visibility ořezává obsah na dlaždici; stín a naklonění karty smí přesahovat */
+  overflow-clip-margin: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  animation: deal 0.35s ease-out backwards;
+}
+
+.summary__item:nth-child(2) { animation-delay: 0.04s; }
+.summary__item:nth-child(3) { animation-delay: 0.08s; }
+.summary__item:nth-child(4) { animation-delay: 0.12s; }
+.summary__item:nth-child(5) { animation-delay: 0.16s; }
+.summary__item:nth-child(6) { animation-delay: 0.2s; }
+.summary__item:nth-child(7) { animation-delay: 0.24s; }
+.summary__item:nth-child(8) { animation-delay: 0.28s; }
+.summary__item:nth-child(9) { animation-delay: 0.32s; }
+.summary__item:nth-child(10) { animation-delay: 0.36s; }
+
+@keyframes deal {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+}
+
+.summary__meta,
+.album-tile__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+}
+
+.summary__price,
+.album-tile__price {
+  margin-left: auto;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.inventory {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 18px;
+}
+
+.inventory__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  text-decoration: none;
+  text-align: center;
+}

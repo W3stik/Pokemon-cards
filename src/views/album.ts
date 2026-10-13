@@ -1,4 +1,4 @@
-import { cardNumber, loadCards, loadSets, setIdOfCard } from "../data";
+import { cardNumber, loadCards, loadSets, setIdOfCard, setOfCard } from "../data";
 import { RARITIES, rarityInfo } from "../odds";
 import { addPrice, type CardPrice, formatEur, formatTotal, formatUsd, loadSetPrices, type PriceTotal, sortValue, variantPrice } from "../prices";
 import { countsFor, getState } from "../store";
@@ -90,12 +90,6 @@ interface SetSummary {
   total: number;
 }
 
-/** Sada, do které karta patří (podsady jako me55c → me55 podle nejdelší shody id). */
-function ownerOf(cardId: string, sets: SetInfo[]): SetInfo | undefined {
-  const sid = setIdOfCard(cardId);
-  return sets.find((s) => s.id === sid) ?? sets.filter((s) => sid.startsWith(s.id)).sort((a, b) => b.id.length - a.id.length)[0];
-}
-
 function summarize(sets: SetInfo[]) {
   const copiesById = new Map<string, number>();
   const entries: { id: string; variant: Variant; n: number }[] = [];
@@ -109,7 +103,7 @@ function summarize(sets: SetInfo[]) {
     sets.map((set) => [set.id, { set, unique: 0, dupeCards: 0, extra: 0, copies: 0, total: set.total }]),
   );
   for (const [id, copies] of copiesById) {
-    const owner = ownerOf(id, sets);
+    const owner = setOfCard(id, sets);
     const sum = owner && perSet.get(owner.id);
     if (!sum) continue;
     sum.unique++;
@@ -264,6 +258,7 @@ async function renderSetAlbum(root: HTMLElement, setId: string) {
   const st = stats(owned);
   const prefs = loadPrefs();
   let query = "";
+  let searchTimer: ReturnType<typeof setTimeout> | undefined;
   let prices: Record<string, CardPrice> = {};
 
   const valueEl = h("strong", null, "…");
@@ -321,9 +316,11 @@ async function renderSetAlbum(root: HTMLElement, setId: string) {
         h("input", {
           type: "search",
           placeholder: "Jméno nebo číslo",
+          // Překreslení stovek karet až po krátké pauze v psaní, ne po každém písmenu.
           oninput: (e: Event) => {
             query = (e.target as HTMLInputElement).value;
-            render();
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(render, 160);
           },
         }),
       ),

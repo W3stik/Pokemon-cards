@@ -1,0 +1,468 @@
+/* --- Balíček (3D) --------------------------------------------------------- */
+
+.pack3d {
+  --depth: 4px;
+  --ratio: 0.55;
+  --spin: 0deg;
+  position: relative;
+  width: 100%;
+  aspect-ratio: var(--ratio);
+  perspective: 900px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.pack3d__tilt {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform: rotateX(calc(var(--rx, 0deg) * 1.3)) rotateY(calc(var(--ry, 0deg) * 1.6 + var(--spin)));
+  /* bez pružného dokmitu: náklon z gyroskopu přichází pořád a dokmit by se neustále
+     restartoval, balíček se pak klepal */
+  transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+/* Při točení prstem jen otáčení, bez náklonu podle polohy prstu (to se k otáčení
+   přimíchávalo a balíček se kýval). Krátký přechod jen uhladí chycení balíčku. */
+.pack3d.is-dragging .pack3d__tilt {
+  transform: rotateY(var(--spin));
+  transition: transform 0.08s linear;
+}
+
+
+.pack3d__body {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+
+.pack3d--idle .pack3d__body {
+  animation: pack-sway 5s var(--sway-delay, 0s) ease-in-out infinite;
+}
+
+.pack3d.is-dragging .pack3d__body {
+  animation-play-state: paused;
+}
+
+@keyframes pack-sway {
+  0%,
+  100% {
+    transform: translateY(0) rotateY(-14deg) rotateX(4deg);
+  }
+  50% {
+    transform: translateY(-10px) rotateY(14deg) rotateX(-3deg);
+  }
+}
+
+/* Odtrhávací pruh a zbytek obalu: obě části pokrývají celý balíček, každá
+   ukazuje jen svůj výřez (clip-path), takže se při roztržení oddělí. */
+.pack3d__piece {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+
+.pack3d__face {
+  position: absolute;
+  inset: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  backface-visibility: hidden;
+  background:
+    var(--art, none) center / 100% 100% no-repeat,
+    radial-gradient(120% 60% at 50% 20%, rgb(255 255 255 / 0.18), transparent 60%),
+    linear-gradient(160deg, var(--c1), var(--c2));
+}
+
+.pack3d__face--front {
+  transform: translateZ(calc(var(--depth) / 2));
+  /* obal je vyboulený: k bočním hranám lehce tmavne */
+  box-shadow:
+    inset 10px 0 12px -8px rgb(0 0 0 / 0.38),
+    inset -10px 0 12px -8px rgb(0 0 0 / 0.38);
+}
+
+.pack3d__face--back {
+  transform: rotateY(180deg) translateZ(calc(var(--depth) / 2));
+  /* vlastní potisk rubu: zatavené okraje nahoře a dole, lesk fólie, barvy sady */
+  background:
+    repeating-linear-gradient(90deg, rgb(255 255 255 / 0.22) 0 2px, rgb(0 0 0 / 0.25) 2px 4px) top / 100% 9% no-repeat,
+    repeating-linear-gradient(90deg, rgb(255 255 255 / 0.22) 0 2px, rgb(0 0 0 / 0.25) 2px 4px) bottom / 100% 5% no-repeat,
+    radial-gradient(90% 50% at 50% 42%, rgb(255 255 255 / 0.16), transparent 70%),
+    linear-gradient(200deg, var(--c1), var(--c2));
+}
+
+.pack3d__backdesign {
+  position: absolute;
+  inset: 0;
+  /* potisk je nad lepeným švem */
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6%;
+  padding: 16% 12% 12%;
+}
+
+.pack3d__backlogo {
+  width: 78%;
+  max-height: 30%;
+  object-fit: contain;
+  opacity: 0.92;
+  filter: drop-shadow(0 2px 6px rgb(0 0 0 / 0.5));
+}
+
+.pack3d__backlabel {
+  font-size: 0.55em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+  color: rgb(255 255 255 / 0.75);
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.6);
+}
+
+.pack3d__face--back::after {
+  /* zadní strana: svislý lepený šev uprostřed */
+  z-index: 1;
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 44%;
+  width: 12%;
+  background: linear-gradient(90deg, rgb(0 0 0 / 0.35), rgb(255 255 255 / 0.15), rgb(0 0 0 / 0.35));
+}
+
+.pack3d__piece--top .pack3d__face {
+  /* lehký přesah přes hranu řezu, aby mezi díly nebyla vlasová spára */
+  clip-path: inset(0 0 90.6% 0);
+}
+
+/* Pruh leží o kousek před zbytkem obalu: ve stejné rovině by se překryv
+   při otáčení přeblikával (prohlížeč neví, který díl kreslit navrch). */
+.pack3d__piece--top .pack3d__face--front {
+  transform: translateZ(calc(var(--depth) / 2 + 0.5px));
+}
+
+.pack3d__piece--top .pack3d__face--back {
+  transform: rotateY(180deg) translateZ(calc(var(--depth) / 2 + 0.5px));
+}
+
+.pack3d__piece--main .pack3d__face {
+  clip-path: inset(9% 0 0 0);
+}
+
+/* Lesk fólie: posouvá se podle náklonu. */
+.pack3d__face--front::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    rgb(255 255 255 / 0.35) 45%,
+    rgb(255 255 255 / 0.08) 52%,
+    transparent 65%
+  );
+  background-size: 250% 250%;
+  background-position: calc(100% - var(--mx, 50%)) 50%;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+.pack3d--idle .pack3d__face--front::after {
+  animation: foil-sweep 5s var(--sway-delay, 0s) ease-in-out infinite;
+}
+
+/* Tajný náznak vzácné karty: drobná jiskřička se září, která občas problikne. */
+.pack3d__twinkle {
+  position: absolute;
+  width: 12%;
+  aspect-ratio: 1;
+  margin: -6% 0 0 -6%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(255 255 255 / 0.75), rgb(255 255 255 / 0) 65%);
+  opacity: 0;
+  pointer-events: none;
+  animation-name: twinkle;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+  z-index: 2;
+}
+
+.pack3d__twinkle::after {
+  content: "";
+  position: absolute;
+  inset: 8%;
+  clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%);
+  background: #fff;
+}
+
+.pack3d__twinkle--2 {
+  background: radial-gradient(circle, rgb(255 217 90 / 0.85), rgb(255 217 90 / 0) 65%);
+}
+
+.pack3d__twinkle--2::after {
+  background: radial-gradient(circle, #fff 25%, #ffd95a 70%);
+}
+
+.pack3d__twinkle--3 {
+  width: 15%;
+  margin: -7.5% 0 0 -7.5%;
+  background: radial-gradient(circle, rgb(255 122 217 / 0.8), rgb(85 193 242 / 0.4) 45%, transparent 68%);
+}
+
+.pack3d__twinkle--3::after {
+  background: conic-gradient(#ff7ad9, #ffd84a, #7ee0b5, #55c1f2, #c48af0, #ff7ad9);
+}
+
+@keyframes twinkle {
+  0%,
+  86% {
+    opacity: 0;
+    transform: scale(0.2) rotate(0deg);
+  }
+  91% {
+    opacity: 1;
+    transform: scale(1) rotate(45deg);
+  }
+  97%,
+  100% {
+    opacity: 0;
+    transform: scale(0.3) rotate(90deg);
+  }
+}
+
+@keyframes foil-sweep {
+  0%,
+  100% {
+    background-position: 100% 50%;
+  }
+  50% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Boky: barva z okraje fotky (úzký proužek roztažený přes hloubku), ztmavená
+   jako ve stínu. K zatavenému horu a spodku se zužují do ztracena jako u
+   skutečného „polštářkového“ obalu. */
+.pack3d__side {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: var(--depth);
+  /* Ztmavení vrstvou, ne filtrem: filter na 3D prvku nutí Chrome překreslovat
+     a boky při otáčení problikávaly. */
+  background:
+    linear-gradient(rgb(0 0 0 / 0.45), rgb(0 0 0 / 0.45)),
+    var(--art, none) 0 0 / 4000% 100% no-repeat,
+    linear-gradient(180deg, var(--c2), var(--c1));
+  /* zbytek obalu: od řezu po zatavený spodek */
+  clip-path: inset(9.4% 0 1.5% 0 round 999px);
+}
+
+/* boky pruhu: od zataveného vršku po řez */
+.pack3d__piece--top .pack3d__side {
+  clip-path: inset(1.5% 0 90.6% 0 round 999px);
+}
+
+.pack3d__side--right {
+  background-position:
+    0 0,
+    100% 0,
+    0 0;
+}
+
+.pack3d__side--left {
+  left: 0;
+  transform: translateX(calc(var(--depth) / -2)) rotateY(-90deg);
+}
+
+.pack3d__side--right {
+  right: 0;
+  transform: translateX(calc(var(--depth) / 2)) rotateY(90deg);
+}
+
+.pack3d__fallback {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8%;
+  padding: 14% 8%;
+}
+
+.pack3d--noart .pack3d__fallback {
+  display: flex;
+}
+
+.pack3d--noart .pack3d__face {
+  background:
+    repeating-linear-gradient(90deg, rgb(255 255 255 / 0.3) 0 2px, rgb(0 0 0 / 0.25) 2px 4px) top / 100% 9% no-repeat,
+    repeating-linear-gradient(90deg, rgb(255 255 255 / 0.3) 0 2px, rgb(0 0 0 / 0.25) 2px 4px) bottom / 100% 6% no-repeat,
+    radial-gradient(120% 60% at 50% 20%, rgb(255 255 255 / 0.18), transparent 60%),
+    linear-gradient(160deg, var(--c1), var(--c2));
+}
+
+.pack3d__shadow {
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  bottom: -9%;
+  height: 7%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(0 0 0 / 0.55), transparent);
+  pointer-events: none;
+}
+
+.pack3d--idle .pack3d__shadow {
+  animation: shadow-sway 5s var(--sway-delay, 0s) ease-in-out infinite;
+}
+
+@keyframes shadow-sway {
+  50% {
+    transform: scale(0.85);
+    opacity: 0.7;
+  }
+}
+
+.pack__series {
+  font-size: 0.6em;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 0.85);
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.6);
+  text-align: center;
+}
+
+.pack__logo {
+  width: 100%;
+  max-height: 45%;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 6px rgb(0 0 0 / 0.5));
+}
+
+.pack__label {
+  font-size: 0.55em;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.45);
+  color: #fff;
+  white-space: nowrap;
+}
+
+.pack-wrap {
+  display: grid;
+  place-items: center;
+  padding: 16px 0 24px;
+}
+
+/* 3D model balíčku (WebGL) při otevírání */
+.packgl {
+  position: relative;
+  width: min(76vw, 330px);
+  aspect-ratio: 0.62;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.packgl.is-dragging {
+  cursor: grabbing;
+}
+
+.packgl__canvas {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.packgl__shadow {
+  position: absolute;
+  left: 22%;
+  right: 22%;
+  bottom: 2%;
+  height: 6%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(0 0 0 / 0.55), transparent);
+}
+
+.pack3d--big {
+  /* tenčí obal: z boku méně viditelná mezera mezi přední a zadní stranou */
+  --depth: 6px;
+  width: min(60vw, 270px);
+  font-size: 18px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.pack3d--big.is-dragging {
+  cursor: grabbing;
+}
+
+/* Řez při tažení prstem přes horní pruh */
+.pack3d__cut {
+  position: absolute;
+  top: 9%;
+  left: 0;
+  width: calc(var(--cut, 0) * 100%);
+  height: 3px;
+  margin-top: -1px;
+  background: #fff;
+  box-shadow: 0 0 12px 3px #fff;
+  border-radius: 2px;
+  transform: translateZ(calc(var(--depth) / 2 + 1px));
+  /* bez tahu prstem není řez vidět ani jako svítící tečka */
+  opacity: min(1, calc(var(--cut, 0) * 25));
+  pointer-events: none;
+}
+
+.pack3d--torn .pack3d__cut {
+  display: none;
+}
+
+.pack3d--torn .pack3d__piece--top {
+  animation: tear-top-3d 0.75s cubic-bezier(0.3, 0.1, 0.6, 1) forwards;
+}
+
+.pack3d--torn .pack3d__piece--main {
+  animation: pack-drop-3d 0.9s 0.4s cubic-bezier(0.5, 0, 0.8, 0.6) forwards;
+}
+
+.pack3d--torn .pack3d__shadow {
+  animation: fade-out 0.6s 0.4s forwards;
+}
+
+@keyframes tear-top-3d {
+  30% {
+    transform: translate3d(10px, -14px, 20px) rotateZ(6deg) rotateX(20deg);
+  }
+  to {
+    transform: translate3d(120px, -160px, 140px) rotateZ(40deg) rotateX(70deg) rotateY(30deg);
+    opacity: 0;
+  }
+}
+
+@keyframes pack-drop-3d {
+  to {
+    transform: translate3d(0, 75%, -160px) rotateX(-65deg);
+    opacity: 0;
+  }
+}
+
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}

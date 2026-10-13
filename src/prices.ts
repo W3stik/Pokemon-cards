@@ -1,9 +1,9 @@
 // Reálné tržní ceny karet (Cardmarket v EUR, TCGplayer v USD).
-//  1. data/prices.json: ceny z TCGdex stažené při buildu (scripts/fetch-prices.mjs),
-//     takže jsou k dispozici hned a i offline.
-//  2. Pokémon TCG API (api.pokemontcg.io) pro sady, které v souboru chybí.
-//  3. TCGdex (api.tcgdex.net) živě pro jednu kartu v jejím detailu.
-// Živé ceny se ukládají do prohlížeče a obnovují se po 12 hodinách.
+//  1. data/prices.json: ceny z TCGdex stažené při buildu (scripts/fetch-prices.mjs, CI denně),
+//     takže jsou k dispozici hned a i offline. Pokrývají všechny sady.
+//  2. TCGdex (api.tcgdex.net) živě pro jednu kartu v jejím detailu.
+// (Dřívější záloha přes Pokémon TCG API po sadách byla pomalá a nespolehlivá a s cenami
+// pro všechny sady v souboru už nebyla potřeba.)
 import { parseTcgdexPricing } from "./tcgdexPricing.js";
 import type { Card, Variant } from "./types";
 
@@ -16,87 +16,19 @@ export interface CardPrice {
   usdReverse?: number;
   cardmarketUrl?: string;
   tcgplayerUrl?: string;
-  source: "pokemontcg.io" | "tcgdex";
+  source: "tcgdex";
   updated?: string;
 }
 
 type PriceMap = Record<string, CardPrice>;
 
-const TTL = 12 * 60 * 60 * 1000;
-/** Pokémon TCG API často neodpovídá; déle se na něj nečeká, aby součty v albu nevisely. */
-const REQUEST_TIMEOUT = 8000;
-/** Po neúspěchu se API pro danou sadu chvíli nezkouší znovu. */
-const RETRY_AFTER = 10 * 60 * 1000;
-const API = "https://api.pokemontcg.io/v2/cards";
 const TCGDEX = "https://api.tcgdex.net/v2/en";
-const storageKey = (setId: string) => `pokemon-packs:prices:${setId}`;
 
-const memory = new Map<string, PriceMap>();
-const inflight = new Map<string, Promise<PriceMap>>();
-const failedAt = new Map<string, number>();
-
-const num = (v: unknown): number | undefined => (typeof v === "number" && v > 0 ? v : undefined);
-
-function readCache(setId: string): { at: number; data: PriceMap } | null {
-  try {
-    const raw = localStorage.getItem(storageKey(setId));
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeCache(setId: string, data: PriceMap) {
-  try {
-    localStorage.setItem(storageKey(setId), JSON.stringify({ at: Date.now(), data }));
-  } catch {
-    // Úložiště je plné: ceny zůstanou jen v paměti.
-  }
-}
-
-interface ApiCard {
-  id: string;
-  tcgplayer?: { url?: string; updatedAt?: string; prices?: Record<string, { market?: number; mid?: number }> };
-  cardmarket?: {
-    url?: string;
-    updatedAt?: string;
-    prices?: { trendPrice?: number; averageSellPrice?: number; avg7?: number; reverseHoloTrend?: number; reverseHoloSell?: number };
-  };
-}
-
-function fromApiCard(c: ApiCard): CardPrice {
-  const tp = c.tcgplayer?.prices ?? {};
-  const main = tp.holofoil ?? tp.normal ?? Object.values(tp).find((p) => p !== tp.reverseHolofoil);
-  const cm = c.cardmarket?.prices ?? {};
-  return {
-    eur: num(cm.trendPrice) ?? num(cm.averageSellPrice) ?? num(cm.avg7),
-    eurReverse: num(cm.reverseHoloTrend) ?? num(cm.reverseHoloSell),
-    usd: num(main?.market) ?? num(main?.mid),
-    usdReverse: num(tp.reverseHolofoil?.market) ?? num(tp.reverseHolofoil?.mid),
-    cardmarketUrl: c.cardmarket?.url,
-    tcgplayerUrl: c.tcgplayer?.url,
-    source: "pokemontcg.io",
-    updated: c.cardmarket?.updatedAt ?? c.tcgplayer?.updatedAt,
-  };
-}
-
-async function fetchSet(setId: string): Promise<PriceMap> {
-  const out: PriceMap = {};
-  for (let page = 1; page < 10; page++) {
-    const url = `${API}?q=set.id:${setId}&select=id,tcgplayer,cardmarket&pageSize=250&page=${page}`;
-    // API občas vrátí chybu 500, proto to zkusíme víckrát.
-    const get = () => fetch(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT) });
-    let res = await get();
-    if (!res.ok && res.status >= 500) {
-      await new Promise((r) => setTimeout(r, 800));
-      res = await get();
-    }
-    if (!res.ok) throw new Error(`Ceny: HTTP ${res.status}`);
-    const body = (await res.json()) as { data: ApiCard[]; totalCount: number };
-    for (const card of body.data) out[card.id] = fromApiCard(card);
-    if (page * 250 >= body.totalCount) break;
-  }
-  return out;
+// Úklid: ceny stažené dřívější zálohou přes Pokémon TCG API (klíče pokemon-packs:prices:*).
+try {
+  for (const key of Object.keys(localStorage)) if (key.startsWith("pokemon-packs:prices:")) localStorage.removeItem(key);
+} catch {
+  // nevadí
 }
 
 interface BundledFile {
@@ -125,41 +57,10 @@ function loadBundled(): Promise<Map<string, PriceMap>> {
   return bundled;
 }
 
-/**
- * Ceny všech karet sady (včetně podsad, např. me55 + me55c).
- * Při chybě sítě vrací poslední uložené ceny, případně prázdnou mapu.
- */
+/** Ceny všech karet sad (včetně podsad, např. me55 + me55c) z přibaleného souboru. */
 export async function loadSetPrices(setIds: string[]): Promise<PriceMap> {
   const local = await loadBundled();
-  const parts = await Promise.all(setIds.map((id) => local.get(id) ?? loadOne(id)));
-  return Object.assign({}, ...parts);
-}
-
-function loadOne(setId: string): Promise<PriceMap> {
-  const mem = memory.get(setId);
-  if (mem) return Promise.resolve(mem);
-  const cached = readCache(setId);
-  if (cached && Date.now() - cached.at < TTL) {
-    memory.set(setId, cached.data);
-    return Promise.resolve(cached.data);
-  }
-  if (Date.now() - (failedAt.get(setId) ?? 0) < RETRY_AFTER) return Promise.resolve(cached?.data ?? {});
-  let p = inflight.get(setId);
-  if (!p) {
-    p = fetchSet(setId)
-      .then((data) => {
-        memory.set(setId, data);
-        writeCache(setId, data);
-        return data;
-      })
-      .catch(() => {
-        failedAt.set(setId, Date.now());
-        return cached?.data ?? {};
-      })
-      .finally(() => inflight.delete(setId));
-    inflight.set(setId, p);
-  }
-  return p;
+  return Object.assign({}, ...setIds.map((id) => local.get(id) ?? {}));
 }
 
 /** Cena konkrétního provedení karty. Reverse a vzorované holo mají vlastní cenu, pokud ji trh uvádí. */

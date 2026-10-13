@@ -1,9 +1,9 @@
-import "./styles.css";
+import "./styles/index.css";
 import { persistStorage, shouldRemindBackup } from "./storage";
 import { stateSummary, subscribe, unopenedTotal } from "./store";
 import { clear, h, toast } from "./ui/dom";
 import { renderAlbum } from "./views/album";
-import { renderOpen } from "./views/open";
+import { renderOpen, renderReplay } from "./views/open";
 import { renderPick } from "./views/pick";
 import { renderSettings } from "./views/settings";
 import { renderShop } from "./views/shop";
@@ -19,10 +19,11 @@ const routes: Record<string, (root: HTMLElement, arg?: string) => void | Promise
   more: renderSettings,
   pick: renderPick,
   stats: renderStats,
+  replay: renderReplay,
 };
 
 /** Podstránky, které v navigaci patří pod jinou záložku. */
-const TAB_OF: Record<string, string> = { pick: "shop", stats: "album" };
+const TAB_OF: Record<string, string> = { pick: "shop", stats: "album", replay: "album" };
 
 let renderId = 0;
 

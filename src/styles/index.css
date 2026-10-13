@@ -1,0 +1,19 @@
+/*
+ * Styly aplikace rozdělené podle oblastí. Pořadí importů je pořadí kaskády:
+ * pozdější soubory přepisují dřívější (responsive.css musí zůstat poslední).
+ */
+@import "./base.css";
+@import "./layout.css";
+@import "./controls.css";
+@import "./modal.css";
+@import "./stats.css";
+@import "./shop.css";
+@import "./pack.css";
+@import "./shelf.css";
+@import "./card.css";
+@import "./viewer.css";
+@import "./opening.css";
+@import "./reveal.css";
+@import "./summary.css";
+@import "./album.css";
+@import "./responsive.css";

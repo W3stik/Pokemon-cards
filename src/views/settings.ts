@@ -146,9 +146,7 @@ export function renderSettings(root: HTMLElement) {
           null,
           "Ceny: ",
           h("a", { href: "https://tcgdex.dev", target: "_blank", rel: "noopener" }, "TCGdex"),
-          " (Cardmarket v EUR a TCGplayer v USD), přibalené k aplikaci a obnovované každý den. Sady, které tam chybí, se doplní živě z ",
-          h("a", { href: "https://pokemontcg.io", target: "_blank", rel: "noopener" }, "Pokémon TCG API"),
-          " (ukládají se na 12 hodin); detail karty zkouší i aktuální cenu z TCGdex.",
+          " (Cardmarket v EUR a TCGplayer v USD), přibalené k aplikaci a obnovované každý den; detail karty zkouší i aktuální cenu z TCGdex.",
         ),
         h(
           "li",

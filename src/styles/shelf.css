@@ -1,0 +1,70 @@
+/* --- Regál s balíčky ------------------------------------------------------ */
+
+.shelf {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 28px 18px;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 12px 4px 96px;
+}
+
+.shelf__slot {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 12px;
+  cursor: pointer;
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.3, 1.3);
+}
+
+.shelf__slot:hover {
+  transform: translateY(-6px);
+}
+
+.shelf__slot.is-selected {
+  transform: translateY(-16px) scale(1.06);
+}
+
+.shelf__slot.is-selected .pack3d {
+  filter: drop-shadow(0 0 2px var(--accent)) drop-shadow(0 0 12px var(--accent));
+}
+
+.shelf__slot--new {
+  animation: shelf-in 0.5s ease-out;
+}
+
+@keyframes shelf-in {
+  from {
+    opacity: 0;
+    transform: translateY(-30px);
+  }
+}
+
+.shelf__actions {
+  max-width: 760px;
+  margin: 0 auto;
+  position: sticky;
+  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 8px);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--bg-2) 92%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+.btn[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .shelf {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 22px 14px;
+  }
+}

@@ -125,6 +125,35 @@ export function sfxSwipe() {
   noiseSweep(700, 3200, 0.14, [0, 0.22, 0.16, 0.06, 0], 0.8);
 }
 
+/** Nabíjení před otočením vzácné karty: stoupající tón a šum, delší a výraznější u vzácnějších. */
+export function sfxCharge(tier: number, ms: number) {
+  const a = audio();
+  if (a) {
+    const t = a.ctx.currentTime;
+    const dur = ms / 1000;
+    const osc = a.ctx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(180 + tier * 40, t);
+    osc.frequency.exponentialRampToValueAtTime(700 + tier * 220, t + dur);
+    const gain = a.ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.05 + tier * 0.025, t + dur * 0.9);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.05);
+    osc.connect(gain).connect(a.out);
+    osc.start(t);
+    osc.stop(t + dur + 0.1);
+    noiseSweep(400, 2600 + tier * 600, dur, [0, 0.04, 0.08, 0.12 + tier * 0.03, 0], 1.5);
+  }
+  // vibrace sílí: krátké pulzy se zkracujícími se mezerami
+  const pulses = Math.round(2 + tier * 1.5);
+  vibrate(Array.from({ length: pulses * 2 - 1 }, (_, i) => (i % 2 ? Math.max(20, 70 - i * 6) : 12 + tier * 4)));
+}
+
+/** Otočení karty: švihnutí. */
+export function sfxFlip() {
+  noiseSweep(500, 4200, 0.22, [0, 0.3, 0.22, 0.08, 0], 0.7);
+}
+
 /** Odhalení vzácné karty: čím vzácnější (rank z RARITIES), tím bohatší fanfára a delší vibrace. */
 export function sfxHit(rank: number) {
   if (rank >= 9) {

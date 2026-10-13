@@ -2,14 +2,15 @@ import { loadCards, loadPools, loadSets, setIdOfCard } from "../data";
 import { packProfile, rarityInfo, VARIANT_LABEL } from "../odds";
 import { fromSealed, hintLevel, isGodPack, openPack } from "../pack";
 import { addPrice, type CardPrice, formatEur, formatTotal, formatUsd, loadSetPrices, type PriceTotal, variantPrice } from "../prices";
-import { collectionKey, getState, nextSealed, recordOpening } from "../store";
+import { collectionKey, getState, nextSealed, recordOpening, recordOpenings } from "../store";
 import type { Card, PulledCard, SetInfo } from "../types";
 import { animationEnd, append, clear, h, prefersReducedMotion, sleep } from "../ui/dom";
 import { CARD_BACK_URL, cardBack, cardEl, enableTilt, preload } from "../ui/holo";
 import { groupBySeries } from "../ui/eras";
 import { packEl, packThumb, prefetchPackArt } from "../ui/pack";
 import { createPackModel, type PackModel } from "../ui/packModel";
-import { fxPrefs, setFxPrefs, sfxHit, sfxSwipe, sfxTear, unlockAudio } from "../ui/sfx";
+import { CHARGE_MS, flash, goldRain, rarityBanner, rays, shake, shockwave, stars, tierOf } from "../ui/reveal";
+import { fxPrefs, setFxPrefs, sfxCharge, sfxFlip, sfxHit, sfxSwipe, sfxTear, unlockAudio } from "../ui/sfx";
 import { openCardModal } from "./cardModal";
 
 const priceSetIds = (cards: PulledCard[]) => [...new Set(cards.map((c) => setIdOfCard(c.card.id)))];
@@ -65,19 +66,61 @@ export async function renderOpen(root: HTMLElement, setId?: string) {
   new OpeningStage(root, set, pools, new Map(cards.map((c) => [c.id, c]))).showPack();
 }
 
+/**
+ * Přehrání god packu ze Síně slávy (#/replay/<čas otevření>): stejné roztržení
+ * a odhalování se stejnými kartami, ale nic se nezapisuje (sbírka, statistiky, zásoba).
+ */
+export async function renderReplay(root: HTMLElement, at?: string) {
+  const record = getState().hallOfFame.find((r) => String(r.at) === at);
+  const sets = await loadSets();
+  const set = record && sets.find((s) => s.id === record.setId);
+  if (!record || !set) {
+    root.append(h("p", { class: "empty" }, "Tento balíček v Síni slávy není."));
+    return;
+  }
+  const byId = new Map<string, Card>();
+  for (const id of new Set(record.cards.map((c) => setIdOfCard(c.id)))) {
+    for (const c of await loadCards(id)) byId.set(c.id, c);
+  }
+  const replay = fromSealed(record, byId);
+  if (!replay) {
+    root.append(h("p", { class: "empty" }, "Karty tohoto balíčku se nepodařilo načíst."));
+    return;
+  }
+  new OpeningStage(root, set, await loadPools(set.id), byId, replay).showPack();
+}
+
 class OpeningStage {
   private stage = h("div", { class: "stage" });
   private controls = h("div", { class: "stage__controls" });
   private remaining = h("span", { class: "chip" });
   /** Obsah dalšího balíčku, vylosovaný dopředu, aby se obrázky karet stáhly ještě před roztržením. */
   private pending: PulledCard[] | null = null;
+  /** 3D model balíčku (WebGL) – jeden pro celou obrazovku; null = WebGL není, undefined = zatím nezkoušeno. */
+  private model: PackModel | null | undefined = undefined;
+  /** Co udělá klávesa na aktuálním kroku (balíček / karty). */
+  private keys: ((e: KeyboardEvent) => boolean) | null = null;
 
   constructor(
-    root: HTMLElement,
+    private root: HTMLElement,
     private set: SetInfo,
     private pools: Map<string, Card[]>,
     private byId: Map<string, Card>,
+    /** Přehrávání god packu ze Síně slávy: pevné karty, nic se nezapisuje. */
+    private replay: PulledCard[] | null = null,
   ) {
+    // Klávesnice: Enter / mezerník roztrhne balíček, otočí nebo odhodí kartu,
+    // šipky ji odhodí do strany. Posluchač se odpojí po odchodu z obrazovky.
+    const onKey = (e: KeyboardEvent) => {
+      if (!this.root.isConnected) {
+        document.removeEventListener("keydown", onKey);
+        return;
+      }
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("button, a, input, select, textarea") || document.querySelector(".modal, .viewer")) return;
+      if (this.keys?.(e)) e.preventDefault();
+    };
+    document.addEventListener("keydown", onKey);
     root.append(
       h(
         "section",
@@ -90,10 +133,10 @@ class OpeningStage {
     );
   }
 
-  private left = () => getState().packs[this.set.id] ?? 0;
+  private left = () => (this.replay ? 1 : (getState().packs[this.set.id] ?? 0));
 
   private updateRemaining() {
-    this.remaining.textContent = `Zbývá: ${this.left()}`;
+    this.remaining.textContent = this.replay ? "Přehrávání" : `Zbývá: ${this.left()}`;
   }
 
   showPack() {
@@ -114,7 +157,7 @@ class OpeningStage {
     }
 
     // Balíček vybraný z regálu má obsah daný předem (a s ním i tajný náznak).
-    const sealed = this.sealedCards();
+    const sealed = this.replay ?? this.sealedCards();
     this.prepare();
     const hintLvl = sealed ? hintLevel(sealed) : 0;
     const hint = h("p", { class: "stage__hint" }, "Přejeď prstem přes horní okraj, nebo klepni. Tažením jinde balíčkem otočíš.");
@@ -132,14 +175,32 @@ class OpeningStage {
       if (target) this.open(target);
     });
 
-    // Skutečný 3D model (WebGL); bez WebGL starší balíček poskládaný z CSS vrstev.
-    const model = createPackModel(this.set, { hint: hintLvl, onTear: tear, onPointerDown: unlockAudio });
+    // Skutečný 3D model (WebGL), jeden pro celou obrazovku: u dalšího balíčku se jen
+    // vrátí do výchozího stavu. Bez WebGL starší balíček poskládaný z CSS vrstev.
+    if (this.model?.usable()) this.model.reset({ hint: hintLvl, onTear: tear });
+    else if (this.model !== null) {
+      this.model = createPackModel(this.set, {
+        hint: hintLvl,
+        onTear: tear,
+        onPointerDown: unlockAudio,
+        alive: () => this.root.isConnected,
+      });
+    }
+    const model = this.model;
     target = model ?? this.cssPack(hintLvl, tear);
     this.stage.append(h("div", { class: "pack-wrap" }, model ? model.el : (target as HTMLElement)), hint);
+    this.keys = (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return false;
+      unlockAudio();
+      tear();
+      return true;
+    };
 
     append(this.controls, [
-      h("button", { class: "btn", onclick: once(() => (unlockAudio(), this.quickOpen(1))) }, "Otevřít bez animace"),
-      this.left() > 1
+      this.replay
+        ? h("a", { class: "btn", href: "#/stats" }, "← Síň slávy")
+        : h("button", { class: "btn", onclick: once(() => (unlockAudio(), this.quickOpen(1))) }, "Otevřít bez animace"),
+      !this.replay && this.left() > 1
         ? h("button", { class: "btn", onclick: once(() => (unlockAudio(), this.quickOpen(this.left()))) }, `Otevřít vše (${this.left()})`)
         : null,
     ]);
@@ -209,12 +270,17 @@ class OpeningStage {
    * obrázky jeho karet. Do sbírky se zapíše až při roztržení (draw).
    */
   private prepare() {
+    if (this.replay) {
+      preload([...this.replay.map((c) => c.card.img), CARD_BACK_URL]);
+      return;
+    }
     if (this.pending || this.left() === 0) return;
     this.pending = this.sealedCards() ?? openPack(packProfile(this.set.id), this.pools);
     preload([...this.pending.map((c) => c.card.img), CARD_BACK_URL]);
   }
 
   private draw(): { cards: PulledCard[]; fresh: Set<string> } {
+    if (this.replay) return { cards: this.replay, fresh: new Set() };
     const cards = this.pending ?? this.sealedCards() ?? openPack(packProfile(this.set.id), this.pools);
     this.pending = null;
     const fresh = recordOpening(this.set.id, cards);
@@ -252,6 +318,9 @@ class OpeningStage {
       this.godBanner();
     }
 
+    // Vzácné karty leží rubem nahoru a odhalí se až klepnutím (nabití a otočení).
+    // S omezenými animacemi se ukazují rovnou lícem.
+    const faceDown = !prefersReducedMotion();
     const items = cards.map((pulled, i) => {
       const info = rarityInfo(pulled.card.rarity);
       const front = cardEl(pulled.card, pulled.variant, { tilt: true });
@@ -261,8 +330,9 @@ class OpeningStage {
       const item = h(
         "div",
         {
-          class: `pile__item${info.hit ? " is-hit" : ""}`,
+          class: `pile__item${info.hit ? " is-hit" : ""}${info.hit && faceDown ? " is-facedown" : ""} tier-${tierOf(info.rank)}`,
           style: `--rc: ${info.color}; --i: ${i}; --z: ${-i * 3}px; --rot: ${rot * 0.6}deg; z-index: ${cards.length - i}`,
+          dataset: { rarity: pulled.card.rarity },
         },
         h(
           "div",
@@ -287,17 +357,38 @@ class OpeningStage {
     const update = () => {
       counter.textContent = `${Math.min(index + 1, cards.length)} / ${cards.length}`;
       items.forEach((item, i) => item.classList.toggle("is-current", i === index));
-      // Napětí: když je pod aktuální kartou vzácná, prosvítá zpod ní její barva.
-      const next = cards[index + 1];
-      const tease = next && rarityInfo(next.card.rarity).rank >= 6 && !prefersReducedMotion();
+      // Napětí: rub vzácné karty září barvou rarity (silněji u vzácnějších).
+      const current = items[index];
+      const tease = current?.classList.contains("is-facedown");
       pile.classList.toggle("pile--tease", Boolean(tease));
-      if (tease) pile.style.setProperty("--tease", rarityInfo(next.card.rarity).color);
+      for (const t of [1, 2, 3, 4]) pile.classList.toggle(`pile--tier-${t}`, Boolean(tease) && tierOf(rarityInfo(cards[index].card.rarity).rank) === t);
+      if (tease) pile.style.setProperty("--tease", rarityInfo(cards[index].card.rarity).color);
     };
     update();
-    // Vzácná karta hned navrchu (výjimečně) se rozzáří po vyjetí z balíčku.
-    if (items[0]?.classList.contains("is-hit")) {
-      setTimeout(() => this.revealHit(items[0], rarityInfo(cards[0].card.rarity).rank), 700);
-    }
+
+    /** Odhalení karty ležící rubem nahoru: nabití (zvedne se a chvěje), otočení a efekty. */
+    const flipOver = async (item: HTMLElement) => {
+      busy = true;
+      const rank = rarityInfo(cards[index].card.rarity).rank;
+      const tier = tierOf(rank);
+      const ms = CHARGE_MS[tier];
+      item.style.setProperty("--charge", `${ms}ms`);
+      item.classList.add("is-charging");
+      pile.classList.add("pile--charging");
+      sfxCharge(tier, ms);
+      await sleep(ms);
+      item.classList.remove("is-charging");
+      pile.classList.remove("pile--charging", "pile--tease");
+      item.classList.remove("is-facedown");
+      item.classList.add("is-flipping");
+      sfxFlip();
+      // líc se ukáže zhruba v polovině otočení – tehdy efekty
+      await sleep(300);
+      this.revealHit(item, rank);
+      await sleep(350);
+      item.classList.remove("is-flipping");
+      busy = false;
+    };
 
     const throwAway = async (item: HTMLElement, dir: number) => {
       item.style.setProperty("--dir", String(dir));
@@ -305,8 +396,6 @@ class OpeningStage {
       sfxSwipe();
       index++;
       update();
-      const next = items[index];
-      if (next?.classList.contains("is-hit")) this.revealHit(next, rarityInfo(cards[index].card.rarity).rank);
       if (index >= items.length) {
         await sleep(300);
         this.summary(cards, fresh);
@@ -317,6 +406,7 @@ class OpeningStage {
       if (busy) return;
       const item = items[index];
       if (!item) return;
+      if (item.classList.contains("is-facedown")) return flipOver(item);
       busy = true;
       await throwAway(item, -1);
       busy = false;
@@ -345,11 +435,28 @@ class OpeningStage {
       drag = null;
       item.classList.remove("is-dragging");
       item.style.transform = "";
-      if (Math.abs(dx) > 70 && !busy) throwAway(item, Math.sign(dx));
+      // kartu rubem nahoru nejde zahodit neodhalenou: tah ji otočí
+      if (item.classList.contains("is-facedown")) {
+        if (!busy && (Math.abs(dx) > 70 || Math.abs(dx) < 8)) flipOver(item);
+      } else if (Math.abs(dx) > 70 && !busy) throwAway(item, Math.sign(dx));
       else if (Math.abs(dx) < 8) advance();
     };
     pile.addEventListener("pointerup", release);
     pile.addEventListener("pointercancel", release);
+    this.keys = (e) => {
+      const item = items[index];
+      if (!item || busy) return e.key === " " || e.key.startsWith("Arrow");
+      if (e.key === "Enter" || e.key === " ") {
+        advance();
+        return true;
+      }
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        if (item.classList.contains("is-facedown")) flipOver(item);
+        else throwAway(item, e.key === "ArrowLeft" ? -1 : 1);
+        return true;
+      }
+      return false;
+    };
 
     this.controls.append(
       h("button", { class: "btn", onclick: () => this.summary(cards, fresh) }, "Přeskočit na přehled"),
@@ -357,33 +464,29 @@ class OpeningStage {
   }
 
   /** Vzácná karta se po odhalení rozzáří barvou rarity a vybuchne částicemi. */
-  /**
-   * Vzácná karta se po odhalení rozzáří a efekty se stupňují podle rarity:
-   * Double Rare záře a částice, IR/UR navíc paprsky a poskočení karty,
-   * SIR reflektor (ztmavení okolí), konfety a záblesk, zlaté karty a BWR zlaté
-   * paprsky, déšť zlatých konfet a otřes.
-   */
+  /** Efekty odhalení vzácné karty podle úrovně rarity (src/ui/reveal.ts). */
   private revealHit(item: HTMLElement, rank: number) {
     item.classList.add("is-revealed");
     sfxHit(rank);
     if (prefersReducedMotion()) return;
+    const tier = tierOf(rank);
     const color = getComputedStyle(item).getPropertyValue("--rc").trim() || "#fff";
     const pile = item.closest<HTMLElement>(".pile");
-    burst(item, rank);
-    if (rank >= 6) {
-      item.classList.add("is-pop");
-      setTimeout(() => item.classList.remove("is-pop"), 700);
-      if (pile) rays(pile, color, rank);
-    }
-    if (rank >= 8) {
+    item.classList.add("is-pop");
+    setTimeout(() => item.classList.remove("is-pop"), 800);
+    shockwave(item, color, tier);
+    stars(item, color, tier);
+    if (tier >= 2 && pile) rays(pile, color, tier);
+    if (tier >= 3) {
       this.stage.classList.add("stage--spotlight");
-      setTimeout(() => this.stage.classList.remove("stage--spotlight"), 2300);
-      confetti(item, color, rank);
-      flash();
+      setTimeout(() => this.stage.classList.remove("stage--spotlight"), 2400);
+      const name = item.dataset.rarity ?? "";
+      rarityBanner(this.stage, name, color, tier);
+      flash(tier >= 4 ? "#ffd65a" : color);
     }
-    if (rank >= 9 && pile) {
-      pile.classList.add("is-shake");
-      setTimeout(() => pile.classList.remove("is-shake"), 600);
+    if (tier >= 4) {
+      goldRain(this.stage);
+      if (pile) shake(pile);
     }
   }
 
@@ -392,21 +495,25 @@ class OpeningStage {
     const banner = h("div", { class: "god-banner", role: "status" }, "GOD PACK!");
     this.stage.append(banner);
     sfxHit(10);
-    if (!prefersReducedMotion()) flash();
+    if (!prefersReducedMotion()) flash("#ffd65a");
     setTimeout(() => banner.remove(), 2600);
   }
 
   /** Otevře více balíčků naráz bez animace a ukáže souhrn. */
   private quickOpen(count: number) {
-    const all: PulledCard[] = [];
-    const fresh = new Set<string>();
-    let godPacks = 0;
-    for (let i = 0; i < count && this.left() > 0; i++) {
-      const r = this.draw();
-      all.push(...r.cards);
-      r.fresh.forEach((k) => fresh.add(k));
-      if (isGodPack(r.cards)) godPacks++;
+    count = Math.min(count, this.left());
+    // Obsah všech balíčků: připravený první, pak vybrané z regálu (v pořadí), zbytek naslepo.
+    const sealed = getState().sealed[this.set.id] ?? [];
+    const packs: PulledCard[][] = [];
+    for (let i = 0; i < count; i++) {
+      const fromShelf = sealed[i] ? fromSealed(sealed[i], this.byId) : null;
+      packs.push((i === 0 ? this.pending : null) ?? fromShelf ?? openPack(packProfile(this.set.id), this.pools));
     }
+    this.pending = null;
+    const freshSets = recordOpenings(this.set.id, packs);
+    const all = packs.flat();
+    const fresh = new Set(freshSets.flatMap((f) => [...f]));
+    const godPacks = packs.filter(isGodPack).length;
     this.summary(all, fresh, count, godPacks);
     // Fanfára podle nejvzácnější karty ze všech otevřených balíčků (god pack má nejsilnější).
     const best = Math.max(-1, ...all.filter((c) => rarityInfo(c.card.rarity).hit).map((c) => rarityInfo(c.card.rarity).rank));
@@ -498,18 +605,30 @@ class OpeningStage {
                   ? `V balíčcích byly ${godPacks} god packy!`
                   : `V balíčcích bylo ${godPacks} god packů!`)
             : null,
-          h("p", null, `${cards.length} karet · ${fresh.size} nových do sbírky · hodnota `, total),
+          this.replay
+            ? h("p", { class: "muted" }, "Přehrávání ze Síně slávy – karty se do sbírky znovu nepřidávají. Hodnota ", total)
+            : h("p", null, `${cards.length} karet · ${fresh.size} nových do sbírky · hodnota `, total),
           packs > 1 ? h("div", { class: "row" }, h("span", { class: "muted" }, `Vzácných karet: ${hits.reduce((n, e) => n + e.count, 0)}`), toggle) : null,
         ),
         grid,
       ),
     );
 
+    this.keys = (e) => {
+      if (e.key !== "Enter" || this.left() === 0) return false;
+      unlockAudio();
+      this.showPack();
+      return true;
+    };
     this.controls.append(
-      this.left() > 0
-        ? h("button", { class: "btn btn--primary", onclick: () => (unlockAudio(), this.showPack()) }, `Otevřít další (${this.left()})`)
-        : h("a", { class: "btn btn--primary", href: "#/shop" }, "Vzít další balíčky"),
-      h("a", { class: "btn", href: `#/album/${this.set.id}` }, "Do alba"),
+      this.replay
+        ? h("button", { class: "btn btn--primary", onclick: () => (unlockAudio(), this.showPack()) }, "▶ Přehrát znovu")
+        : this.left() > 0
+          ? h("button", { class: "btn btn--primary", onclick: () => (unlockAudio(), this.showPack()) }, `Otevřít další (${this.left()})`)
+          : h("a", { class: "btn btn--primary", href: "#/shop" }, "Vzít další balíčky"),
+      this.replay
+        ? h("a", { class: "btn", href: "#/stats" }, "← Síň slávy")
+        : h("a", { class: "btn", href: `#/album/${this.set.id}` }, "Do alba"),
     );
 
     // Další balíček se připraví (a jeho karty stáhnou), zatímco hráč prohlíží přehled.
@@ -541,52 +660,4 @@ function soundToggle(): HTMLElement {
   });
   render();
   return btn;
-}
-
-/** Paprsky světla za balíkem karet (zlaté u zlatých karet a BWR). */
-function rays(pile: HTMLElement, color: string, rank: number) {
-  pile.querySelector(".rays")?.remove();
-  const el = h("div", { class: `rays${rank >= 9 ? " rays--gold" : ""}`, style: `--rc: ${color}` });
-  pile.prepend(el);
-  setTimeout(() => el.remove(), 2600);
-}
-
-/** Konfety vylétnou nahoru a padají; u zlatých karet víc a zlaté. */
-function confetti(item: HTMLElement, color: string, rank: number) {
-  const gold = rank >= 9;
-  const palette = gold ? ["#ffd65a", "#fff3b0", "#ffb800", "#ffffff"] : [color, "#ffffff", "#ffd65a", "#7fd8ff"];
-  const n = gold ? 70 : 42;
-  const layer = h("div", { class: "confetti" });
-  for (let i = 0; i < n; i++) {
-    const dx = (Math.random() - 0.5) * 360;
-    const up = -(80 + Math.random() * 200);
-    layer.append(
-      h("i", {
-        style:
-          `--c: ${palette[i % palette.length]}; --dx: ${dx}px; --up: ${up}px; --fall: ${up + 420 + Math.random() * 200}px; ` +
-          `--rot: ${(Math.random() - 0.5) * 1080}deg; --t: ${1.4 + Math.random() * 0.9}s; --w: ${5 + Math.random() * 4}px`,
-      }),
-    );
-  }
-  item.append(layer);
-  setTimeout(() => layer.remove(), 2600);
-}
-
-/** Záblesk částic kolem karty v barvě rarity. */
-function burst(item: HTMLElement, rank: number) {
-  const n = rank >= 8 ? 28 : 16;
-  const layer = h("div", { class: "burst" });
-  for (let i = 0; i < n; i++) {
-    const angle = (360 / n) * i + Math.random() * 10;
-    const dist = 120 + Math.random() * (rank >= 8 ? 160 : 80);
-    layer.append(h("i", { style: `--a: ${angle}deg; --d: ${dist}px; --t: ${0.5 + Math.random() * 0.5}s` }));
-  }
-  item.append(layer);
-  setTimeout(() => layer.remove(), 1200);
-}
-
-function flash() {
-  const el = h("div", { class: "flash" });
-  document.body.append(el);
-  setTimeout(() => el.remove(), 700);
 }
