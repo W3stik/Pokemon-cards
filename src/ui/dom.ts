@@ -14,7 +14,14 @@ export function h<K extends keyof HTMLElementTagNameMap>(
   ...children: Child[]
 ): HTMLElementTagNameMap[K] {
   const el = document.createElement(tag);
+  // `loading` (a `decoding`) musí být nastavené dřív než `src`: obrázek se začne stahovat
+  // v okamžiku nastavení src, takže by se `loading="lazy"` neuplatnilo. Album pak stahovalo
+  // stovky obrázků najednou a viditelné karty čekaly ve frontě.
+  for (const key of ["loading", "decoding"]) {
+    if (props?.[key]) el.setAttribute(key, String(props[key]));
+  }
   for (const [key, value] of Object.entries(props ?? {})) {
+    if (key === "loading" || key === "decoding") continue;
     if (value === undefined || value === null || value === false) continue;
     if (key === "class") el.className = String(value);
     else if (key === "style") el.setAttribute("style", String(value));
