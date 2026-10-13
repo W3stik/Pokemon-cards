@@ -106,7 +106,14 @@ async function cacheImage(request) {
   const hit = await cache.match(request.url);
   if (hit) return hit;
   try {
-    const res = await fetch(request.url, { mode: "cors", credentials: "omit" });
+    let res;
+    try {
+      res = await fetch(request.url, { mode: "cors", credentials: "omit" });
+    } catch {
+      // HTTP mezipaměť prohlížeče může mít kopii z dřívějšího požadavku bez CORS (CDN
+      // TCGplayeru pak neposílá Vary: Origin) a s ní CORS selže; čerstvá kopie ze sítě projde.
+      res = await fetch(request.url, { mode: "cors", credentials: "omit", cache: "reload" });
+    }
     if (res.ok) {
       await cache.put(request.url, res.clone());
       scheduleTrim(cacheName, limit);

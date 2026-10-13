@@ -29,7 +29,7 @@ Každá obrazovka se kreslí do nového kontejneru (pomalé načítání staré 
 
 | Soubor | Co dělá |
 |---|---|
-| `scripts/fetch-data.mjs` | Stáhne sady a karty z GitHubu `PokemonTCG/pokemon-tcg-data` (stejná data jako Pokémon TCG API). Bere 10 nejnovějších booster sad (bez promo apod.), zahodí karty s nečíselným číslem. **Podsady** (`SUBSETS`, nyní `me55c` Classic Collection) slučuje do hlavní sady s raritou „Classic Collection“, prefixem `CC` a přečíslováním 1–30. `MEGA_ATTACK_RARE` přejmenuje na „Mega Attack Rare“. Náhledy z `images.pokemontcg.io` (PNG ~160 kB) nahrazuje stejnými ze Scrydexu (`images.scrydex.com/pokemon/{id}/small`, ~50 kB, ověřeno pro všech 907 karet). |
+| `scripts/fetch-data.mjs` | Stáhne sady a karty z GitHubu `PokemonTCG/pokemon-tcg-data` (stejná data jako Pokémon TCG API). Bere 10 nejnovějších booster sad (bez promo apod.), zahodí karty s nečíselným číslem. **Podsady** (`SUBSETS`, nyní `me55c` Classic Collection) slučuje do hlavní sady s raritou „Classic Collection“, prefixem `CC` a přečíslováním 1–30. `MEGA_ATTACK_RARE` přejmenuje na „Mega Attack Rare“. `RARITY_FIXES` opravuje chyby zdroje (Victini BB 171 / WF 172 = Black White Rare, Archen WF 131 = Illustration Rare; ve zdroji Rare/Uncommon, takže by drahé karty padaly jako obyčejné). Test hlídá, že karty za hranicí sady nemají obyčejnou raritu. Náhledy z `images.pokemontcg.io` (PNG ~160 kB) nahrazuje stejnými ze Scrydexu (`images.scrydex.com/pokemon/{id}/small`, ~50 kB, ověřeno pro všech 907 karet). |
 | `scripts/tcgdex.mjs` | Společné pro skripty nad TCGdex: `getJson`, `pool`, `pairSet` (naše karty ↔ TCGdex: hlavní sada podle čísla **a zároveň jména** – Black Bolt č. 80 má v TCGdex jinou kartu; podsady podle jména, `TCGDEX_SUBSETS`). |
 | `scripts/fetch-images.mjs` | Přepíše `img`/`imgLarge` na WebP z TCGdex (`{image}/low.webp` ~17 kB, `{image}/high.webp` ~70 kB místo PNG 50/550 kB); každý soubor ověří HEAD požadavkem, jinak nechá původní (Classic Collection TCGdex obrázky v seznamu nemá). |
 | `public/data/*.json` | Commitnutá data: `sets.json` + jeden soubor na sadu (zmenšené karty: id, jméno, číslo, rarita, typy, obrázky). |
@@ -47,6 +47,7 @@ Každá obrazovka se kreslí do nového kontejneru (pomalé načítání staré 
 | `src/views/album.ts` | Přehled sad (kompletnost, duplikáty, hodnota) a album sady (filtry, rarita, hledání, řazení podle čísla/rarity/jména/ceny/počtu). |
 | `src/views/cardModal.ts` | Detail karty: 3D prohlížeč, počty podle provedení, ceny, celoobrazovkový režim. |
 | `src/ui/pack.ts` | 3D model balíčku (`packEl`), rub je vlastní potisk (`backDesign`: barvy sady, zatavené okraje, šev, logo), ID produktů TCGplayer (`PACK_PRODUCTS`) a URL fotek, jiskřička náznaku. Velký balíček začne s malou fotkou a velkou vymění po načtení; poměr stran fotek se pamatuje v localStorage (`pokemon-packs:pack-ratios`); `prefetchPackArt` na regálu a v zásobě. |
+| `src/ui/packModel.ts` | **3D model balíčku ve WebGL** (bez knihovny) pro obrazovku otevírání: uzavřený „polštářek“ (tloušťka `thickness(u, v)`, nulová na krajích a v zatavených okrajích), horní pruh je samostatná síť se společnou hranou (`CUT_V`). Líc = fotka obalu (malá, pak velká; textura 1024×2048 s mipmapami), rub = canvas v barvách profilu sady (`drawBack`: záře doplňkové barvy, šev, logo, drobný text, čárový kód; světlý obal → tmavý text). Shader: difuzní světlo, odlesk fólie, řez při tahu, jiskřička náznaku. Ovládání jako `card3d` (tažení, setrvačnost, vyhlazený gyroskop, houpání), roztržení `tear()`. Po roztržení se kontext WebGL uvolní. Bez WebGL `open.ts` použije CSS balíček (`cssPack`). |
 | `src/ui/sfx.ts` | Zvuky (syntetizované přes Web Audio, žádné soubory) a vibrace: roztržení, odhození, fanfára podle ranku rarity. `unlockAudio()` volat v obsluze klepnutí. Nastavení `pokemon-packs:fx` (Více, tlačítko 🔊 při otevírání). |
 | `src/ui/holo.ts` | 2D karta s holo vrstvami (`cardEl`), naklánění kurzorem/gyroskopem (`enableTilt`), rub karty (`cardBack`, oficiální obrázek + náhradní design), `preload`. |
 | `src/ui/card3d.ts` | 3D model karty (líc, rub, hrany) a prohlížeč s tažením, setrvačností, otočením a gyroskopem. |
@@ -94,6 +95,10 @@ kopii aplikace pod stejný účet, service worker by mazal mezipaměť té druh�
 
 ## Nástrahy (naučené na vlastní kůži)
 
+- **`loading="lazy"` musí být nastavené před `src`** (obrázek se stahuje hned po nastavení src). Helper
+  `h()` proto nastavuje `loading`/`decoding` jako první. Do 13. 10. 2026 to bylo obráceně a album
+  stahovalo všechny obrázky naráz (Ascended Heroes 244 požadavků, viditelné karty čekaly ve frontě).
+
 - **Grafická paměť telefonu**: karta (`.pcard`) nesmí být v klidu 3D vrstva (`will-change`, 3D
   transform) – stovky vrstev v albu vyčerpaly paměť a obrázky se po chvíli kreslily se zpožděním.
   3D natočení a odlesk jen s třídou `is-tilting` (přepíná `enableTilt`); dlaždice alba a přehledu
@@ -119,7 +124,11 @@ kopii aplikace pod stejný účet, service worker by mazal mezipaměť té druh�
 - Odtrhávací pruh a zbytek obalu jsou dvě kopie stejné fotky s `clip-path`; pruh má malý přesah,
   jinak je mezi díly vlasová spára. Pruh leží o 0,5 px před zbytkem: ve stejné rovině překryv
   při otáčení přeblikával (z-fighting).
-- Točení balíčku: při tažení (`is-dragging`) jen `rotateY(var(--spin))`, bez náklonu podle prstu;
+- Barvy rubu balíčku z fotky obalu nejdou: převládá žluté logo Pokémon a barvy postav (zkoušeno
+  průměrem, histogramem odstínů i okraji fotky). Proto se berou z profilu sady (`colors` v `odds.ts`).
+- CDN TCGplayeru posílá `Vary: Origin` jen na požadavky s Origin: kopie z HTTP mezipaměti bez CORS
+  pak rozbije načtení s `crossOrigin` (WebGL textura). Service worker při selhání CORS zkusí `cache: "reload"`.
+- (CSS balíček, dnes jen záloha bez WebGL a malé balíčky v obchodě/regálu) Točení balíčku: při tažení (`is-dragging`) jen `rotateY(var(--spin))`, bez náklonu podle prstu;
   náklon z gyroskopu je vyhlazený (`holo.ts`) a přechod bez pružného dokmitu – jinak se balíček
   klepal. Boky má i trhací pruh, jinak se z boku „roztrojil“ (oddělené hrany přední a zadní strany).
 - Na 3D prvky balíčku nedávej `filter` (ztmavení boků je vrstva gradientu) – Chrome je pak při otáčení

@@ -7,6 +7,7 @@ import type { Card, PulledCard, SetInfo } from "../types";
 import { animationEnd, append, clear, h, prefersReducedMotion, sleep } from "../ui/dom";
 import { CARD_BACK_URL, cardBack, cardEl, enableTilt, preload } from "../ui/holo";
 import { packEl, prefetchPackArt } from "../ui/pack";
+import { createPackModel, type PackModel } from "../ui/packModel";
 import { fxPrefs, setFxPrefs, sfxHit, sfxSwipe, sfxTear, unlockAudio } from "../ui/sfx";
 import { openCardModal } from "./cardModal";
 
@@ -110,29 +111,53 @@ class OpeningStage {
     // Balíček vybraný z regálu má obsah daný předem (a s ním i tajný náznak).
     const sealed = this.sealedCards();
     this.prepare();
-    const pack = packEl(this.set, { large: true, tilt: true, hint: sealed ? hintLevel(sealed) : 0 });
-    pack.classList.add("pack3d--big", "pack3d--idle");
-    const cut = h("div", { class: "pack3d__cut" });
-    pack.querySelector(".pack3d__body")!.append(cut);
+    const hintLvl = sealed ? hintLevel(sealed) : 0;
     const hint = h("p", { class: "stage__hint" }, "Přejeď prstem přes horní okraj, nebo klepni. Tažením jinde balíčkem otočíš.");
-    this.stage.append(h("div", { class: "pack-wrap" }, pack), hint);
 
-    // Tažení přes horní pruh balíček roztrhne, tažení jinde jím otáčí ve 3D,
-    // prosté klepnutí ho otevře.
-    let drag: { x: number; mode: "tear" | "spin" } | null = null;
     let done = false;
     const once = (fn: () => void) => () => {
       if (done) return;
       done = true;
       fn();
     };
+    let target: PackModel | HTMLElement | null = null;
     const tear = once(() => {
       sfxTear();
       hint.remove();
+      if (target) this.open(target);
+    });
+
+    // Skutečný 3D model (WebGL); bez WebGL starší balíček poskládaný z CSS vrstev.
+    const model = createPackModel(this.set, { hint: hintLvl, onTear: tear, onPointerDown: unlockAudio });
+    target = model ?? this.cssPack(hintLvl, tear);
+    this.stage.append(h("div", { class: "pack-wrap" }, model ? model.el : (target as HTMLElement)), hint);
+
+    append(this.controls, [
+      h("button", { class: "btn", onclick: once(() => (unlockAudio(), this.quickOpen(1))) }, "Otevřít bez animace"),
+      this.left() > 1
+        ? h("button", { class: "btn", onclick: once(() => (unlockAudio(), this.quickOpen(this.left()))) }, `Otevřít vše (${this.left()})`)
+        : null,
+    ]);
+  }
+
+  /**
+   * Záložní balíček z CSS vrstev (prohlížeč bez WebGL): tažení přes horní pruh ho
+   * roztrhne, tažení jinde jím otáčí, prosté klepnutí ho otevře.
+   */
+  private cssPack(hintLvl: number, tear: () => void): HTMLElement {
+    const pack = packEl(this.set, { large: true, tilt: true, hint: hintLvl });
+    pack.classList.add("pack3d--big", "pack3d--idle");
+    const cut = h("div", { class: "pack3d__cut" });
+    pack.querySelector(".pack3d__body")!.append(cut);
+    let drag: { x: number; mode: "tear" | "spin" } | null = null;
+    let torn = false;
+    const tearOnce = () => {
+      if (torn) return;
+      torn = true;
       pack.classList.remove("is-dragging");
       pack.style.setProperty("--spin", "0deg");
-      this.open(pack);
-    });
+      tear();
+    };
     pack.addEventListener("pointerdown", (e) => {
       unlockAudio();
       const r = pack.getBoundingClientRect();
@@ -141,7 +166,7 @@ class OpeningStage {
       pack.setPointerCapture(e.pointerId);
     });
     pack.addEventListener("pointermove", (e) => {
-      if (!drag || done) return;
+      if (!drag || torn) return;
       const dx = e.clientX - drag.x;
       if (drag.mode === "spin") {
         pack.style.setProperty("--spin", `${dx * 0.9}deg`);
@@ -149,15 +174,15 @@ class OpeningStage {
       }
       const progress = Math.min(1, Math.abs(dx) / (pack.getBoundingClientRect().width * 0.7));
       cut.style.setProperty("--cut", String(progress));
-      if (progress >= 1) tear();
+      if (progress >= 1) tearOnce();
     });
     const release = (e: PointerEvent) => {
       if (!drag) return;
       const moved = Math.abs(e.clientX - drag.x) > 8;
       drag = null;
       pack.classList.remove("is-dragging");
-      if (done) return;
-      if (!moved) tear();
+      if (torn) return;
+      if (!moved) tearOnce();
       else {
         cut.style.setProperty("--cut", "0");
         pack.style.setProperty("--spin", "0deg");
@@ -165,13 +190,7 @@ class OpeningStage {
     };
     pack.addEventListener("pointerup", release);
     pack.addEventListener("pointercancel", release);
-
-    append(this.controls, [
-      h("button", { class: "btn", onclick: once(() => (unlockAudio(), this.quickOpen(1))) }, "Otevřít bez animace"),
-      this.left() > 1
-        ? h("button", { class: "btn", onclick: once(() => (unlockAudio(), this.quickOpen(this.left()))) }, `Otevřít vše (${this.left()})`)
-        : null,
-    ]);
+    return pack;
   }
 
   /** Obsah dalšího balíčku vybraného z regálu, pokud nějaký čeká. */
@@ -198,15 +217,20 @@ class OpeningStage {
     return { cards, fresh };
   }
 
-  private async open(pack: HTMLElement) {
+  private async open(target: PackModel | HTMLElement) {
     clear(this.controls);
     const { cards, fresh } = this.draw();
     const imagesReady = preload([...cards.map((c) => c.card.img), CARD_BACK_URL]);
 
-    pack.classList.remove("pack3d--idle");
-    pack.classList.add("pack3d--torn");
-    const main = pack.querySelector(".pack3d__piece--main")!;
-    await Promise.race([Promise.all([animationEnd(main, 1400), imagesReady]), sleep(2600)]);
+    let torn: Promise<void>;
+    if (target instanceof HTMLElement) {
+      target.classList.remove("pack3d--idle");
+      target.classList.add("pack3d--torn");
+      torn = animationEnd(target.querySelector(".pack3d__piece--main")!, 1400);
+    } else {
+      torn = target.tear();
+    }
+    await Promise.race([Promise.all([torn, imagesReady]), sleep(2600)]);
     this.reveal(cards, fresh);
   }
 
