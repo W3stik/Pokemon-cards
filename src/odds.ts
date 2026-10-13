@@ -33,6 +33,19 @@ export const RARITIES: Record<string, RarityInfo> = {
   "Mega Hyper Rare": { rank: 9, short: "MHR", color: "#ffcf3f", shine: "gold", hit: true },
   "Futuristic Rare": { rank: 9, short: "FR", color: "#7df9ff", shine: "neon", hit: true },
   "Black White Rare": { rank: 10, short: "BWR", color: "#f4f4f4", shine: "dark", hit: true },
+  // Scarlet & Violet
+  "ACE SPEC Rare": { rank: 5, short: "ACE", color: "#ff5fb2", shine: "etched", hit: true },
+  "Shiny Rare": { rank: 3, short: "SR", color: "#b8a6ff", shine: "illus", hit: false },
+  "Shiny Ultra Rare": { rank: 7, short: "SUR", color: "#d9b8ff", shine: "etched", hit: true },
+  // Sword & Shield (Evolving Skies)
+  "Rare Holo": { rank: 2, short: "RH", color: "#e6c84f", shine: "holo", hit: false },
+  "Rare Holo V": { rank: 4, short: "V", color: "#7fb2ff", shine: "ex", hit: true },
+  "Rare Holo VMAX": { rank: 5, short: "VMAX", color: "#ff7a7a", shine: "ex", hit: true },
+  "Rare Ultra": { rank: 6, short: "FA", color: "#c9d4e0", shine: "etched", hit: true },
+  "Alternate Art": { rank: 7, short: "AA", color: "#5fe0c0", shine: "illus", hit: true },
+  "Rare Rainbow": { rank: 8, short: "RR+", color: "#ff9ef0", shine: "sir", hit: true },
+  "Alternate Art VMAX": { rank: 9, short: "AA+", color: "#3ff0d0", shine: "sir", hit: true },
+  "Rare Secret": { rank: 9, short: "SEC", color: "#ffcf3f", shine: "gold", hit: true },
 };
 
 export const rarityInfo = (rarity: string): RarityInfo =>
@@ -124,6 +137,8 @@ interface StandardRates {
   gold: number;
   goldRarity: "Hyper Rare" | "Mega Hyper Rare";
   megaAttackRare?: number;
+  /** ACE SPEC Rare (od Temporal Forces) místo prvního reverse holo. */
+  aceSpec?: number;
 }
 
 /**
@@ -135,7 +150,14 @@ interface StandardRates {
 const standardSlots = (r: StandardRates): Slot[] => [
   commons(4),
   uncommons(3),
-  reverse(),
+  r.aceSpec
+    ? {
+        label: "Reverse holo / ACE SPEC",
+        count: 1,
+        hits: [{ rarities: ["ACE SPEC Rare"], variant: "normal", p: r.aceSpec }],
+        base: { rarities: REVERSE_POOL, variant: "reverse" },
+      }
+    : reverse(),
   {
     label: "Reverse holo / Illustration",
     count: 1,
@@ -171,6 +193,13 @@ const megaEvolutionRates = (overrides: Partial<StandardRates> = {}): StandardRat
   gold: 0.0008,
   goldRarity: "Mega Hyper Rare",
   ...overrides,
+});
+
+/** Standardní sada Scarlet & Violet (zlatá karta = Hyper Rare). */
+const svRates = (r: Omit<StandardRates, "goldRarity">): StandardRates => ({ ...r, goldRarity: "Hyper Rare" });
+const tcgtalk = (slug: string, name: string): Source => ({
+  label: `TCGTalk – ${name} pull rates (komunitní data z hromadných otevírání)`,
+  url: `https://tcgtalk.com/guides/${slug}-pack-opening-value-guide`,
 });
 
 const blackWhite = (colors: [string, string]): PackProfile => ({
@@ -355,6 +384,184 @@ export const PACKS: Record<string, PackProfile> = {
       { label: "TCGplayer – 30th Celebration Pull Rates", url: `${TCGPLAYER}Pok%C3%A9mon-TCG-30th-Celebration-Pull-Rates/587b3657-481a-4ab8-827c-68cd3ab585b0/` },
       { label: "cardprice.com – 30th Celebration measured odds", url: "https://cardprice.com/guides/30th-celebration-pull-rates" },
       { label: "Treasure Vault – 30th Celebration early data", url: "https://treasurevaultau.com/blogs/news/pokemon-tcg-30th-celebration-pull-rates" },
+    ],
+  },
+
+  // --- Scarlet & Violet ----------------------------------------------------
+  sv9: {
+    colors: ["#1b2a4a", "#f2a33a"],
+    slots: standardSlots(svRates({ doubleRare: 0.2, ultraRare: 1 / 15, illustrationRare: 1 / 12, specialIllustrationRare: 1 / 86, gold: 1 / 137 })),
+    sources: [tcgtalk("journey-together", "Journey Together")],
+  },
+  sv8pt5: {
+    colors: ["#2a1648", "#f5a3d6"],
+    slots: [
+      commons(4),
+      uncommons(3),
+      {
+        label: "Reverse / Poké Ball / ACE SPEC",
+        count: 1,
+        hits: [
+          { rarities: ["ACE SPEC Rare"], variant: "normal", p: 1 / 21 },
+          { rarities: REVERSE_POOL, variant: "pokeball", p: 1 / 3 },
+        ],
+        base: { rarities: REVERSE_POOL, variant: "reverse" },
+      },
+      {
+        label: "Reverse / Master Ball / SIR",
+        count: 1,
+        hits: [
+          { rarities: ["Hyper Rare"], variant: "normal", p: 1 / 180 },
+          { rarities: ["Special Illustration Rare"], variant: "normal", p: 1 / 45 },
+          { rarities: REVERSE_POOL, variant: "masterball", p: 1 / 20 },
+        ],
+        base: { rarities: REVERSE_POOL, variant: "reverse" },
+      },
+      {
+        label: "Rare",
+        count: 1,
+        hits: [
+          { rarities: ["Ultra Rare"], variant: "normal", p: 1 / 13 },
+          { rarities: ["Double Rare"], variant: "normal", p: 0.18 },
+        ],
+        base: { rarities: ["Rare"], variant: "normal" },
+      },
+    ],
+    note: "Speciální sada bez Illustration Rare: reverse holo mají vzor Poké Ball (~1:3) nebo Master Ball (~1:20). SIR (32 karet, mezi nimi Eeveelutions) 1:45, Hyper Rare 1:180 – komunitní data, zdroje se rozcházejí (SIR 1:45–1:53).",
+    sources: [
+      tcgtalk("prismatic-evolutions", "Prismatic Evolutions"),
+      { label: "cardtracker.au – pull rates by set (TCGplayer přes PokeBeach, 1 200 balíčků)", url: "https://cardtracker.au/insights/guides/pokemon-card-pull-rates" },
+    ],
+  },
+  sv8: {
+    colors: ["#2a1f05", "#ffd23f"],
+    slots: standardSlots(svRates({ doubleRare: 0.2, ultraRare: 1 / 15, illustrationRare: 1 / 13, specialIllustrationRare: 1 / 87, gold: 1 / 188, aceSpec: 1 / 20 })),
+    note: "Double Rare zdroj zvlášť neuvádí, použita hodnota okolních sad (1:5).",
+    sources: [tcgtalk("surging-sparks", "Surging Sparks")],
+  },
+  sv7: {
+    colors: ["#14213d", "#7cc6fe"],
+    slots: standardSlots(svRates({ doubleRare: 0.2, ultraRare: 1 / 15, illustrationRare: 1 / 13, specialIllustrationRare: 1 / 90, gold: 1 / 137, aceSpec: 1 / 20 })),
+    sources: [tcgtalk("stellar-crown", "Stellar Crown")],
+  },
+  sv6pt5: {
+    colors: ["#160d24", "#6d4aa8"],
+    slots: standardSlots(svRates({ doubleRare: 0.2, ultraRare: 1 / 15, illustrationRare: 1 / 12, specialIllustrationRare: 1 / 67, gold: 1 / 144, aceSpec: 1 / 20 })),
+    note: "Menší speciální sada; šance podle ~1 500 komunitně zapsaných balíčků (SIR se mezi zdroji liší, 1:50–1:67).",
+    sources: [tcgtalk("shrouded-fable", "Shrouded Fable")],
+  },
+  sv6: {
+    colors: ["#0f2a1e", "#2fbf71"],
+    slots: standardSlots(svRates({ doubleRare: 0.2, ultraRare: 1 / 15, illustrationRare: 1 / 13, specialIllustrationRare: 1 / 86, gold: 1 / 146, aceSpec: 1 / 20 })),
+    sources: [tcgtalk("twilight-masquerade", "Twilight Masquerade")],
+  },
+  sv5: {
+    colors: ["#1d1a3a", "#38bdf8"],
+    slots: standardSlots(svRates({ doubleRare: 0.21, ultraRare: 1 / 15, illustrationRare: 1 / 13, specialIllustrationRare: 1 / 86, gold: 1 / 139, aceSpec: 1 / 20 })),
+    note: "První sada s ACE SPEC Rare (1:20), které nahrazují první reverse holo.",
+    sources: [
+      tcgtalk("temporal-forces", "Temporal Forces"),
+      { label: "Temporal Forces pull rates (data TCGplayer)", url: "https://www.josephwriteranderson.com/blog/temporal-forces-pull-rates" },
+    ],
+  },
+  sv4pt5: {
+    colors: ["#1a1030", "#ff9ad5"],
+    slots: [
+      commons(4),
+      uncommons(3),
+      { label: "Shiny Rare", count: 1, hits: [], base: { rarities: ["Shiny Rare"], variant: "normal" } },
+      {
+        label: "Reverse holo / Shiny Ultra Rare / Illustration",
+        count: 1,
+        hits: [
+          { rarities: ["Hyper Rare"], variant: "normal", p: 1 / 62 },
+          { rarities: ["Special Illustration Rare"], variant: "normal", p: 1 / 58 },
+          { rarities: ["Illustration Rare"], variant: "normal", p: 1 / 14 },
+          { rarities: ["Shiny Ultra Rare"], variant: "normal", p: 1 / 13 },
+        ],
+        base: { rarities: REVERSE_POOL, variant: "reverse" },
+      },
+      {
+        label: "Rare",
+        count: 1,
+        hits: [
+          { rarities: ["Ultra Rare"], variant: "normal", p: 1 / 15 },
+          { rarities: ["Double Rare"], variant: "normal", p: 0.34 },
+        ],
+        base: { rarities: ["Rare"], variant: "normal" },
+      },
+    ],
+    note: "Speciální sada: v každém balíčku je Shiny Rare (místo jednoho reverse holo) ze 120 karet, Shiny Ultra Rare 1:13. Komunitní data (~1 500 balíčků); podle jiných zdrojů je Shiny Rare jen v každém 4. balíčku.",
+    sources: [
+      tcgtalk("paldean-fates", "Paldean Fates"),
+      { label: "PokeBeach – Paldean Fates pull rates (1 500 balíčků)", url: "https://www.pokebeach.com/?p=281473" },
+    ],
+  },
+  sv4: {
+    colors: ["#1a1424", "#8e44ad"],
+    slots: standardSlots(svRates({ doubleRare: 1 / 6, ultraRare: 1 / 15, illustrationRare: 1 / 13, specialIllustrationRare: 1 / 47, gold: 1 / 82 })),
+    sources: [tcgtalk("paradox-rift", "Paradox Rift")],
+  },
+  sv3pt5: {
+    colors: ["#0c2340", "#e63946"],
+    slots: standardSlots(svRates({ doubleRare: 0.1328, ultraRare: 1 / 16, illustrationRare: 0.085, specialIllustrationRare: 0.0311, gold: 0.0194 })),
+    note: "Šance podle měření TCGplayer. Sada má i god packy, ty ve výpočtu nejsou.",
+    sources: [
+      { label: "TCGplayer – Scarlet & Violet—151 Pull Rates", url: `${TCGPLAYER}Pok%C3%A9mon-TCG-Scarlet-Violet%E2%80%94151-Pull-Rates/b237df74-fbb0-40d0-9e13-d69ee6e804d9/` },
+    ],
+  },
+  sv3: {
+    colors: ["#120a0a", "#ff6a00"],
+    slots: standardSlots(svRates({ doubleRare: 1 / 7, ultraRare: 1 / 15, illustrationRare: 1 / 13, specialIllustrationRare: 1 / 32, gold: 1 / 52 })),
+    sources: [tcgtalk("obsidian-flames", "Obsidian Flames")],
+  },
+  sv2: {
+    colors: ["#10261f", "#5bd1a5"],
+    slots: standardSlots(svRates({ doubleRare: 1 / 7, ultraRare: 1 / 15, illustrationRare: 1 / 13, specialIllustrationRare: 1 / 32, gold: 1 / 57 })),
+    sources: [tcgtalk("paldea-evolved", "Paldea Evolved")],
+  },
+  sv1: {
+    colors: ["#2b0f1f", "#c2185b"],
+    slots: standardSlots(svRates({ doubleRare: 0.1354, ultraRare: 0.0648, illustrationRare: 0.0752, specialIllustrationRare: 0.0315, gold: 0.0185 })),
+    note: "SIR a Hyper Rare podle měření TCGplayer (8 000+ balíčků), ostatní podle vzorku 1 728 balíčků (Card Shop Live).",
+    sources: [
+      { label: "TCGplayer – Scarlet & Violet Pull Rates", url: `${TCGPLAYER}Pok%C3%A9mon-TCG-Scarlet-Violet-Pull-Rates/a7702fce-dd64-4a58-beb1-0f871c853215/` },
+      { label: "cardtracker.au – pull rates by set", url: "https://cardtracker.au/insights/guides/pokemon-card-pull-rates" },
+    ],
+  },
+
+  // --- Sword & Shield --------------------------------------------------------
+  swsh7: {
+    colors: ["#0d2a4a", "#4fc3f7"],
+    slots: [
+      commons(5),
+      uncommons(3),
+      {
+        label: "Reverse holo",
+        count: 1,
+        hits: [],
+        base: { rarities: ["Common", "Uncommon", "Rare", "Rare Holo"], variant: "reverse" },
+      },
+      {
+        label: "Rare",
+        count: 1,
+        hits: [
+          { rarities: ["Rare Secret"], variant: "normal", p: 1 / 110 },
+          { rarities: ["Alternate Art VMAX"], variant: "normal", p: 1 / 250 },
+          { rarities: ["Rare Rainbow"], variant: "normal", p: 1 / 88 },
+          { rarities: ["Alternate Art"], variant: "normal", p: 1 / 100 },
+          { rarities: ["Rare Ultra"], variant: "normal", p: 1 / 26 },
+          { rarities: ["Rare Holo VMAX"], variant: "normal", p: 1 / 18 },
+          { rarities: ["Rare Holo V"], variant: "normal", p: 1 / 9.5 },
+          { rarities: ["Rare Holo"], variant: "normal", p: 1 / 3 },
+        ],
+        base: { rarities: ["Rare"], variant: "normal" },
+      },
+    ],
+    note: "Éra Sword & Shield: 5 Common, 3 Uncommon, reverse holo a jedna vzácnější karta. V, VMAX, full art, rainbow a zlaté podle Card Codex; alt arty (11 V, 6 VMAX vč. Umbreon VMAX) oficiální data nemají – odhad: alt art V 1:100 (DripShop uvádí 1,2 %), alt art VMAX 1:250, tedy konkrétní alt art VMAX zhruba 1:1500.",
+    sources: [
+      { label: "Card Codex – Evolving Skies pull rates", url: "https://cardcodex.com/pokemon/sword-shield/evolving-skies/evolving-skies-half-booster-box-swsh7/" },
+      { label: "cardtracker.au – alt art V 1,2 % (DripShop)", url: "https://cardtracker.au/insights/guides/pokemon-card-pull-rates" },
     ],
   },
 };

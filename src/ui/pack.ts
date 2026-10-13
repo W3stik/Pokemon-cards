@@ -18,6 +18,20 @@ export const PACK_PRODUCTS: Record<string, number> = {
   me4: 684446,
   me5: 692944,
   me55: 696613,
+  sv9: 610935,
+  sv8pt5: 593294,
+  sv8: 565604,
+  sv7: 557331,
+  sv6pt5: 552997,
+  sv6: 543843,
+  sv5: 532841,
+  sv4pt5: 528038,
+  sv4: 512822,
+  sv3pt5: 504467,
+  sv3: 501256,
+  sv2: 493976,
+  sv1: 476451,
+  swsh7: 244337,
 };
 
 export function packArtUrl(setId: string, large = false): string | null {

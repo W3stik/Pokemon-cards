@@ -4,6 +4,7 @@ import { PACKS, oddsTable, packProfile, packSize, rarityInfo, RARITIES } from ".
 import { byRarity, fromSealed, hintLevel, isGodPack, openPack, toSealed } from "./pack";
 import { getState, nextSealed, pickFromShelf, recordOpening, resetState, setShelf } from "./store";
 import type { Card, SetInfo } from "./types";
+import { PACK_PRODUCTS } from "./ui/pack";
 
 const dataDir = new URL("../public/data/", import.meta.url);
 const sets: SetInfo[] = JSON.parse(readFileSync(new URL("sets.json", dataDir), "utf8"));
@@ -20,9 +21,12 @@ function seeded(seed: number) {
 }
 
 describe("data a konfigurace šancí", () => {
-  it("obsahuje 10 sad a každá má profil balíčku", () => {
-    expect(sets).toHaveLength(10);
-    for (const set of sets) expect(PACKS[set.id], set.id).toBeDefined();
+  it("každá sada má profil balíčku i fotku obalu", () => {
+    expect(sets.length).toBeGreaterThanOrEqual(10);
+    for (const set of sets) {
+      expect(PACKS[set.id], set.id).toBeDefined();
+      expect(PACK_PRODUCTS[set.id], set.id).toBeDefined();
+    }
   });
 
   it("každá rarita v profilu existuje v datech sady a naopak má každá karta známou raritu", () => {

@@ -108,5 +108,159 @@
   "total": 244,
   "logo": "https://images.pokemontcg.io/sv10/logo.png",
   "symbol": "https://images.pokemontcg.io/sv10/symbol.png"
+ },
+ {
+  "id": "sv9",
+  "name": "Journey Together",
+  "series": "Scarlet & Violet",
+  "code": "JTG",
+  "releaseDate": "2025-03-28",
+  "printedTotal": 159,
+  "total": 190,
+  "logo": "https://images.pokemontcg.io/sv9/logo.png",
+  "symbol": "https://images.pokemontcg.io/sv9/symbol.png"
+ },
+ {
+  "id": "sv8pt5",
+  "name": "Prismatic Evolutions",
+  "series": "Scarlet & Violet",
+  "code": "PRE",
+  "releaseDate": "2025-01-17",
+  "printedTotal": 131,
+  "total": 180,
+  "logo": "https://images.pokemontcg.io/sv8pt5/logo.png",
+  "symbol": "https://images.pokemontcg.io/sv8pt5/symbol.png"
+ },
+ {
+  "id": "sv8",
+  "name": "Surging Sparks",
+  "series": "Scarlet & Violet",
+  "code": "SSP",
+  "releaseDate": "2024-11-08",
+  "printedTotal": 191,
+  "total": 252,
+  "logo": "https://images.pokemontcg.io/sv8/logo.png",
+  "symbol": "https://images.pokemontcg.io/sv8/symbol.png"
+ },
+ {
+  "id": "sv7",
+  "name": "Stellar Crown",
+  "series": "Scarlet & Violet",
+  "code": "SCR",
+  "releaseDate": "2024-09-13",
+  "printedTotal": 142,
+  "total": 175,
+  "logo": "https://images.pokemontcg.io/sv7/logo.png",
+  "symbol": "https://images.pokemontcg.io/sv7/symbol.png"
+ },
+ {
+  "id": "sv6pt5",
+  "name": "Shrouded Fable",
+  "series": "Scarlet & Violet",
+  "code": "SFA",
+  "releaseDate": "2024-08-02",
+  "printedTotal": 64,
+  "total": 99,
+  "logo": "https://images.pokemontcg.io/sv6pt5/logo.png",
+  "symbol": "https://images.pokemontcg.io/sv6pt5/symbol.png"
+ },
+ {
+  "id": "sv6",
+  "name": "Twilight Masquerade",
+  "series": "Scarlet & Violet",
+  "code": "TWM",
+  "releaseDate": "2024-05-24",
+  "printedTotal": 167,
+  "total": 226,
+  "logo": "https://images.pokemontcg.io/sv6/logo.png",
+  "symbol": "https://images.pokemontcg.io/sv6/symbol.png"
+ },
+ {
+  "id": "sv5",
+  "name": "Temporal Forces",
+  "series": "Scarlet & Violet",
+  "code": "TEF",
+  "releaseDate": "2024-03-22",
+  "printedTotal": 162,
+  "total": 218,
+  "logo": "https://images.pokemontcg.io/sv5/logo.png",
+  "symbol": "https://images.pokemontcg.io/sv5/symbol.png"
+ },
+ {
+  "id": "sv4pt5",
+  "name": "Paldean Fates",
+  "series": "Scarlet & Violet",
+  "code": "PAF",
+  "releaseDate": "2024-01-26",
+  "printedTotal": 91,
+  "total": 245,
+  "logo": "https://images.pokemontcg.io/sv4pt5/logo.png",
+  "symbol": "https://images.pokemontcg.io/sv4pt5/symbol.png"
+ },
+ {
+  "id": "sv4",
+  "name": "Paradox Rift",
+  "series": "Scarlet & Violet",
+  "code": "PAR",
+  "releaseDate": "2023-11-03",
+  "printedTotal": 182,
+  "total": 266,
+  "logo": "https://images.pokemontcg.io/sv4/logo.png",
+  "symbol": "https://images.pokemontcg.io/sv4/symbol.png"
+ },
+ {
+  "id": "sv3pt5",
+  "name": "151",
+  "series": "Scarlet & Violet",
+  "code": "MEW",
+  "releaseDate": "2023-09-22",
+  "printedTotal": 165,
+  "total": 207,
+  "logo": "https://images.pokemontcg.io/sv3pt5/logo.png",
+  "symbol": "https://images.pokemontcg.io/sv3pt5/symbol.png"
+ },
+ {
+  "id": "sv3",
+  "name": "Obsidian Flames",
+  "series": "Scarlet & Violet",
+  "code": "OBF",
+  "releaseDate": "2023-08-11",
+  "printedTotal": 197,
+  "total": 230,
+  "logo": "https://images.pokemontcg.io/sv3/logo.png",
+  "symbol": "https://images.pokemontcg.io/sv3/symbol.png"
+ },
+ {
+  "id": "sv2",
+  "name": "Paldea Evolved",
+  "series": "Scarlet & Violet",
+  "code": "PAL",
+  "releaseDate": "2023-06-09",
+  "printedTotal": 193,
+  "total": 279,
+  "logo": "https://images.pokemontcg.io/sv2/logo.png",
+  "symbol": "https://images.pokemontcg.io/sv2/symbol.png"
+ },
+ {
+  "id": "sv1",
+  "name": "Scarlet & Violet",
+  "series": "Scarlet & Violet",
+  "code": "SVI",
+  "releaseDate": "2023-03-31",
+  "printedTotal": 198,
+  "total": 258,
+  "logo": "https://images.pokemontcg.io/sv1/logo.png",
+  "symbol": "https://images.pokemontcg.io/sv1/symbol.png"
+ },
+ {
+  "id": "swsh7",
+  "name": "Evolving Skies",
+  "series": "Sword & Shield",
+  "code": "EVS",
+  "releaseDate": "2021-08-27",
+  "printedTotal": 203,
+  "total": 237,
+  "logo": "https://images.pokemontcg.io/swsh7/logo.png",
+  "symbol": "https://images.pokemontcg.io/swsh7/symbol.png"
  }
 ]

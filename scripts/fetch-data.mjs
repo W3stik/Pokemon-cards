@@ -1,13 +1,16 @@
-// Stáhne seznam sad a karty nejnovějších sad z otevřeného repozitáře
-// PokemonTCG/pokemon-tcg-data (stejná data, jaká vrací api.pokemontcg.io)
-// a uloží je zmenšené do public/data. Spouští se ručně: npm run data [počet]
+// Stáhne sady a jejich karty z otevřeného repozitáře PokemonTCG/pokemon-tcg-data
+// (stejná data, jaká vrací api.pokemontcg.io) a uloží je zmenšené do public/data.
+// Bere všechny booster sady vybraných ér (SERIES) a jednotlivé starší sady
+// (EXTRA_SETS). Spouští se ručně: npm run data
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const RAW = "https://raw.githubusercontent.com/PokemonTCG/pokemon-tcg-data/master";
 const OUT = join(dirname(fileURLToPath(import.meta.url)), "..", "public", "data");
-const COUNT = Number(process.argv[2] ?? 10);
+// Éry, ze kterých se berou všechny booster sady, a vybrané sady starších ér.
+const SERIES = ["Mega Evolution", "Scarlet & Violet"];
+const EXTRA_SETS = ["swsh7"]; // Evolving Skies
 
 async function getJson(url) {
   const res = await fetch(url);
@@ -23,9 +26,8 @@ const SUBSETS = { me55c: { parent: "me55", label: "Classic Collection", prefix: 
 
 const allSets = await getJson(`${RAW}/sets/en.json`);
 const sets = allSets
-  .filter((s) => isBoosterSet(s) && !SUBSETS[s.id])
-  .sort((a, b) => b.releaseDate.localeCompare(a.releaseDate))
-  .slice(0, COUNT);
+  .filter((s) => isBoosterSet(s) && !SUBSETS[s.id] && (SERIES.includes(s.series) || EXTRA_SETS.includes(s.id)))
+  .sort((a, b) => b.releaseDate.localeCompare(a.releaseDate));
 
 await mkdir(OUT, { recursive: true });
 
@@ -58,6 +60,19 @@ const RARITY_FIXES = {
 
 const rarityOf = (c) => RARITY_FIXES[c.id] ?? (c.rarity === "MEGA_ATTACK_RARE" ? "Mega Attack Rare" : c.rarity);
 
+// Éra Sword & Shield: alternativní ilustrace (alt arty) mají ve zdroji stejnou raritu
+// jako běžný full art / rainbow, ale jsou mnohem vzácnější. Jsou to vždy druhé ze dvou
+// po sobě jdoucích karet téhož Pokémona (Evolving Skies: Umbreon V 188 a alt art 189).
+const ALT_ART = { "Rare Ultra": "Alternate Art", "Rare Rainbow": "Alternate Art VMAX" };
+function markAltArts(cards) {
+  for (let i = 1; i < cards.length; i++) {
+    const [prev, card] = [cards[i - 1], cards[i]];
+    if (ALT_ART[card.rarity] && card.supertype === "Pokémon" && prev.name === card.name && prev.rarity === card.rarity) {
+      card.rarity = ALT_ART[card.rarity];
+    }
+  }
+}
+
 const slimCard = (c) => ({
   id: c.id,
   name: c.name,
@@ -80,6 +95,7 @@ for (const set of sets) {
     .filter((c) => /^\d+$/.test(c.number) && c.rarity)
     .map(slimCard)
     .sort((a, b) => a.number - b.number);
+  if (set.series === "Sword & Shield") markAltArts(slim);
 
   // Reprinty z podsady mají původní čísla ze starých sad, proto je přečíslujeme
   // podle pořadí (CC1–CC30) a původní raritu si necháme jen pro zobrazení.
