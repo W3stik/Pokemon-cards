@@ -116,7 +116,7 @@ class OpeningStage {
         document.removeEventListener("keydown", onKey);
         return;
       }
-      const target = e.target as HTMLElement | null;
+      const target = e.target instanceof Element ? e.target : null;
       if (target?.closest("button, a, input, select, textarea") || document.querySelector(".modal, .viewer")) return;
       if (this.keys?.(e)) e.preventDefault();
     };
@@ -312,11 +312,18 @@ class OpeningStage {
     const pile = h("div", { class: "pile" }, stack);
     enableTilt(pile);
     this.stage.append(pile, counter, h("p", { class: "stage__hint" }, "Klepni na kartu, nebo ji odhoď do strany"));
-    // God pack: celý balík zazáří a objeví se nápis (první karta je hned vzácná).
-    if (isGodPack(cards)) {
+    // God pack se předem neprozradí: zlatá záře a nápis až po odhalení poslední karty.
+    const god = isGodPack(cards);
+    let godAnnounced = false;
+    const announceGod = async () => {
+      if (!god || godAnnounced) return;
+      godAnnounced = true;
+      // nejdřív dozní efekty poslední karty
+      await sleep(1100);
+      if (!pile.isConnected) return;
       pile.classList.add("pile--god");
       this.godBanner();
-    }
+    };
 
     // Vzácné karty leží rubem nahoru a odhalí se až klepnutím (nabití a otočení).
     // S omezenými animacemi se ukazují rovnou lícem.
@@ -363,6 +370,8 @@ class OpeningStage {
       pile.classList.toggle("pile--tease", Boolean(tease));
       for (const t of [1, 2, 3, 4]) pile.classList.toggle(`pile--tier-${t}`, Boolean(tease) && tierOf(rarityInfo(cards[index].card.rarity).rank) === t);
       if (tease) pile.style.setProperty("--tease", rarityInfo(cards[index].card.rarity).color);
+      // s omezenými animacemi leží karty lícem: god pack se ohlásí u poslední karty
+      if (index === items.length - 1 && current && !tease) announceGod();
     };
     update();
 
@@ -387,6 +396,8 @@ class OpeningStage {
       this.revealHit(item, rank);
       await sleep(350);
       item.classList.remove("is-flipping");
+      // poslední karta god packu: odhodit ji jde až po ohlášení
+      if (index === items.length - 1) await announceGod();
       busy = false;
     };
 
@@ -492,6 +503,7 @@ class OpeningStage {
 
   /** Nápis GOD PACK přes balík karet, s nejsilnější fanfárou a vibrací. */
   private godBanner() {
+    this.stage.querySelector(".rarity-banner")?.remove();
     const banner = h("div", { class: "god-banner", role: "status" }, "GOD PACK!");
     this.stage.append(banner);
     sfxHit(10);

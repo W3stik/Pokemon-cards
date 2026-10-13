@@ -1,7 +1,11 @@
 /* --- Odhalení vzácné karty (src/ui/reveal.ts, open.ts) ----------------------- */
 
-/* Vzácná karta leží rubem nahoru; štítek s raritou se ukáže až po otočení. */
-.pile__item.is-facedown .flip {
+/* Vzácná karta leží rubem nahoru; štítek s raritou se ukáže až po otočení.
+   Karty pod horní kartou ukazují rub všechny (líc až když přijdou na řadu, bez
+   přechodu – v tu chvíli je ještě zakrývá odhazovaná karta): z rohů vykukujících
+   z balíku tak nejde poznat, kolik vzácných karet (god pack) přijde. */
+.pile__item.is-facedown .flip,
+.pile__item:not(.is-current):not(.is-gone) .flip {
   transform: rotateY(180deg);
 }
 
@@ -11,7 +15,9 @@
 
 /* Nabití: karta (rubem nahoru) se zvedne a chvěje, chvění sílí s úrovní rarity.
    Animuje se vnitřní .flip, ne celá karta – ta má vlastní animaci vyjetí z balíčku,
-   která by se po skončení nabíjení spustila znovu. */
+   která by se po skončení nabíjení spustila znovu.
+   Posun (translate) musí být PŘED rotateY: po otočení o 180° by translateZ mířil
+   dozadu a karta by se zabořila do karet pod sebou. */
 .pile__item.is-charging .flip {
   transition: none;
   animation: charge var(--charge, 500ms) cubic-bezier(0.4, 0, 0.9, 0.6) forwards;
@@ -24,61 +30,89 @@
 
 @keyframes charge {
   0% {
-    transform: rotateY(180deg) translateZ(0) rotateZ(0) scale(1);
+    transform: translate3d(0, 0, 0) rotateY(180deg) rotateZ(0deg);
   }
   20%,
   40%,
   60%,
   80% {
-    transform: rotateY(180deg) translateZ(30px) rotateZ(-1.2deg) scale(1.03);
+    transform: translate3d(0, 0, 25px) rotateY(180deg) rotateZ(-1.2deg);
   }
   30%,
   50%,
   70%,
   90% {
-    transform: rotateY(180deg) translateZ(30px) rotateZ(1.2deg) scale(1.03);
+    transform: translate3d(0, 0, 25px) rotateY(180deg) rotateZ(1.2deg);
   }
   100% {
-    transform: rotateY(180deg) translateZ(60px) rotateZ(0) scale(1.08);
+    transform: translate3d(0, 0, 50px) rotateY(180deg) rotateZ(0deg);
   }
 }
 
 @keyframes charge-strong {
   0% {
-    transform: rotateY(180deg) translateZ(0) rotateZ(0) scale(1);
+    transform: translate3d(0, 0, 0) rotateY(180deg) rotateZ(0deg);
   }
   15%,
   35%,
   55%,
   75% {
-    transform: rotateY(180deg) translate3d(-3px, -2px, 40px) rotateZ(-2deg) scale(1.04);
+    transform: translate3d(-3px, -2px, 35px) rotateY(180deg) rotateZ(-2deg);
   }
   25%,
   45%,
   65%,
   85% {
-    transform: rotateY(180deg) translate3d(3px, 1px, 40px) rotateZ(2deg) scale(1.05);
+    transform: translate3d(3px, 1px, 35px) rotateY(180deg) rotateZ(2deg);
   }
   100% {
-    transform: rotateY(180deg) translateZ(60px) rotateZ(0) scale(1.08);
+    transform: translate3d(0, 0, 50px) rotateY(180deg) rotateZ(0deg);
   }
 }
 
-/* Otočení na líc: karta se při tom zvedne k divákovi a dosedne s mírným přeskokem. */
+/* Otočení na líc: karta se při tom zvedne k divákovi a dosedne. Při otáčení její
+   okraj míří dozadu (až o polovinu šířky karty, ~150 px), proto se zvedá tak vysoko,
+   aby se nezabořila do karet pod sebou (zvedání = 165 px × sin úhlu + dojezd).
+   Snímky jsou spočítané s náběhem a doběhem, časování mezi nimi je lineární
+   (pružný přeskok by kartu na konci zatlačil pod rovinu balíku). */
 .pile__item.is-flipping .flip {
   transition: none;
-  animation: flip-reveal 0.65s cubic-bezier(0.3, 0.7, 0.35, 1.15);
+  animation: flip-reveal 0.65s linear;
 }
 
 @keyframes flip-reveal {
   0% {
-    transform: rotateY(180deg) translateZ(60px) scale(1.08);
+    transform: translate3d(0, 0, 50px) rotateY(180deg);
+  }
+  10% {
+    transform: translate3d(0, 0, 50.9px) rotateY(176.4deg);
+  }
+  20% {
+    transform: translate3d(0, 0, 73px) rotateY(165.6deg);
+  }
+  30% {
+    transform: translate3d(0, 0, 112.9px) rotateY(147.6deg);
+  }
+  40% {
+    transform: translate3d(0, 0, 157.3px) rotateY(122.4deg);
   }
   50% {
-    transform: rotateY(90deg) translateZ(90px) scale(1.14);
+    transform: translate3d(0, 0, 177.5px) rotateY(90deg);
+  }
+  60% {
+    transform: translate3d(0, 0, 147.3px) rotateY(57.6deg);
+  }
+  70% {
+    transform: translate3d(0, 0, 92.9px) rotateY(32.4deg);
+  }
+  80% {
+    transform: translate3d(0, 0, 43px) rotateY(14.4deg);
+  }
+  90% {
+    transform: translate3d(0, 0, 10.9px) rotateY(3.6deg);
   }
   100% {
-    transform: rotateY(0deg) translateZ(0) scale(1);
+    transform: translate3d(0, 0, 0px) rotateY(0deg);
   }
 }
 
