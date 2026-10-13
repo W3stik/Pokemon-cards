@@ -13,7 +13,7 @@ export interface RarityInfo {
   /** Barva rarity v rozhraní. */
   color: string;
   /** Typ lesku při zobrazení karty. */
-  shine: "none" | "holo" | "rainbow" | "gold" | "dark";
+  shine: "none" | "holo" | "ex" | "cosmos" | "illus" | "etched" | "sir" | "gold" | "neon" | "dark";
   /** Zda jde o „hit“, který si zaslouží zvláštní animaci při odhalení. */
   hit: boolean;
 }
@@ -23,15 +23,15 @@ export const RARITIES: Record<string, RarityInfo> = {
   Uncommon: { rank: 1, short: "U", color: "#5fb3a1", shine: "none", hit: false },
   Rare: { rank: 2, short: "R", color: "#e6c84f", shine: "holo", hit: false },
   "Pikachu Rare": { rank: 3, short: "PR", color: "#ffd84a", shine: "holo", hit: false },
-  "Double Rare": { rank: 4, short: "RR", color: "#f0a33a", shine: "holo", hit: true },
-  "Classic Collection": { rank: 5, short: "CC", color: "#c48af0", shine: "holo", hit: true },
-  "Illustration Rare": { rank: 6, short: "IR", color: "#55c1f2", shine: "rainbow", hit: true },
-  "Ultra Rare": { rank: 7, short: "UR", color: "#c9d4e0", shine: "rainbow", hit: true },
-  "Mega Attack Rare": { rank: 7, short: "MAR", color: "#ff6fa8", shine: "rainbow", hit: true },
-  "Special Illustration Rare": { rank: 8, short: "SIR", color: "#ff7ad9", shine: "rainbow", hit: true },
+  "Double Rare": { rank: 4, short: "RR", color: "#f0a33a", shine: "ex", hit: true },
+  "Classic Collection": { rank: 5, short: "CC", color: "#c48af0", shine: "cosmos", hit: true },
+  "Illustration Rare": { rank: 6, short: "IR", color: "#55c1f2", shine: "illus", hit: true },
+  "Ultra Rare": { rank: 7, short: "UR", color: "#c9d4e0", shine: "etched", hit: true },
+  "Mega Attack Rare": { rank: 7, short: "MAR", color: "#ff6fa8", shine: "etched", hit: true },
+  "Special Illustration Rare": { rank: 8, short: "SIR", color: "#ff7ad9", shine: "sir", hit: true },
   "Hyper Rare": { rank: 9, short: "HR", color: "#ffcf3f", shine: "gold", hit: true },
   "Mega Hyper Rare": { rank: 9, short: "MHR", color: "#ffcf3f", shine: "gold", hit: true },
-  "Futuristic Rare": { rank: 9, short: "FR", color: "#7df9ff", shine: "rainbow", hit: true },
+  "Futuristic Rare": { rank: 9, short: "FR", color: "#7df9ff", shine: "neon", hit: true },
   "Black White Rare": { rank: 10, short: "BWR", color: "#f4f4f4", shine: "dark", hit: true },
 };
 

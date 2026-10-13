@@ -282,6 +282,11 @@ class OpeningStage {
     const update = () => {
       counter.textContent = `${Math.min(index + 1, cards.length)} / ${cards.length}`;
       items.forEach((item, i) => item.classList.toggle("is-current", i === index));
+      // Napětí: když je pod aktuální kartou vzácná, prosvítá zpod ní její barva.
+      const next = cards[index + 1];
+      const tease = next && rarityInfo(next.card.rarity).rank >= 6 && !prefersReducedMotion();
+      pile.classList.toggle("pile--tease", Boolean(tease));
+      if (tease) pile.style.setProperty("--tease", rarityInfo(next.card.rarity).color);
     };
     update();
     // Vzácná karta hned navrchu (výjimečně) se rozzáří po vyjetí z balíčku.
@@ -347,12 +352,34 @@ class OpeningStage {
   }
 
   /** Vzácná karta se po odhalení rozzáří barvou rarity a vybuchne částicemi. */
+  /**
+   * Vzácná karta se po odhalení rozzáří a efekty se stupňují podle rarity:
+   * Double Rare záře a částice, IR/UR navíc paprsky a poskočení karty,
+   * SIR reflektor (ztmavení okolí), konfety a záblesk, zlaté karty a BWR zlaté
+   * paprsky, déšť zlatých konfet a otřes.
+   */
   private revealHit(item: HTMLElement, rank: number) {
     item.classList.add("is-revealed");
     sfxHit(rank);
     if (prefersReducedMotion()) return;
+    const color = getComputedStyle(item).getPropertyValue("--rc").trim() || "#fff";
+    const pile = item.closest<HTMLElement>(".pile");
     burst(item, rank);
-    if (rank >= 8) flash();
+    if (rank >= 6) {
+      item.classList.add("is-pop");
+      setTimeout(() => item.classList.remove("is-pop"), 700);
+      if (pile) rays(pile, color, rank);
+    }
+    if (rank >= 8) {
+      this.stage.classList.add("stage--spotlight");
+      setTimeout(() => this.stage.classList.remove("stage--spotlight"), 2300);
+      confetti(item, color, rank);
+      flash();
+    }
+    if (rank >= 9 && pile) {
+      pile.classList.add("is-shake");
+      setTimeout(() => pile.classList.remove("is-shake"), 600);
+    }
   }
 
   /** Nápis GOD PACK přes balík karet, s nejsilnější fanfárou a vibrací. */
@@ -509,6 +536,35 @@ function soundToggle(): HTMLElement {
   });
   render();
   return btn;
+}
+
+/** Paprsky světla za balíkem karet (zlaté u zlatých karet a BWR). */
+function rays(pile: HTMLElement, color: string, rank: number) {
+  pile.querySelector(".rays")?.remove();
+  const el = h("div", { class: `rays${rank >= 9 ? " rays--gold" : ""}`, style: `--rc: ${color}` });
+  pile.prepend(el);
+  setTimeout(() => el.remove(), 2600);
+}
+
+/** Konfety vylétnou nahoru a padají; u zlatých karet víc a zlaté. */
+function confetti(item: HTMLElement, color: string, rank: number) {
+  const gold = rank >= 9;
+  const palette = gold ? ["#ffd65a", "#fff3b0", "#ffb800", "#ffffff"] : [color, "#ffffff", "#ffd65a", "#7fd8ff"];
+  const n = gold ? 70 : 42;
+  const layer = h("div", { class: "confetti" });
+  for (let i = 0; i < n; i++) {
+    const dx = (Math.random() - 0.5) * 360;
+    const up = -(80 + Math.random() * 200);
+    layer.append(
+      h("i", {
+        style:
+          `--c: ${palette[i % palette.length]}; --dx: ${dx}px; --up: ${up}px; --fall: ${up + 420 + Math.random() * 200}px; ` +
+          `--rot: ${(Math.random() - 0.5) * 1080}deg; --t: ${1.4 + Math.random() * 0.9}s; --w: ${5 + Math.random() * 4}px`,
+      }),
+    );
+  }
+  item.append(layer);
+  setTimeout(() => layer.remove(), 2600);
 }
 
 /** Záblesk částic kolem karty v barvě rarity. */

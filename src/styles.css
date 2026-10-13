@@ -1185,25 +1185,95 @@ a.chip {
   opacity: calc(0.12 + var(--o) * 0.35);
 }
 
-.shine-rainbow .pcard__shine {
+/* Třpytky: tři vrstvy teček s různou roztečí, takže vzor nepůsobí pravidelně. */
+.pcard {
+  --glitter:
+    radial-gradient(circle at 13% 27%, rgb(255 255 255 / 0.95) 0 0.7px, transparent 1.4px),
+    radial-gradient(circle at 61% 71%, rgb(255 255 255 / 0.9) 0 0.6px, transparent 1.3px),
+    radial-gradient(circle at 83% 13%, rgb(255 255 255 / 0.95) 0 0.9px, transparent 1.6px);
+  --glitter-size: 23px 29px, 31px 37px, 41px 43px;
+  --rainbow: repeating-linear-gradient(
+    125deg,
+    hsl(330 90% 65% / 0.6) 0%,
+    hsl(40 95% 60% / 0.6) 5%,
+    hsl(110 85% 60% / 0.6) 10%,
+    hsl(190 95% 60% / 0.6) 15%,
+    hsl(260 90% 70% / 0.6) 20%,
+    hsl(330 90% 65% / 0.6) 25%
+  );
+  /* jemné rýhy jako na „etched“ full art kartách */
+  --etch: repeating-linear-gradient(45deg, rgb(255 255 255 / 0.2) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(-45deg, rgb(255 255 255 / 0.12) 0 1px, transparent 1px 4px);
+}
+
+/* Double Rare (ex): výrazný duhový přeliv přes klasické holo. */
+.shine-ex .pcard__shine {
   background-image:
-    radial-gradient(circle at 20% 30%, rgb(255 255 255 / 0.8) 0 1px, transparent 2px),
-    radial-gradient(circle at 70% 60%, rgb(255 255 255 / 0.8) 0 1px, transparent 2px),
-    repeating-linear-gradient(
-      125deg,
-      hsl(330 90% 65% / 0.6) 0%,
-      hsl(40 95% 60% / 0.6) 5%,
-      hsl(110 85% 60% / 0.6) 10%,
-      hsl(190 95% 60% / 0.6) 15%,
-      hsl(260 90% 70% / 0.6) 20%,
-      hsl(330 90% 65% / 0.6) 25%
-    );
-  background-size: 18px 18px, 26px 26px, 300% 300%;
+    linear-gradient(
+      110deg,
+      transparent 22%,
+      hsl(185 100% 70% / 0.55) 36%,
+      hsl(300 100% 78% / 0.55) 46%,
+      hsl(50 100% 72% / 0.55) 56%,
+      transparent 70%
+    ),
+    var(--rainbow);
+  background-size: 250% 250%, 300% 300%;
+  opacity: calc(0.16 + var(--o) * 0.45);
+}
+
+/* Classic Collection: vesmírné „cosmos“ holo starých karet. */
+.shine-cosmos .pcard__shine {
+  background-image:
+    radial-gradient(circle at 20% 30%, hsl(320 100% 75% / 0.9) 0 1px, transparent 2px),
+    radial-gradient(circle at 70% 60%, hsl(190 100% 70% / 0.9) 0 1.4px, transparent 2.4px),
+    radial-gradient(circle at 45% 85%, hsl(55 100% 70% / 0.9) 0 0.9px, transparent 1.8px),
+    radial-gradient(circle at 50% 50%, hsl(260 90% 70% / 0.35) 0 6px, transparent 9px),
+    var(--rainbow);
+  background-size: 17px 19px, 27px 23px, 21px 31px, 53px 47px, 300% 300%;
   opacity: calc(0.22 + var(--o) * 0.45);
 }
 
+/* Illustration Rare: pastelová duha s třpytkami. */
+.shine-illus .pcard__shine {
+  background-image:
+    var(--glitter),
+    repeating-linear-gradient(
+      120deg,
+      hsl(200 90% 80% / 0.5) 0%,
+      hsl(300 80% 85% / 0.5) 8%,
+      hsl(50 90% 80% / 0.5) 16%,
+      hsl(200 90% 80% / 0.5) 24%
+    );
+  background-size: var(--glitter-size), 300% 300%;
+  opacity: calc(0.2 + var(--o) * 0.5);
+}
+
+/* Ultra Rare / Mega Attack Rare: rýhovaná textura s duhou. */
+.shine-etched .pcard__shine {
+  background-image: var(--etch), var(--rainbow);
+  background-size: auto, auto, 300% 300%;
+  opacity: calc(0.2 + var(--o) * 0.5);
+}
+
+/* Special Illustration Rare: textura, třpytky a silná duha dohromady. */
+.shine-sir .pcard__shine {
+  background-image: var(--glitter), var(--etch), var(--rainbow);
+  background-size: var(--glitter-size), auto, auto, 260% 260%;
+  opacity: calc(0.28 + var(--o) * 0.55);
+}
+
+/* Futuristic Rare: neonové linky. */
+.shine-neon .pcard__shine {
+  background-image:
+    repeating-linear-gradient(0deg, hsl(185 100% 65% / 0.45) 0 1px, transparent 1px 4px),
+    linear-gradient(120deg, hsl(185 100% 60% / 0.6), hsl(300 100% 65% / 0.6) 50%, hsl(185 100% 60% / 0.6));
+  background-size: auto, 250% 250%;
+  opacity: calc(0.22 + var(--o) * 0.5);
+}
+
 .shine-gold .pcard__shine {
-  background-image: linear-gradient(
+  background-image: var(--glitter), linear-gradient(
     120deg,
     transparent 20%,
     hsl(45 100% 70% / 0.7) 35%,
@@ -1211,12 +1281,17 @@ a.chip {
     hsl(50 100% 80% / 0.8) 55%,
     transparent 75%
   );
+  background-size: var(--glitter-size), 260% 260%;
   mix-blend-mode: soft-light;
   opacity: calc(0.35 + var(--o) * 0.6);
 }
 
 .shine-dark .pcard__shine {
-  background-image: linear-gradient(120deg, transparent 25%, rgb(255 255 255 / 0.55) 45%, rgb(160 160 160 / 0.3) 55%, transparent 75%);
+  background-image:
+    var(--glitter),
+    repeating-linear-gradient(115deg, rgb(255 255 255 / 0.18) 0 6%, rgb(0 0 0 / 0.18) 6% 12%),
+    linear-gradient(120deg, transparent 25%, rgb(255 255 255 / 0.55) 45%, rgb(160 160 160 / 0.3) 55%, transparent 75%);
+  background-size: var(--glitter-size), 300% 300%, 260% 260%;
   mix-blend-mode: screen;
   opacity: calc(0.15 + var(--o) * 0.45);
 }
@@ -1445,6 +1520,8 @@ a.chip {
 
 .stage {
   position: relative;
+  /* paprsky a konfety nesmí rozšířit stránku (vodorovný posuvník) */
+  overflow-x: clip;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1603,6 +1680,177 @@ a.chip {
   to {
     transform: rotate(var(--a)) translateX(var(--d)) scale(0.2);
     opacity: 0;
+  }
+}
+
+/* --- Odhalení vzácné karty -------------------------------------------------- */
+
+/* Napětí: zpod aktuální karty prosvítá barva vzácné karty, která je pod ní. */
+.pile::before {
+  content: "";
+  position: absolute;
+  inset: -12%;
+  border-radius: 36px;
+  background: radial-gradient(closest-side, var(--tease, transparent), transparent);
+  opacity: 0;
+  transition: opacity 0.4s;
+  pointer-events: none;
+}
+
+.pile--tease::before {
+  animation: tease 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes tease {
+  from {
+    opacity: 0.25;
+  }
+  to {
+    opacity: 0.6;
+  }
+}
+
+/* Paprsky světla za kartou */
+.rays {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 260%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, var(--rc) 0deg 7deg, transparent 7deg 20deg);
+  -webkit-mask: radial-gradient(closest-side, #000 20%, transparent 72%);
+  mask: radial-gradient(closest-side, #000 20%, transparent 72%);
+  pointer-events: none;
+  animation:
+    rays-spin 7s linear infinite,
+    rays-fade 2.6s ease-out forwards;
+}
+
+.rays--gold {
+  background: repeating-conic-gradient(from 0deg, #ffd65a 0deg 6deg, rgb(255 243 176 / 0.6) 6deg 9deg, transparent 9deg 18deg);
+}
+
+@keyframes rays-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+@keyframes rays-fade {
+  0% {
+    opacity: 0;
+    scale: 0.6;
+  }
+  15% {
+    opacity: 0.75;
+    scale: 1;
+  }
+  70% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Karta při odhalení poskočí */
+.pile__item.is-pop .flip {
+  animation: card-pop 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.4);
+}
+
+@keyframes card-pop {
+  0% {
+    scale: 1;
+  }
+  35% {
+    scale: 1.09;
+  }
+  100% {
+    scale: 1;
+  }
+}
+
+/* Reflektor: okolí na chvíli ztmavne (SIR a vzácnější) */
+.stage::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: radial-gradient(circle at 50% 42%, transparent 18%, rgb(0 0 0 / 0.72) 58%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s;
+}
+
+.stage--spotlight::after {
+  opacity: 1;
+}
+
+/* balík karet zůstává nad ztmavením */
+.stage--spotlight .pile {
+  z-index: 21;
+}
+
+/* Konfety */
+.confetti {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+}
+
+.confetti i {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  width: var(--w);
+  height: calc(var(--w) * 1.6);
+  border-radius: 1px;
+  background: var(--c);
+  animation: confetti var(--t) cubic-bezier(0.2, 0.6, 0.4, 1) forwards;
+}
+
+@keyframes confetti {
+  0% {
+    transform: translate(0, 0) rotate(0);
+    opacity: 1;
+  }
+  35% {
+    transform: translate(calc(var(--dx) * 0.7), var(--up)) rotate(calc(var(--rot) * 0.4));
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--dx), var(--fall)) rotate(var(--rot));
+    opacity: 0;
+  }
+}
+
+/* Otřes u zlatých karet a Black White Rare */
+.pile.is-shake {
+  animation: shake 0.55s ease-in-out;
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  15% {
+    translate: -8px 2px;
+  }
+  30% {
+    translate: 7px -3px;
+  }
+  45% {
+    translate: -6px 3px;
+  }
+  60% {
+    translate: 5px -2px;
+  }
+  80% {
+    translate: -2px 1px;
   }
 }
 
