@@ -447,6 +447,63 @@ a.chip {
 
 /* --- Obchod --------------------------------------------------------------- */
 
+/* --- Éry (rozbalovací sekce sad) --------------------------------------------- */
+
+.era {
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+}
+
+.era__summary {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 14px 16px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.era__summary::-webkit-details-marker {
+  display: none;
+}
+
+.era__summary::before {
+  content: "▸";
+  color: var(--muted);
+  transition: rotate 0.2s;
+}
+
+.era[open] > .era__summary::before {
+  rotate: 90deg;
+}
+
+.era__title {
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.era__meta {
+  margin-left: auto;
+  font-size: 0.85rem;
+  text-align: right;
+}
+
+.era__body {
+  padding: 0 12px 14px;
+}
+
+.era-heading {
+  margin: 22px 0 12px;
+  font-size: 1.15rem;
+}
+
+.era-heading:first-of-type {
+  margin-top: 8px;
+}
+
 .shop-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 480px), 1fr));

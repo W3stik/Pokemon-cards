@@ -6,6 +6,7 @@ import { collectionKey, getState, nextSealed, recordOpening } from "../store";
 import type { Card, PulledCard, SetInfo } from "../types";
 import { animationEnd, append, clear, h, prefersReducedMotion, sleep } from "../ui/dom";
 import { CARD_BACK_URL, cardBack, cardEl, enableTilt, preload } from "../ui/holo";
+import { groupBySeries } from "../ui/eras";
 import { packEl, prefetchPackArt } from "../ui/pack";
 import { createPackModel, type PackModel } from "../ui/packModel";
 import { fxPrefs, setFxPrefs, sfxHit, sfxSwipe, sfxTear, unlockAudio } from "../ui/sfx";
@@ -31,21 +32,25 @@ async function renderInventory(root: HTMLElement) {
     return;
   }
   owned.forEach((s) => prefetchPackArt(s.id));
-  root.append(
-    h(
-      "div",
-      { class: "inventory" },
-      ...owned.map((s) =>
-        h(
-          "a",
-          { class: "inventory__item", href: `#/open/${s.id}` },
-          packEl(s, { tilt: true }),
-          h("strong", null, s.name),
-          h("span", { class: "chip" }, `${packs[s.id]}×`),
+  // Balíčky podle éry (sady jsou od nejnovější).
+  for (const { series, items } of groupBySeries(owned, (s) => s.series)) {
+    root.append(
+      h("h2", { class: "era-heading" }, series, h("span", { class: "muted" }, ` · ${items.reduce((n, s) => n + packs[s.id], 0)}×`)),
+      h(
+        "div",
+        { class: "inventory" },
+        ...items.map((s) =>
+          h(
+            "a",
+            { class: "inventory__item", href: `#/open/${s.id}` },
+            packEl(s, { tilt: true }),
+            h("strong", null, s.name),
+            h("span", { class: "chip" }, `${packs[s.id]}×`),
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 export async function renderOpen(root: HTMLElement, setId?: string) {

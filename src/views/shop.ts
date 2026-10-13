@@ -4,6 +4,7 @@ import { addPacks, getState } from "../store";
 import type { SetInfo } from "../types";
 import { h, toast } from "../ui/dom";
 import { openModal } from "../ui/modal";
+import { eraSection, groupBySeries, plural } from "../ui/eras";
 import { formatDate, packEl } from "../ui/pack";
 
 /** Hromadné balíčky se berou naslepo; jednotlivý balíček si hráč vybírá z regálu. */
@@ -116,13 +117,24 @@ function setTile(set: SetInfo): HTMLElement {
 
 export async function renderShop(root: HTMLElement) {
   const sets = await loadSets();
+  const packs = getState().packs;
   root.append(
     h(
       "section",
       { class: "view-head" },
       h("h1", null, "Obchod"),
-      h("p", { class: "muted" }, "Posledních 10 vydaných sad. Všechny balíčky jsou zdarma, vezmi si kolik chceš."),
+      h("p", { class: "muted" }, "Sady éry Mega Evolution a Scarlet & Violet a vybrané starší. Všechny balíčky jsou zdarma, vezmi si kolik chceš."),
     ),
-    h("div", { class: "shop-grid" }, ...sets.map(setTile)),
+    // Sady podle éry; otevřená je nejnovější, ostatní se rozbalí klepnutím.
+    ...groupBySeries(sets, (s) => s.series).map(({ series, items }, i) => {
+      const unopened = items.reduce((n, s) => n + (packs[s.id] ?? 0), 0);
+      return eraSection({
+        view: "shop",
+        series,
+        meta: plural(items.length, "sada", "sady", "sad") + (unopened ? ` · ${unopened} neotevřených` : ""),
+        defaultOpen: i === 0,
+        build: () => h("div", { class: "shop-grid" }, ...items.map(setTile)),
+      });
+    }),
   );
 }

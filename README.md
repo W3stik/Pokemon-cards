@@ -5,7 +5,7 @@ a karty Pokémon TCG, šance na tah podle reálných měření a tržní ceny ka
 
 ## Co umí
 
-- **Obchod**: posledních 10 vydaných sad, vše zdarma. Jednotlivý balíček si vybíráš z **regálu s 10 balíčky**
+- **Obchod**: 24 sad – celá éra Mega Evolution a Scarlet & Violet a Evolving Skies (Sword & Shield), roztříděné podle éry (stejně jako balíčky v inventáři a sady v albu), vše zdarma. Jednotlivý balíček si vybíráš z **regálu s 10 balíčky**
   (obsah každého je určený předem a regál se uloží, takže obnovení stránky nic nepřelosuje; za vzatý balíček
   přijde na regál nový). Po deseti nebo jako booster box (36) se balíčky berou naslepo.
   U každé sady je tabulka **šancí na tah** se složením balíčku a odkazy na zdroje.
@@ -72,7 +72,7 @@ Adresa bude https://w3stik.github.io/Pokemon-cards/.
 | Ceny | [TCGdex](https://tcgdex.dev) (Cardmarket + TCGplayer) přibalené při buildu (`npm run prices`, CI denně); chybějící sady živě z [Pokémon TCG API](https://pokemontcg.io), v detailu karty živě z TCGdex | build + za běhu (12 h cache) |
 | Šance na tah | TCGplayer Authentication Center a komunitní statistiky, viz `src/odds.ts` | ručně |
 
-`npm run data` stáhne 10 nejnovějších sad (počet jde změnit: `npm run data -- 15`). Podsada
+`npm run data` stáhne všechny booster sady ér v `SERIES` a vybrané starší sady z `EXTRA_SETS` (`scripts/fetch-data.mjs`). Podsada
 *Classic Collection* z 30th Celebration je sloučená do své hlavní sady, protože padá ve stejných balíčcích.
 Pro novou sadu je potřeba doplnit profil balíčku do `src/odds.ts`, jinak se použijí průměrné šance
 éry Mega Evolution. Test `npm test` ověří, že každá rarita v profilu v datech sady existuje.

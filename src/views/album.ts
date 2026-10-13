@@ -4,6 +4,7 @@ import { addPrice, type CardPrice, formatEur, formatTotal, formatUsd, loadSetPri
 import { countsFor, getState } from "../store";
 import type { Card, SetInfo, Variant } from "../types";
 import { h } from "../ui/dom";
+import { eraSection, groupBySeries } from "../ui/eras";
 import { cardEl } from "../ui/holo";
 import { openCardModal } from "./cardModal";
 
@@ -104,21 +105,32 @@ async function renderOverview(root: HTMLElement) {
       godPacks ? h("div", null, h("span", null, "God packy"), h("strong", null, String(godPacks))) : null,
       h("div", { class: "stats__wide" }, h("span", null, "Hodnota sbírky"), valueEl),
     ),
-    h(
-      "div",
-      { class: "album-sets" },
-      ...perSet.map(({ set, owned }) => {
-        const s = stats(owned);
-        return h(
-          "a",
-          { class: "album-set", href: `#/album/${set.id}` },
-          h("img", { src: set.logo, alt: set.name, loading: "lazy" }),
-          h("div", null, h("strong", null, set.name), h("span", { class: "muted" }, ` ${s.unique}/${s.total} · ${pct.format(s.unique / s.total)}`)),
-          progress(s.unique / s.total),
-          s.extra ? h("span", { class: "muted small" }, `${s.extra} duplikátů`) : null,
-        );
-      }),
-    ),
+    // Sady podle éry; otevřené jsou éry, ze kterých už něco máš (a nejnovější).
+    ...groupBySeries(perSet, (p) => p.set.series).map(({ series, items }, i) => {
+      const era = stats(items.flatMap((p) => p.owned));
+      return eraSection({
+        view: "album",
+        series,
+        meta: `${era.unique}/${era.total} karet · ${pct.format(era.unique / era.total)}`,
+        defaultOpen: i === 0 || era.unique > 0,
+        build: () =>
+          h(
+            "div",
+            { class: "album-sets" },
+            ...items.map(({ set, owned }) => {
+              const s = stats(owned);
+              return h(
+                "a",
+                { class: "album-set", href: `#/album/${set.id}` },
+                h("img", { src: set.logo, alt: set.name, loading: "lazy" }),
+                h("div", null, h("strong", null, set.name), h("span", { class: "muted" }, ` ${s.unique}/${s.total} · ${pct.format(s.unique / s.total)}`)),
+                progress(s.unique / s.total),
+                s.extra ? h("span", { class: "muted small" }, `${s.extra} duplikátů`) : null,
+              );
+            }),
+          ),
+      });
+    }),
   );
 
   const ownedSets = perSet.filter((p) => p.owned.some((o) => o.total > 0));

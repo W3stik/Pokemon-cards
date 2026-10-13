@@ -16,7 +16,7 @@ npm test           # Vitest: data, šance, generátor, regál (pack.test.ts), st
 npm run build      # tsc --noEmit + vite build → dist/  (vždy před commitem)
 npm run e2e        # Playwright průchod celou aplikací nad buildem, snímky v e2e-shots/
                    # (poprvé: npx playwright install chromium); obrázky a API podvrhuje
-npm run data       # stáhne 10 nejnovějších sad do public/data (npm run data -- 15 = 15 sad)
+npm run data       # stáhne sady ér SERIES + EXTRA_SETS do public/data (pak i obrázky z TCGdex)
 npm run prices     # ceny z TCGdex → public/data/prices.json (gitignored, dělá to CI)
 npm run images     # obrázky karet → WebP z TCGdex (součást npm run data)
 ```
@@ -29,7 +29,7 @@ Každá obrazovka se kreslí do nového kontejneru (pomalé načítání staré 
 
 | Soubor | Co dělá |
 |---|---|
-| `scripts/fetch-data.mjs` | Stáhne sady a karty z GitHubu `PokemonTCG/pokemon-tcg-data` (stejná data jako Pokémon TCG API). Bere 10 nejnovějších booster sad (bez promo apod.), zahodí karty s nečíselným číslem. **Podsady** (`SUBSETS`, nyní `me55c` Classic Collection) slučuje do hlavní sady s raritou „Classic Collection“, prefixem `CC` a přečíslováním 1–30. `MEGA_ATTACK_RARE` přejmenuje na „Mega Attack Rare“. `RARITY_FIXES` opravuje chyby zdroje (Victini BB 171 / WF 172 = Black White Rare, Archen WF 131 = Illustration Rare; ve zdroji Rare/Uncommon, takže by drahé karty padaly jako obyčejné). Test hlídá, že karty za hranicí sady nemají obyčejnou raritu. Náhledy z `images.pokemontcg.io` (PNG ~160 kB) nahrazuje stejnými ze Scrydexu (`images.scrydex.com/pokemon/{id}/small`, ~50 kB, ověřeno pro všech 907 karet). |
+| `scripts/fetch-data.mjs` | Stáhne sady a karty z GitHubu `PokemonTCG/pokemon-tcg-data` (stejná data jako Pokémon TCG API). Bere všechny booster sady ér `SERIES` (Mega Evolution, Scarlet & Violet) a vybrané starší `EXTRA_SETS` (Evolving Skies), bez promo apod.; zahodí karty s nečíselným číslem. U éry Sword & Shield označí alt arty (`markAltArts`: druhá ze dvou po sobě jdoucích karet téhož Pokémona → „Alternate Art“ / „Alternate Art VMAX“; ve zdroji mají stejnou raritu jako full art / rainbow). **Podsady** (`SUBSETS`, nyní `me55c` Classic Collection) slučuje do hlavní sady s raritou „Classic Collection“, prefixem `CC` a přečíslováním 1–30. `MEGA_ATTACK_RARE` přejmenuje na „Mega Attack Rare“. `RARITY_FIXES` opravuje chyby zdroje (Victini BB 171 / WF 172 = Black White Rare, Archen WF 131 = Illustration Rare; ve zdroji Rare/Uncommon, takže by drahé karty padaly jako obyčejné). Test hlídá, že karty za hranicí sady nemají obyčejnou raritu. Náhledy z `images.pokemontcg.io` (PNG ~160 kB) nahrazuje stejnými ze Scrydexu (`images.scrydex.com/pokemon/{id}/small`, ~50 kB, ověřeno pro všech 907 karet). |
 | `scripts/tcgdex.mjs` | Společné pro skripty nad TCGdex: `getJson`, `pool`, `pairSet` (naše karty ↔ TCGdex: hlavní sada podle čísla **a zároveň jména** – Black Bolt č. 80 má v TCGdex jinou kartu; podsady podle jména, `TCGDEX_SUBSETS`). |
 | `scripts/fetch-images.mjs` | Přepíše `img`/`imgLarge` na WebP z TCGdex (`{image}/low.webp` ~17 kB, `{image}/high.webp` ~70 kB místo PNG 50/550 kB); každý soubor ověří HEAD požadavkem, jinak nechá původní (Classic Collection TCGdex obrázky v seznamu nemá). |
 | `public/data/*.json` | Commitnutá data: `sets.json` + jeden soubor na sadu (zmenšené karty: id, jméno, číslo, rarita, typy, obrázky). |
@@ -41,6 +41,7 @@ Každá obrazovka se kreslí do nového kontejneru (pomalé načítání staré 
 | `src/prices.ts` | Ceny: 1) `data/prices.json` z buildu, 2) živě Pokémon TCG API po sadách (limit 8 s na požadavek, jedno opakování při 5xx, po neúspěchu 10 min pauza, cache 12 h v localStorage), 3) `tcgdexPrice` živě pro jednu kartu v detailu. Součty přes `addPrice`/`formatTotal` (měna bez cen se nezobrazí jako 0). |
 | `src/tcgdexPricing.js` | Výklad cen TCGdex sdílený aplikací i `scripts/fetch-prices.mjs` (čisté JS + `.d.ts`, aby ho Node spustil bez překladu). |
 | `src/data.ts` | Načítání `sets.json` a karet sady (cache), `setIdOfCard`, `cardNumber`. |
+| `src/ui/eras.ts` | Třídění podle éry: `groupBySeries`, rozbalovací `eraSection` (obsah se vytvoří až při otevření, stav v localStorage `pokemon-packs:eras:*`), `plural`. Používá obchod, inventář (nadpisy) a přehled alba. |
 | `src/views/shop.ts` | Obchod: „1 balíček“ vede na regál, „10 balíčků“ a „Booster box (36)“ přidají balíčky naslepo; okno „Šance a zdroje“. |
 | `src/views/pick.ts` | Regál: 10 předem vylosovaných balíčků (uložené ve `state.shelf`, obnovení stránky je nepřelosuje). Vzatý balíček jde do `sealed` a jeho místo zaplní nový. Balíček s IR/UR a vzácnější kartou má **tajnou jiskřičku** (`hintLevel` 1–3). |
 | `src/views/open.ts` | Otevírání: obsah dalšího balíčku se losuje dopředu (`prepare`, do sbírky se zapíše až při roztržení v `draw`), aby se obrázky karet stáhly, než hráč balíček roztrhne; v přehledu se připravuje další. 3D balíček (tažení přes horní pruh = roztržení, jinde = otáčení, klepnutí = roztržení) → karty vyjedou jako 3D balík lícem nahoru → klepnutím/tažením se odhazují → přehled. Vybraný balíček z regálu se otevře s uloženým obsahem (`nextSealed`). Vzácná karta se při odkrytí rozzáří (`revealHit`, stupňuje se podle ranku: RR záře a částice, IR/UR paprsky a poskočení, SIR reflektor, konfety a záblesk, zlaté/BWR zlaté paprsky, zlaté konfety a otřes; když je pod aktuální kartou IR+, prosvítá její barva – `pile--tease`). „Otevřít vše“ seskupuje stejné karty. |
@@ -64,7 +65,7 @@ Ověřováno 12. 10. 2026 z GitHub Actions (sandbox, kde aplikace vznikla, měl 
 | Fotky obalů `tcgplayer-cdn.tcgplayer.com/product/{id}_in_1000x1000.jpg` / `_400w.jpg` | 200, CORS `*`; fotky jsou těsně oříznuté (bez bílého okraje), poměr ~0,5–0,55 |
 | Rub karty `tcg.pokemon.com/assets/img/global/tcg-card-back-2x.jpg` | 200, **bez CORS** → zobrazí se, ale service worker ho offline neuloží |
 | `api.pokemontcg.io/v2/cards` | **nespolehlivé** – střídavě 200 a 500 (projekt přechází na placený Scrydex) |
-| TCGdex `api.tcgdex.net/v2/en` | funguje, CORS `*`; ceny má pro všech 10 sad (1755 z 1756 karet), u 30th Celebration a Classic Collection jen Cardmarket (EUR), TCGplayer zatím chybí |
+| TCGdex `api.tcgdex.net/v2/en` | funguje, CORS `*`; ceny má pro všech 24 sad (všech 4 818 karet; Black Bolt č. 80 po opravě čísla), u 30th Celebration a Classic Collection jen Cardmarket (EUR), TCGplayer zatím chybí |
 | `tcgcsv.com` (export katalogu TCGplayer) | funguje, vyžaduje vlastní `User-Agent`; odtud jsou ID produktů v `PACK_PRODUCTS` |
 
 ID sad TCGdex: sv10, sv10.5b, sv10.5w, me01, me02, me02.5, me03, me04, me05, 30th.
@@ -75,12 +76,17 @@ Black White Rare (1:1789), část 30th Celebration.
 
 ### Přidání nové sady
 
-1. `npm run data` (nebo s vyšším počtem). Když sada má podsadu prodávanou ve stejných balíčcích,
-   přidej ji do `SUBSETS` ve `scripts/fetch-data.mjs`.
-2. Do `PACKS` v `src/odds.ts` přidej profil (sloty, šance, barvy, zdroje). Nové rarity přidej do `RARITIES`.
-2. Do `PACK_PRODUCTS` v `src/ui/pack.ts` přidej productId „{Sada} Booster Pack“ z
+1. Novou éru přidej do `SERIES`, jednotlivou starší sadu do `EXTRA_SETS` ve `scripts/fetch-data.mjs`
+   a spusť `npm run data` (stáhne i WebP obrázky z TCGdex). Když sada má podsadu prodávanou ve stejných
+   balíčcích, přidej ji do `SUBSETS` (a do `TCGDEX_SUBSETS` ve `scripts/tcgdex.mjs` kvůli cenám).
+2. Zkontroluj rarity proti TCGdex (viz audit v historii: Victini, Archen) a u starších ér skryté rarity
+   (alt arty Sword & Shield).
+3. Do `PACKS` v `src/odds.ts` přidej profil (sloty, šance, barvy obalu, poznámka, zdroje). Nové rarity přidej do
+   `RARITIES` (rank, barva, typ lesku). Standardní sady SV: `standardSlots(svRates({ … aceSpec }))`.
+4. Do `PACK_PRODUCTS` v `src/ui/pack.ts` přidej productId „{Sada} Booster Pack“ z
    `https://tcgcsv.com/tcgplayer/3/groups` → `/{groupId}/products` (hlavička `User-Agent`).
-3. `npm test` ověří, že každá rarita z profilu v datech existuje a obráceně, a že součty šancí < 1.
+5. `npm test` ověří, že každá sada má profil i fotku, každá rarita z profilu v datech existuje a obráceně,
+   součty šancí < 1 a tajné karty nemají obyčejnou raritu.
 
 ## Nasazení
 
@@ -158,5 +164,5 @@ Seřazeno podle přínosu:
 1. Herní ekonomika: prodej duplikátů za mince podle tržní ceny, nákup balíčků za mince.
 2. „Master set“ v albu: kompletnost včetně reverse/Poké Ball/Master Ball provedení; statistiky nejlepších tahů a historie hodnoty sbírky.
 3. Synchronizace sbírky mezi zařízeními (dnes jen ruční záloha do souboru).
-4. Starší sady / automatická kontrola nových sad v CI (nová sada bez profilu v `PACKS` použije `DEFAULT_PACK`).
+4. Další starší sady (Sword & Shield: Crown Zenith s Galarian Gallery, Lost Origin… s Trainer Gallery jako podsadami) / automatická kontrola nových sad v CI (nová sada bez profilu v `PACKS` použije `DEFAULT_PACK`).
 5. Virtualizace mřížky alba pro velké sady (Ascended Heroes má 295 karet) a `npm run e2e` v CI.
