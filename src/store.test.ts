@@ -153,6 +153,24 @@ describe("více oken", () => {
     expect(store.getState().packs).toEqual({ me1: 1, me2: 3 });
   });
 
+  it("nepovedené uložení se pozná a po uvolnění místa se zase uloží", () => {
+    const orig = localStorage.setItem;
+    let notified = 0;
+    const off = store.subscribe(() => notified++);
+    localStorage.setItem = () => {
+      throw new DOMException("plné úložiště", "QuotaExceededError");
+    };
+    store.addPacks("me1", 2);
+    expect(store.storageFailed()).toBe(true);
+    expect(store.getState().packs.me1).toBe(2); // hra běží dál ze stavu v paměti
+    expect(notified).toBe(1);
+    localStorage.setItem = orig;
+    store.addPacks("me1", 1);
+    off();
+    expect(store.storageFailed()).toBe(false);
+    expect(JSON.parse(storage.get(KEY)!).packs.me1).toBe(3);
+  });
+
   it("poškozený zápis v úložišti hru nerozbije", () => {
     store.addPacks("me1", 1);
     storage.set(KEY, "{rozbité");

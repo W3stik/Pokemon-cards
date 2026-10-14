@@ -10,6 +10,7 @@
 }
 
 .shelf__slot {
+  position: relative;
   display: block;
   padding: 0;
   border: 0;
@@ -27,8 +28,44 @@
   transform: translateY(-16px) scale(1.06);
 }
 
-.shelf__slot.is-selected .pack3d {
-  filter: drop-shadow(0 0 2px var(--accent)) drop-shadow(0 0 12px var(--accent));
+.shelf__slot.is-selected .packthumb {
+  box-shadow:
+    0 0 0 2px var(--accent),
+    0 0 18px var(--accent);
+}
+
+/* Lehký náhled se pohupuje (obal kolem, aby se nepřetahoval s nakláněním náhledu). */
+.shelf__sway {
+  animation: shelf-sway 5s var(--sway-delay, 0s) ease-in-out infinite;
+}
+
+@keyframes shelf-sway {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-1.5deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate(1.5deg);
+  }
+}
+
+/* Vybraný balíček: 3D model (WebGL) přes náhled, obal stejně vysoký. Dotyky jdou
+   na tlačítko slotu, model je jen ukazuje. */
+.shelf__slot .packgl {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--model-w, 134%);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.shelf__slot.has-model .shelf__sway {
+  visibility: hidden;
+}
+
+.shelf__slot.is-selected .packgl__canvas {
+  filter: drop-shadow(0 0 2px var(--accent)) drop-shadow(0 0 10px var(--accent));
 }
 
 .shelf__slot--new {

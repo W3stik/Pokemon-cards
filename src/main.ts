@@ -1,6 +1,6 @@
 import "./styles/index.css";
 import { persistStorage, shouldRemindBackup } from "./storage";
-import { stateSummary, subscribe, unopenedTotal } from "./store";
+import { stateSummary, storageFailed, subscribe, unopenedTotal } from "./store";
 import { clear, h, toast } from "./ui/dom";
 import { renderAlbum } from "./views/album";
 import { renderOpen, renderReplay } from "./views/open";
@@ -78,6 +78,41 @@ async function protectCollection() {
   }
 }
 
+/**
+ * Uložení se nepovedlo (plné úložiště, anonymní okno): hra běží dál, ale po zavření
+ * stránky by se nové karty ztratily – proto výrazné varování s cestou k záloze.
+ * Zavřené varování se znovu ukáže, až se ukládání spraví a pak zase selže.
+ */
+let storageWarningClosed = false;
+function checkStorage() {
+  const shown = document.querySelector(".storage-banner");
+  if (!storageFailed()) {
+    shown?.remove();
+    storageWarningClosed = false;
+    return;
+  }
+  if (shown || storageWarningClosed) return;
+  const banner = h(
+    "div",
+    { class: "update-banner storage-banner", role: "alert" },
+    h("span", null, "Sbírku se nepodařilo uložit – prohlížeč nemá místo nebo ukládání nedovolí. Než stránku zavřeš, stáhni si zálohu."),
+    h("a", { class: "btn btn--primary", href: "#/more" }, "Záloha"),
+    h(
+      "button",
+      {
+        class: "btn btn--ghost",
+        "aria-label": "Zavřít",
+        onclick: () => {
+          storageWarningClosed = true;
+          banner.remove();
+        },
+      },
+      "×",
+    ),
+  );
+  document.body.append(banner);
+}
+
 /** Nová verze aplikace převzala řízení: nabídneme obnovení stránky. */
 function showUpdateBanner() {
   if (document.querySelector(".update-banner")) return;
@@ -106,6 +141,7 @@ window.addEventListener(
 window.addEventListener("hashchange", route);
 subscribe(updateBadge);
 subscribe(protectCollection);
+subscribe(checkStorage);
 updateBadge();
 protectCollection();
 route();

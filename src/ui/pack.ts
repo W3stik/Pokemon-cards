@@ -56,6 +56,9 @@ const ratios: Record<string, number> = (() => {
   }
 })();
 
+/** Poměr stran fotky obalu (šířka / výška), dokud se fotka nenačte odhad. */
+export const packRatio = (setId: string) => ratios[setId] ?? 0.55;
+
 function rememberRatio(setId: string, ratio: number) {
   if (Math.abs((ratios[setId] ?? 0) - ratio) < 0.001) return;
   ratios[setId] = ratio;
@@ -67,13 +70,14 @@ function rememberRatio(setId: string, ratio: number) {
 }
 
 /**
- * Lehký náhled balíčku pro seznamy (obchod, inventář): jen fotka s nakláněním
- * a odleskem pod kurzorem. 3D model z CSS vrstev u desítek balíčků naráz zatěžoval
- * telefon; plnohodnotný balíček je na regálu a při otevírání.
+ * Lehký náhled balíčku pro seznamy (obchod, inventář, regál): jen fotka s nakláněním
+ * a odleskem pod kurzorem, na regálu i s tajnou jiskřičkou (`hint`). 3D model z CSS
+ * vrstev u desítek balíčků naráz zatěžoval telefon; skutečný 3D model (WebGL) má
+ * vybraný balíček na regálu a balíček při otevírání.
  */
-export function packThumb(set: SetInfo): HTMLElement {
+export function packThumb(set: SetInfo, opts: { hint?: number } = {}): HTMLElement {
   const art = packArtUrl(set.id);
-  const ratio = ratios[set.id] ?? 0.55;
+  const ratio = packRatio(set.id);
   const fallback = () =>
     h("div", { class: "packthumb__fallback", style: `--c1: ${packProfile(set.id).colors[0]}; --c2: ${packProfile(set.id).colors[1]}` },
       h("img", { src: set.logo, alt: "", draggable: "false", loading: "lazy" }),
@@ -92,6 +96,7 @@ export function packThumb(set: SetInfo): HTMLElement {
     el.append(fallback());
   }
   el.append(h("div", { class: "packthumb__glare" }));
+  if (opts.hint) el.append(twinkle(opts.hint));
   enableTilt(el, { gyro: false });
   return el;
 }

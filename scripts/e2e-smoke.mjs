@@ -76,7 +76,10 @@ try {
   await page.reload();
   await page.waitForSelector(".shelf__slot");
   check(JSON.stringify(await shelfOf()) === JSON.stringify(shelf), "regál po obnovení stránky zůstal stejný");
+  check((await page.locator(".shelf__slot .packthumb").count()) === 10, "balíčky na regálu jsou lehké náhledy");
   await page.locator(".shelf__slot").nth(2).click();
+  check((await page.locator(".shelf__slot.has-model .packgl canvas").count()) === 1, "vybraný balíček na regálu je 3D model");
+  await page.waitForTimeout(400);
   await page.screenshot({ path: join(SHOTS, "2-shelf.png") });
   await page.getByText("Vzít a otevřít").click();
 

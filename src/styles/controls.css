@@ -198,6 +198,14 @@ a.chip {
   animation: toast-in 0.25s ease-out;
 }
 
+/* Sbírku se nepodařilo uložit: výraznější než nabídka nové verze */
+.storage-banner {
+  border-color: var(--danger);
+  box-shadow:
+    0 0 0 1px var(--danger),
+    0 8px 30px rgb(0 0 0 / 0.4);
+}
+
 .field {
   display: flex;
   flex-direction: column;

@@ -5,7 +5,8 @@ import { fromSealed, hintLevel, openPack, toSealed } from "../pack";
 import { getState, pickFromShelf, type SealedPack, setShelf } from "../store";
 import type { Card, SetInfo } from "../types";
 import { clear, h, toast } from "../ui/dom";
-import { packEl, prefetchPackArt } from "../ui/pack";
+import { packRatio, packThumb, prefetchPackArt } from "../ui/pack";
+import { createPackModel, type PackModel } from "../ui/packModel";
 
 const SHELF_SIZE = 10;
 
@@ -43,12 +44,35 @@ export async function renderPick(root: HTMLElement, setId?: string) {
   const slots = (getState().shelf[set.id] ?? []).map((pack, i) => slot(set, pack, byId, i, () => select(i)));
   grid.append(...slots);
 
+  // Vybraný balíček se ukáže jako skutečný 3D model (WebGL), stejný jako při otevírání;
+  // jeden model pro celý regál, při výběru jiného balíčku se jen přesune a resetuje.
+  // Ostatní balíčky jsou lehké náhledy. Bez WebGL zůstane náhled.
+  let model: PackModel | null | undefined;
+  const showModel = (i: number | null) => {
+    slots.forEach((el) => el.classList.remove("has-model"));
+    if (i === null) {
+      model?.el.remove();
+      return;
+    }
+    const pack = getState().shelf[set.id]?.[i];
+    const hint = pack ? hintLevel(fromSealed(pack, byId) ?? []) : 0;
+    // Klepnutí jde na tlačítko slotu (model dotyky nebere), roztržení se tu nespouští.
+    if (model?.usable()) model.reset({ hint, onTear: () => undefined });
+    else if (model !== null) model = createPackModel(set, { hint, onTear: () => undefined, alive: () => root.isConnected });
+    if (!model) return;
+    // obal 3D modelu stejně vysoký jako náhled (model zabírá 84 % výšky svého obdélníku)
+    model.el.style.setProperty("--model-w", `${(0.62 / (0.84 * packRatio(set.id))) * 100}%`);
+    slots[i].classList.add("has-model");
+    slots[i].append(model.el);
+  };
+
   const select = (i: number | null) => {
     selected = i !== null && selected !== i ? i : null;
     slots.forEach((el, j) => {
       el.classList.toggle("is-selected", j === selected);
       el.setAttribute("aria-pressed", String(j === selected));
     });
+    showModel(selected);
     renderActions();
   };
 
@@ -102,10 +126,12 @@ function slot(
   onSelect: () => void,
 ): HTMLElement {
   const cards = fromSealed(pack, byId) ?? [];
-  const el = packEl(set, { tilt: true, hint: hintLevel(cards) });
-  el.classList.add("pack3d--idle");
   // Každý balíček se pohupuje jinak, aby regál nepůsobil strojově.
-  el.style.setProperty("--sway-delay", `${-((index * 1.7) % 5)}s`);
+  const el = h(
+    "div",
+    { class: "shelf__sway", style: `--sway-delay: ${-((index * 1.7) % 5)}s` },
+    packThumb(set, { hint: hintLevel(cards) }),
+  );
   return h(
     "button",
     {

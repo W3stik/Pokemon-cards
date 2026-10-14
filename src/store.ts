@@ -188,6 +188,9 @@ if (typeof window !== "undefined") {
 
 export const getState = (): GameState => state;
 
+/** Poslední uložení se nepovedlo (plné nebo zakázané úložiště): stav je jen v paměti. */
+export const storageFailed = () => storageBroken;
+
 export function subscribe(fn: () => void): () => void {
   listeners.add(fn);
   return () => listeners.delete(fn);

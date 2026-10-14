@@ -18,9 +18,22 @@ export interface FxPrefs {
 const PREFS_KEY = "pokemon-packs:fx";
 const DEFAULTS: FxPrefs = { sound: true, vibrate: true, volume: 1 };
 
+/**
+ * Nastavení z úložiště zkontroluje: neplatná hodnota (třeba hlasitost, která není číslo)
+ * by shodila zvukový řetězec – a s ním i obsluhu klepnutí, ve které se zvuk odemyká.
+ */
+export function sanitizeFxPrefs(raw: unknown): FxPrefs {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  return {
+    sound: typeof r.sound === "boolean" ? r.sound : DEFAULTS.sound,
+    vibrate: typeof r.vibrate === "boolean" ? r.vibrate : DEFAULTS.vibrate,
+    volume: typeof r.volume === "number" && Number.isFinite(r.volume) ? Math.min(1, Math.max(0, r.volume)) : DEFAULTS.volume,
+  };
+}
+
 let prefs: FxPrefs = (() => {
   try {
-    return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}") };
+    return sanitizeFxPrefs(JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}"));
   } catch {
     return { ...DEFAULTS };
   }
@@ -29,7 +42,7 @@ let prefs: FxPrefs = (() => {
 export const fxPrefs = (): FxPrefs => ({ ...prefs });
 
 export function setFxPrefs(change: Partial<FxPrefs>) {
-  prefs = { ...prefs, ...change };
+  prefs = sanitizeFxPrefs({ ...prefs, ...change });
   if (engine) engine.master.gain.value = prefs.volume;
   try {
     localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
@@ -461,19 +474,53 @@ export const SOUNDS = {
 // --- Přehrávání ------------------------------------------------------------------
 
 let engine: Engine | null = null;
+let sleepTimer: ReturnType<typeof setTimeout> | undefined;
+
+/**
+ * Probudí zvuk. Kromě „suspended“ (uspaný) se obnovuje i stav „interrupted“, do kterého
+ * ho iPhone přepne po hovoru nebo přepnutí aplikace – jinak by zvuk do restartu nehrál.
+ */
+function wake() {
+  const ctx = engine?.ctx as AudioContext | undefined;
+  if (ctx && ctx.state !== "running" && ctx.state !== "closed") ctx.resume().catch(() => undefined);
+}
+
+/** Po chvíli ticha zvuk uspí: běžící AudioContext na telefonu zbytečně bere baterii. */
+function sleepLater() {
+  clearTimeout(sleepTimer);
+  sleepTimer = setTimeout(() => {
+    const ctx = engine?.ctx as AudioContext | undefined;
+    if (ctx?.state === "running") ctx.suspend().catch(() => undefined);
+  }, 8000);
+}
+
+if (typeof document !== "undefined") {
+  // aplikace v pozadí: uspat hned (probudí ji další klepnutí nebo zvuk)
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      clearTimeout(sleepTimer);
+      (engine?.ctx as AudioContext | undefined)?.suspend().catch(() => undefined);
+    }
+  });
+}
 
 /** Zavolat v obsluze klepnutí (pointerdown, click): připraví a odemkne zvuk. */
 export function unlockAudio() {
   if (!prefs.sound || typeof AudioContext === "undefined") return;
   if (!engine) engine = createEngine(new AudioContext(), prefs.volume);
-  const ctx = engine.ctx as AudioContext;
-  if (ctx.state === "suspended") ctx.resume().catch(() => undefined);
+  wake();
+  sleepLater();
 }
 
-/** Pustí zvuk, když je zapnutý a odemčený. */
+/**
+ * Pustí zvuk, když je zapnutý a odemčený. Uspaný kontext má zastavený čas, takže zvuk
+ * naplánovaný „teď“ zazní hned po probuzení.
+ */
 function play(sound: (e: Engine, t: number) => void) {
   if (!prefs.sound || !engine) return;
+  wake();
   sound(engine, engine.ctx.currentTime + 0.01);
+  sleepLater();
 }
 
 // --- Vibrace -------------------------------------------------------------------
@@ -503,7 +550,8 @@ export function sfxRip(delta: number) {
   ripTravel += delta;
   if (ripTravel > 0.12) {
     ripTravel = 0;
-    vibrate(6);
+    // kratší vibraci některé Androidy ignorují
+    vibrate(10);
   }
 }
 

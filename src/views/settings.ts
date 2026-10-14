@@ -7,12 +7,13 @@ import { fxPrefs, setFxPrefs, sfxCharge, sfxFlip, sfxGodPack, sfxHit, sfxSwipe, 
 const dateFmt = new Intl.DateTimeFormat("cs-CZ", { dateStyle: "medium" });
 const kusu = (n: number) => `${n} ${n === 1 ? "kus" : n >= 2 && n <= 4 ? "kusy" : "kusů"}`;
 
-function fxToggle(key: "sound" | "vibrate", label: string, note?: string) {
+function fxToggle(key: "sound" | "vibrate", label: string, note?: string, onChange?: () => void) {
   const input = h("input", {
     type: "checkbox",
     checked: fxPrefs()[key],
     onchange: (e: Event) => {
       setFxPrefs({ [key]: (e.target as HTMLInputElement).checked });
+      onChange?.();
       // Ukázka, jak to zní / jak to vibruje.
       if (fxPrefs()[key]) {
         unlockAudio();
@@ -71,6 +72,19 @@ function soundPreview(): HTMLElement {
   );
 }
 
+/** Hlasitost a ukázky mají smysl jen se zapnutým zvukem: jinak jsou zašedlé a s vysvětlením. */
+function soundControls(): { el: HTMLElement; sync: () => void } {
+  const note = h("p", { class: "muted small" }, "Zvuky jsou vypnuté – zapni je výše.");
+  const el = h("div", null, volumeSlider(), soundPreview(), note);
+  const sync = () => {
+    const on = fxPrefs().sound;
+    el.querySelectorAll<HTMLInputElement | HTMLButtonElement>("input, button").forEach((c) => (c.disabled = !on));
+    note.classList.toggle("hidden", on);
+  };
+  sync();
+  return { el, sync };
+}
+
 function download(name: string, text: string) {
   const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
   const a = h("a", { href: url, download: name });
@@ -81,6 +95,7 @@ function download(name: string, text: string) {
 }
 
 export function renderSettings(root: HTMLElement) {
+  const sound = soundControls();
   const fileInput = h("input", {
     type: "file",
     accept: "application/json,.json",
@@ -169,14 +184,13 @@ export function renderSettings(root: HTMLElement) {
       "section",
       { class: "panel" },
       h("h2", null, "Zvuky a vibrace"),
-      fxToggle("sound", "Zvuky při otevírání balíčků"),
-      volumeSlider(),
+      fxToggle("sound", "Zvuky při otevírání balíčků", undefined, sound.sync),
+      sound.el,
       fxToggle(
         "vibrate",
         "Vibrace při vzácné kartě",
         "vibrate" in navigator ? undefined : "toto zařízení nebo prohlížeč vibrace nepodporuje",
       ),
-      soundPreview(),
     ),
     h(
       "section",
