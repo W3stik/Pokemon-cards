@@ -61,6 +61,19 @@
   accent-color: var(--accent);
 }
 
+.volume {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+}
+
+.volume input {
+  flex: 1;
+  max-width: 260px;
+  accent-color: var(--accent);
+}
+
 .sound-toggle {
   padding: 6px 10px;
   font-size: 1.1rem;

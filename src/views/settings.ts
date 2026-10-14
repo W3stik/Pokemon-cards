@@ -1,12 +1,13 @@
 import { isPersisted, lastBackup, markBackup } from "../storage";
 import { exportState, importState, parseBackup, resetState, stateSummary } from "../store";
 import { h, toast } from "../ui/dom";
-import { type FxPrefs, fxPrefs, setFxPrefs, sfxHit, unlockAudio } from "../ui/sfx";
+import { CHARGE_MS, type Tier } from "../ui/reveal";
+import { fxPrefs, setFxPrefs, sfxCharge, sfxFlip, sfxGodPack, sfxHit, sfxSwipe, sfxTear, unlockAudio } from "../ui/sfx";
 
 const dateFmt = new Intl.DateTimeFormat("cs-CZ", { dateStyle: "medium" });
 const kusu = (n: number) => `${n} ${n === 1 ? "kus" : n >= 2 && n <= 4 ? "kusy" : "kusů"}`;
 
-function fxToggle(key: keyof FxPrefs, label: string, note?: string) {
+function fxToggle(key: "sound" | "vibrate", label: string, note?: string) {
   const input = h("input", {
     type: "checkbox",
     checked: fxPrefs()[key],
@@ -20,6 +21,54 @@ function fxToggle(key: keyof FxPrefs, label: string, note?: string) {
     },
   });
   return h("label", { class: "check" }, input, h("span", null, label, note ? h("small", { class: "muted" }, ` – ${note}`) : null));
+}
+
+function volumeSlider(): HTMLElement {
+  const input = h("input", {
+    type: "range",
+    min: "0",
+    max: "100",
+    step: "5",
+    value: String(Math.round(fxPrefs().volume * 100)),
+    "aria-label": "Hlasitost",
+  });
+  input.addEventListener("input", () => setFxPrefs({ volume: Number(input.value) / 100 }));
+  // po puštění posuvníku ukázka nové hlasitosti
+  input.addEventListener("change", () => {
+    unlockAudio();
+    sfxHit(6);
+  });
+  return h("label", { class: "volume" }, h("span", null, "Hlasitost"), input);
+}
+
+/** Ukázka odhalení vzácné karty: nabití, otočení a zvuk podle rarity (jako při otevírání). */
+function previewRare(tier: Tier) {
+  unlockAudio();
+  const ms = CHARGE_MS[tier];
+  sfxCharge(tier, ms);
+  setTimeout(sfxFlip, ms);
+  setTimeout(() => sfxHit(({ 0: 4, 1: 4, 2: 6, 3: 8, 4: 9 } as const)[tier]), ms + 300);
+}
+
+function soundPreview(): HTMLElement {
+  const sample = (label: string, play: () => void) =>
+    h("button", { class: "btn", onclick: () => (unlockAudio(), play()) }, label);
+  return h(
+    "div",
+    null,
+    h("p", { class: "muted small" }, "Ukázky zvuků:"),
+    h(
+      "div",
+      { class: "row" },
+      sample("Roztržení", sfxTear),
+      sample("Odhození", () => sfxSwipe(Math.random() < 0.5 ? -1 : 1)),
+      sample("RR", () => previewRare(1)),
+      sample("IR / UR", () => previewRare(2)),
+      sample("SIR", () => previewRare(3)),
+      sample("Zlatá", () => previewRare(4)),
+      sample("God pack", sfxGodPack),
+    ),
+  );
 }
 
 function download(name: string, text: string) {
@@ -121,11 +170,13 @@ export function renderSettings(root: HTMLElement) {
       { class: "panel" },
       h("h2", null, "Zvuky a vibrace"),
       fxToggle("sound", "Zvuky při otevírání balíčků"),
+      volumeSlider(),
       fxToggle(
         "vibrate",
         "Vibrace při vzácné kartě",
         "vibrate" in navigator ? undefined : "toto zařízení nebo prohlížeč vibrace nepodporuje",
       ),
+      soundPreview(),
     ),
     h(
       "section",

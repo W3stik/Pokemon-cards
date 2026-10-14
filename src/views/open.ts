@@ -10,7 +10,7 @@ import { groupBySeries } from "../ui/eras";
 import { packEl, packThumb, prefetchPackArt } from "../ui/pack";
 import { createPackModel, type PackModel } from "../ui/packModel";
 import { CHARGE_MS, flash, goldRain, rarityBanner, rays, shake, shockwave, stars, tierOf } from "../ui/reveal";
-import { fxPrefs, setFxPrefs, sfxCharge, sfxFlip, sfxHit, sfxSwipe, sfxTear, unlockAudio } from "../ui/sfx";
+import { fxPrefs, setFxPrefs, sfxCharge, sfxDeal, sfxFlip, sfxGodPack, sfxHit, sfxSwipe, sfxTear, unlockAudio } from "../ui/sfx";
 import { openCardModal } from "./cardModal";
 
 const priceSetIds = (cards: PulledCard[]) => [...new Set(cards.map((c) => setIdOfCard(c.card.id)))];
@@ -358,6 +358,7 @@ class OpeningStage {
       stack.append(item);
       return item;
     });
+    sfxDeal(cards.length);
 
     let index = 0;
     let busy = false;
@@ -404,7 +405,7 @@ class OpeningStage {
     const throwAway = async (item: HTMLElement, dir: number) => {
       item.style.setProperty("--dir", String(dir));
       item.classList.add("is-gone");
-      sfxSwipe();
+      sfxSwipe(dir);
       index++;
       update();
       if (index >= items.length) {
@@ -506,7 +507,7 @@ class OpeningStage {
     this.stage.querySelector(".rarity-banner")?.remove();
     const banner = h("div", { class: "god-banner", role: "status" }, "GOD PACK!");
     this.stage.append(banner);
-    sfxHit(10);
+    sfxGodPack();
     if (!prefersReducedMotion()) flash("#ffd65a");
     setTimeout(() => banner.remove(), 2600);
   }
@@ -529,7 +530,7 @@ class OpeningStage {
     this.summary(all, fresh, count, godPacks);
     // Fanfára podle nejvzácnější karty ze všech otevřených balíčků (god pack má nejsilnější).
     const best = Math.max(-1, ...all.filter((c) => rarityInfo(c.card.rarity).hit).map((c) => rarityInfo(c.card.rarity).rank));
-    if (godPacks) sfxHit(10);
+    if (godPacks) sfxGodPack();
     else if (best >= 0) sfxHit(best);
   }
 
