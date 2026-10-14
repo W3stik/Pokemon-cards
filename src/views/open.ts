@@ -10,7 +10,7 @@ import { groupBySeries } from "../ui/eras";
 import { packEl, packThumb, prefetchPackArt } from "../ui/pack";
 import { createPackModel, type PackModel } from "../ui/packModel";
 import { CHARGE_MS, flash, goldRain, rarityBanner, rays, shake, shockwave, stars, tierOf } from "../ui/reveal";
-import { fxPrefs, setFxPrefs, sfxCharge, sfxDeal, sfxFlip, sfxGodPack, sfxHit, sfxSwipe, sfxTear, unlockAudio } from "../ui/sfx";
+import { fxPrefs, setFxPrefs, sfxCharge, sfxDeal, sfxFlip, sfxGodPack, sfxHit, sfxRip, sfxSwipe, sfxTear, unlockAudio } from "../ui/sfx";
 import { openCardModal } from "./cardModal";
 
 const priceSetIds = (cards: PulledCard[]) => [...new Set(cards.map((c) => setIdOfCard(c.card.id)))];
@@ -183,6 +183,7 @@ class OpeningStage {
         hint: hintLvl,
         onTear: tear,
         onPointerDown: unlockAudio,
+        onCut: sfxRip,
         alive: () => this.root.isConnected,
       });
     }

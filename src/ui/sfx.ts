@@ -377,6 +377,10 @@ export const SOUNDS = {
     whoosh(e, t + 0.12, 0.5, { from: 300, to: 900, vol: 0.2, q: 0.7, peak: 0.4, send: 0.3 });
     bell(e, t + 0.18, midi(81), { dur: 0.9, vol: 0.025, bright: 0.5, send: 0.6 });
   },
+  /** Trhání prstem: drobné praskání fólie úměrné tomu, kolik se právě roztrhlo. */
+  rip(e: Engine, t: number, amount: number) {
+    crinkle(e, t, 0.05, Math.max(1, Math.min(8, Math.round(amount * 90))), 0.35);
+  },
   /** Karty vyjedou z balíčku: rychlé papírové švihy za sebou. */
   deal(e: Engine, t: number, count = 5) {
     for (let i = 0; i < count; i++) {
@@ -490,6 +494,17 @@ function vibrate(pattern: number | number[]) {
 export function sfxTear() {
   play(SOUNDS.tear);
   vibrate(25);
+}
+
+let ripTravel = 0;
+/** Trhání prstem pokročilo o `delta` (0–1): praskání fólie a jemné cvaknutí vibrace po kouscích. */
+export function sfxRip(delta: number) {
+  play((e, t) => SOUNDS.rip(e, t, delta));
+  ripTravel += delta;
+  if (ripTravel > 0.12) {
+    ripTravel = 0;
+    vibrate(6);
+  }
 }
 
 export function sfxDeal(count: number) {

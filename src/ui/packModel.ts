@@ -4,7 +4,9 @@
 // hranám a k zataveným okrajům nahoře a dole se zplošťuje, přední a zadní strana se
 // na krajích potkávají. Nemá žádné samostatné boční stěny, takže se z boku nerozpadá
 // ani netřese (jako dřívější model poskládaný z CSS vrstev). Horní pruh je samostatná
-// část se společnou hranou, při roztržení odletí.
+// část se společnou hranou: při tažení prstem se postupně odlupuje (ohyb ve vertex
+// shaderu) a trhlina má roztřepený okraj (zuby kreslí fragment shader), při roztržení
+// pruh odletí.
 //
 // Přední strana je fotka obalu, zadní strana se kreslí do canvasu v barvách sady
 // (šev, logo sady, drobný text, čárový kód). Světlo a lesk fólie počítá shader.
@@ -33,6 +35,8 @@ interface Options {
   onTear: () => void;
   /** Volá se při každém dotyku (např. odemčení zvuku). */
   onPointerDown?: () => void;
+  /** Trhání prstem pokročilo o `delta` (0–1 šířky obalu) – zvuk a vibrace. */
+  onCut?: (delta: number) => void;
   /**
    * Obrazovka, na které model žije, pořád existuje. Když je plátno mimo stránku (karty,
    * přehled), smyčka se jen pozastaví; uvolní se až po odchodu z obrazovky.
@@ -45,8 +49,11 @@ const CUT_V = 0.095; // řez pod horním zataveným okrajem
 const CRIMP_TOP = 0.075;
 const CRIMP_BOTTOM = 0.955;
 const BULGE = 0.05; // vyboulení uprostřed (polovina tloušťky)
-const SEG_U = 36;
-const SEG_V_TOP = 8;
+/** Rezerva na zuby trhliny: horní pruh i zbytek obalu přesahují řez, přebytek zahodí shader. */
+const JAG = 0.016;
+// jemná síť napříč: odlupující se pruh se ohýbá plynule
+const SEG_U = 72;
+const SEG_V_TOP = 10;
 const SEG_V_MAIN = 56;
 
 const smoothstep = (a: number, b: number, x: number) => {
@@ -160,15 +167,47 @@ uniform mat4 uProj;
 uniform mat4 uView;
 uniform mat4 uModel;
 uniform mat3 uNormalMat;
+// odlupování horního pruhu (jen pro něj je uBendOn = 1)
+uniform float uBendOn;
+uniform float uBendCut;   // kam až je roztrženo (0–1 po šířce od začátku trhliny)
+uniform float uBendDir;   // 1 = trhá se zleva doprava, −1 zprava doleva
+uniform float uBendLift;  // jak moc je odtržená část zvednutá (při tažení 1, po puštění méně)
+uniform float uBendRatio;
 varying vec3 vNormal;
 varying vec3 vPos;
 varying vec2 vUv;
 varying float vSide;
 varying vec2 vParam;
+const float BEND_R = 0.03;
 void main() {
-  vec4 world = uModel * vec4(aPos, 1.0);
+  vec3 pos = aPos;
+  vec3 nrm = aNormal;
+  if (uBendOn > 0.5 && uBendCut > 0.0) {
+    float s = uBendDir > 0.0 ? aParam.x : 1.0 - aParam.x;
+    // jak daleko za čelem trhliny bod leží (odtržená část)
+    float d = (uBendCut - s) * uBendRatio;
+    if (d > 0.0) {
+      // pruh se za čelem trhliny ohne obloukem k divákovi a přeloží se zpátky přes obal
+      // směrem k prstu (jako stahovaná páska); po puštění se trochu narovná
+      float maxPhi = mix(0.45, 3.0, uBendLift);
+      float phi = min(d / BEND_R, maxPhi);
+      float hingeX = (uBendDir > 0.0 ? uBendCut - 0.5 : 0.5 - uBendCut) * uBendRatio;
+      vec2 tangent = vec2(-uBendDir * cos(phi), sin(phi));
+      vec2 bent = vec2(-uBendDir * BEND_R * sin(phi), BEND_R * (1.0 - cos(phi))) + tangent * max(0.0, d - BEND_R * maxPhi);
+      vec2 normal2 = vec2(uBendDir * sin(phi), cos(phi));
+      // V zataveném pruhu leží přední a zadní strana na sobě; v ohybu se nepatrně oddělí,
+      // aby po přeložení byl vidět potisk zadní strany, ne vnitřek obalu.
+      float layer = (aSide > 0.5 ? -0.0015 : 0.0015) * min(d / 0.01, 1.0);
+      vec2 xz = vec2(hingeX, 0.0) + bent + normal2 * (aPos.z + layer);
+      // odtržený konec jde zároveň mírně nahoru (jako když ho prsty táhnou)
+      pos = vec3(xz.x, aPos.y + 0.1 * bent.y, xz.y);
+      float b = uBendDir * phi;
+      nrm = vec3(aNormal.x * cos(b) + aNormal.z * sin(b), aNormal.y, -aNormal.x * sin(b) + aNormal.z * cos(b));
+    }
+  }
+  vec4 world = uModel * vec4(pos, 1.0);
   vPos = world.xyz;
-  vNormal = uNormalMat * aNormal;
+  vNormal = uNormalMat * nrm;
   vUv = aUv;
   vSide = aSide;
   vParam = aParam;
@@ -189,6 +228,8 @@ uniform float uAlpha;
 uniform float uCut;
 uniform float uCutV;
 uniform float uRatio;
+uniform float uDir;
+uniform float uPiece;     // 0 = horní pruh, 1 = zbytek obalu
 uniform vec3 uSpark;
 uniform vec3 uSparkColor;
 varying vec3 vNormal;
@@ -196,7 +237,14 @@ varying vec3 vPos;
 varying vec2 vUv;
 varying float vSide;
 varying vec2 vParam;
+// zuby a vlnění trhliny (obě části obalu počítají stejnou čáru, takže na sebe přesně sedí)
+float jag(float u) {
+  return 0.005 * sin(u * 13.0 + 2.0) + 0.004 * sin(u * 71.0) + 0.003 * sin(u * 173.0 + 1.3) + 0.0022 * sin(u * 431.0 + 0.7);
+}
 void main() {
+  float below = vParam.y - (uCutV + jag(vParam.x));
+  if (uPiece < 0.5 ? below > 0.0 : below < 0.0) discard;
+  float s = uDir > 0.0 ? vParam.x : 1.0 - vParam.x;
   vec3 n = normalize(vNormal);
   vec3 base;
   if (gl_FrontFacing) {
@@ -215,9 +263,13 @@ void main() {
   // lesklá fólie: bílý odlesk s jemným duhovým nádechem podle polohy na obalu
   vec3 foil = vec3(0.85 + 0.15 * sin(vParam.x * 9.0), 0.85 + 0.15 * sin(vParam.x * 9.0 + 2.1), 0.85 + 0.15 * sin(vParam.x * 9.0 + 4.2));
   vec3 color = base * (0.42 + 0.7 * diffuse) + foil * spec * 0.55 + vec3(fresnel * 0.12);
-  // svítící řez při tahu prstem přes horní pruh
-  float cutGlow = (1.0 - smoothstep(0.0, 0.007, abs(vParam.y - uCutV))) * step(vParam.x, uCut) * step(0.001, uCut);
-  color = mix(color, vec3(1.0), cutGlow);
+  // roztržené místo: bílá vlákna papíru a fólie podél trhliny
+  float torn = step(s, uCut) * step(0.001, uCut);
+  float fiber = (1.0 - smoothstep(0.0015, 0.0045, abs(below))) * torn;
+  color = mix(color, vec3(0.96, 0.96, 0.93), fiber * 0.9);
+  // světlo na čele trhliny při tažení
+  float front = exp(-pow((s - uCut) * 55.0, 2.0)) * (1.0 - smoothstep(0.0, 0.012, abs(below))) * step(0.001, uCut) * step(uCut, 0.999);
+  color += vec3(1.0, 0.92, 0.75) * front * 0.7;
   // tajný náznak: jiskřička na přední straně
   if (vSide < 0.5 && gl_FrontFacing && uSpark.z > 0.0) {
     vec2 d = (vUv - uSpark.xy) * vec2(uRatio, 1.0);
@@ -481,6 +533,13 @@ export function createPackModel(set: SetInfo, opts: Options): PackModel | null {
     cut: uni("uCut"),
     cutV: uni("uCutV"),
     ratio: uni("uRatio"),
+    dir: uni("uDir"),
+    piece: uni("uPiece"),
+    bendOn: uni("uBendOn"),
+    bendCut: uni("uBendCut"),
+    bendDir: uni("uBendDir"),
+    bendLift: uni("uBendLift"),
+    bendRatio: uni("uBendRatio"),
     spark: uni("uSpark"),
     sparkColor: uni("uSparkColor"),
   };
@@ -503,8 +562,8 @@ export function createPackModel(set: SetInfo, opts: Options): PackModel | null {
     return { buffer, index, count: piece.indices.length };
   };
   const rebuild = () => {
-    top = upload(buildPiece(ratio, 0, CUT_V, SEG_V_TOP), top);
-    main = upload(buildPiece(ratio, CUT_V, 1, SEG_V_MAIN), main);
+    top = upload(buildPiece(ratio, 0, CUT_V + JAG, SEG_V_TOP), top);
+    main = upload(buildPiece(ratio, CUT_V - JAG, 1, SEG_V_MAIN), main);
   };
   rebuild();
 
@@ -575,9 +634,13 @@ export function createPackModel(set: SetInfo, opts: Options): PackModel | null {
   let vyaw = 0;
   let vpitch = 0;
   let touched = false;
-  let dragging: { x: number; y: number; t: number; startX: number; mode: "tear" | "spin"; moved: boolean } | null = null;
+  let dragging: { x: number; y: number; t: number; startX: number; mode: "tear" | "spin"; moved: boolean; cutBase: number } | null = null;
+  // Trhání prstem: kam až je roztrženo (0–1), odkud (směr volí první pohyb prstu)
+  // a jak moc je odtržená část zvednutá. Roztržené místo se samo „nezacelí“.
   let cut = 0;
-  let cutTarget = 0;
+  let dir = 1;
+  let dirChosen = false;
+  let lift = 0;
   // vyhlazený náklon telefonu
   let gyaw = 0;
   let gpitch = 0;
@@ -593,6 +656,7 @@ export function createPackModel(set: SetInfo, opts: Options): PackModel | null {
   // Roztržení
   let tearStart = 0;
   let tearDone: (() => void) | null = null;
+  let cutAtTear = 0;
   const TEAR_MS = 1150;
 
   // Jiskřička
@@ -602,27 +666,47 @@ export function createPackModel(set: SetInfo, opts: Options): PackModel | null {
   let spark = [0.5, 0.5];
   const sparkOffset = Math.random() * 10;
 
-  canvas.addEventListener("pointerdown", (e) => {
+  // Dotyky bere obdélník balíčku (el), ne plátno – to je větší a přesahuje do okolí.
+  el.addEventListener("pointerdown", (e) => {
     opts.onPointerDown?.();
     if (tearStart) return;
-    const r = canvas.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
     // Horní pruh je zhruba horní třetina obalu (obal zabírá ~84 % výšky plátna).
     const relY = (e.clientY - r.top) / r.height;
-    dragging = { x: e.clientX, y: e.clientY, t: performance.now(), startX: e.clientX, mode: relY < 0.08 + 0.84 * 0.3 ? "tear" : "spin", moved: false };
+    dragging = {
+      x: e.clientX,
+      y: e.clientY,
+      t: performance.now(),
+      startX: e.clientX,
+      mode: relY < 0.08 + 0.84 * 0.3 ? "tear" : "spin",
+      moved: false,
+      cutBase: cut,
+    };
     touched = true;
     vyaw = vpitch = 0;
-    canvas.setPointerCapture(e.pointerId);
+    el.setPointerCapture(e.pointerId);
     el.classList.add("is-dragging");
   });
-  canvas.addEventListener("pointermove", (e) => {
+  el.addEventListener("pointermove", (e) => {
     if (!dragging || tearStart) return;
     const now = performance.now();
     const dx = e.clientX - dragging.x;
     const dy = e.clientY - dragging.y;
     if (Math.abs(e.clientX - dragging.startX) > 8) dragging.moved = true;
     if (dragging.mode === "tear") {
-      cutTarget = clamp(Math.abs(e.clientX - dragging.startX) / (canvas.getBoundingClientRect().width * 0.6), 0, 1);
-      cut = cutTarget;
+      const moved = e.clientX - dragging.startX;
+      // směr trhliny určí první tah: doprava = od levého okraje
+      if (!dirChosen && Math.abs(moved) > 6) {
+        dir = Math.sign(moved);
+        dirChosen = true;
+      }
+      if (dirChosen) {
+        const next = clamp(dragging.cutBase + Math.max(0, moved * dir) / (el.getBoundingClientRect().width * 0.6), 0, 1);
+        if (next > cut) {
+          opts.onCut?.(next - cut);
+          cut = next;
+        }
+      }
       if (cut >= 1) {
         dragging = null;
         onTear();
@@ -650,11 +734,10 @@ export function createPackModel(set: SetInfo, opts: Options): PackModel | null {
       onTear();
       return;
     }
-    if (d.mode === "tear") cutTarget = 0;
     if (performance.now() - d.t > 80) vyaw = vpitch = 0;
   };
-  canvas.addEventListener("pointerup", release);
-  canvas.addEventListener("pointercancel", release);
+  el.addEventListener("pointerup", release);
+  el.addEventListener("pointercancel", release);
 
   // --- Vykreslování ---------------------------------------------------------
   const resize = () => {
@@ -683,9 +766,12 @@ export function createPackModel(set: SetInfo, opts: Options): PackModel | null {
     set3(loc.param, 2, 9);
   };
 
-  const drawPiece = (mesh: Mesh, model: Mat4, alpha: number) => {
+  /** `piece`: 0 = horní pruh (odlupuje se), 1 = zbytek obalu. */
+  const drawPiece = (mesh: Mesh, model: Mat4, alpha: number, piece: 0 | 1) => {
     if (alpha <= 0.01) return;
     bindMesh(mesh);
+    gl.uniform1f(u.piece, piece);
+    gl.uniform1f(u.bendOn, piece === 0 ? 1 : 0);
     gl.uniformMatrix4fv(u.model, false, model);
     gl.uniformMatrix3fv(u.normalMat, false, normalMatrix(model));
     gl.uniform1f(u.alpha, alpha);
@@ -746,16 +832,20 @@ export function createPackModel(set: SetInfo, opts: Options): PackModel | null {
         yaw = Math.sin(t * 0.8) * 16;
         pitch = Math.sin(t * 0.6) * 4;
       }
-      if (cutTarget === 0) cut += (0 - cut) * 0.2;
     }
+    // odtržená část: při tažení přeložená k prstu, po puštění se trochu narovná (zůstane odtržená)
+    const liftTarget = tearStart || dragging?.mode === "tear" ? 1 : cut > 0 ? 0.7 : 0;
+    lift += (liftTarget - lift) * 0.18;
     gyaw += (gyawTarget - gyaw) * 0.08;
     gpitch += (gpitchTarget - gpitch) * 0.08;
     const bob = touched || reduced ? 0 : Math.sin(t * 1.1) * 0.015;
 
     const aspect = canvas.width / canvas.height;
     const fov = 30 * DEG;
-    // vzdálenost kamery, aby se obal vešel na výšku i na šířku s rezervou
-    const fit = Math.max(0.5 / 0.84, (ratio * 0.5) / (0.84 * aspect));
+    // vzdálenost kamery: obal zabírá 84 % obdélníku balíčku (el); plátno je větší
+    // (přesah pro odlétající pruh), proto se zorné pole zvětší stejným poměrem
+    const over = canvas.clientHeight / Math.max(1, el.clientHeight);
+    const fit = over * Math.max(0.5 / 0.84, (ratio * 0.5) / (0.84 * aspect));
     const dist = fit / Math.tan(fov / 2) + BULGE;
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.clearColor(0, 0, 0, 0);
@@ -771,9 +861,18 @@ export function createPackModel(set: SetInfo, opts: Options): PackModel | null {
     gl.uniform3f(u.light, -0.45, 0.65, 1.0);
     gl.uniform1i(u.front, 0);
     gl.uniform1i(u.back, 1);
+    // při roztržení se zbytek trhliny rychle „dotrhne“
+    const tp = tearStart ? clamp((now - tearStart) / TEAR_MS, 0, 1) : 0;
+    const zip = clamp(tp / 0.2, 0, 1);
+    const shownCut = tearStart ? cutAtTear + (1 - cutAtTear) * (1 - (1 - zip) * (1 - zip)) : cut;
     gl.uniform1f(u.cutV, CUT_V);
-    gl.uniform1f(u.cut, tearStart ? 0 : cut);
+    gl.uniform1f(u.cut, shownCut);
+    gl.uniform1f(u.dir, dir);
     gl.uniform1f(u.ratio, ratio);
+    gl.uniform1f(u.bendCut, shownCut);
+    gl.uniform1f(u.bendDir, dir);
+    gl.uniform1f(u.bendLift, lift);
+    gl.uniform1f(u.bendRatio, ratio);
 
     // jiskřička (tajný náznak), jen před roztržením
     if (hint > 0 && !tearStart) {
@@ -805,26 +904,26 @@ export function createPackModel(set: SetInfo, opts: Options): PackModel | null {
     );
 
     if (!tearStart) {
-      drawPiece(main!, base, 1);
-      drawPiece(top!, base, 1);
+      drawPiece(main!, base, 1, 1);
+      drawPiece(top!, base, 1, 0);
       return;
     }
 
-    // animace roztržení: pruh odletí nahoru a do strany, obal pak spadne dolů
-    const p = clamp((now - tearStart) / TEAR_MS, 0, 1);
+    // animace roztržení: trhlina se dotrhne, pruh odletí nahoru ve směru tahu, obal pak spadne
+    const p = tp;
     const pivotY = 0.5 - CUT_V / 2;
-    const ps = Math.min(1, p / 0.55);
+    const ps = smoothstep(0.15, 0.6, p);
     const strip = mul(
       base,
       mul(
-        translate(0.35 * ps, pivotY + 0.5 * ps, 0.2 * ps),
-        mul(rotZ(-40 * ps * DEG), mul(rotX(-30 * ps * DEG), translate(0, -pivotY, 0))),
+        translate(0.4 * dir * ps, pivotY + 0.35 * ps, 0.15 * ps),
+        mul(rotZ(-35 * dir * ps * DEG), mul(rotX(-25 * ps * DEG), translate(0, -pivotY, 0))),
       ),
     );
-    drawPiece(top!, strip, 1 - smoothstep(0.25, 0.55, p));
+    drawPiece(top!, strip, 1 - smoothstep(0.4, 0.7, p), 0);
     const pm = clamp((p - 0.3) / 0.7, 0, 1);
     const body = mul(base, mul(translate(0, -1.6 * pm * pm, -0.3 * pm), rotX(12 * pm * DEG)));
-    drawPiece(main!, body, 1 - smoothstep(0.55, 1, p));
+    drawPiece(main!, body, 1 - smoothstep(0.55, 1, p), 1);
     if (p >= 1 && tearDone) {
       const done = tearDone;
       tearDone = null;
@@ -846,6 +945,7 @@ export function createPackModel(set: SetInfo, opts: Options): PackModel | null {
         dragging = null;
         el.classList.remove("is-dragging");
         tearStart = performance.now();
+        cutAtTear = cut;
         tearDone = resolve;
         if (destroyed) resolve();
       }),
@@ -854,7 +954,9 @@ export function createPackModel(set: SetInfo, opts: Options): PackModel | null {
       onTear = next.onTear;
       tearStart = 0;
       tearDone = null;
-      cut = cutTarget = 0;
+      cut = lift = cutAtTear = 0;
+      dir = 1;
+      dirChosen = false;
       dragging = null;
       touched = false;
       yaw = pitch = vyaw = vpitch = 0;

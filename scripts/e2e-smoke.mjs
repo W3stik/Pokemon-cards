@@ -85,8 +85,19 @@ try {
   check((await page.locator(".packgl canvas").count()) === 1, "balíček je 3D model ve WebGL");
   await page.waitForTimeout(800);
   await page.screenshot({ path: join(SHOTS, "3a-pack.png") });
-  await page.locator(".packgl canvas, .pack3d--big").first().click({ force: true });
+  // Roztržení tahem přes horní pruh (jako prstem): pruh se odlupuje, dotažením se balíček otevře.
+  const box = await page.locator(".packgl").boundingBox();
+  const tearY = box.y + box.height * 0.14;
+  await page.mouse.move(box.x + box.width * 0.2, tearY);
+  await page.mouse.down();
+  for (let i = 1; i <= 6; i++) await page.mouse.move(box.x + box.width * (0.2 + i * 0.06), tearY);
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: join(SHOTS, "3a2-tearing.png") });
+  check((await page.locator(".pile").count()) === 0, "napůl roztržený balíček se ještě neotevře");
+  for (let i = 7; i <= 14; i++) await page.mouse.move(box.x + box.width * (0.2 + i * 0.06), tearY);
+  await page.mouse.up();
   await page.waitForSelector(".pile");
+  check(true, "dotažený tah přes horní pruh balíček otevře");
   await page.waitForTimeout(900);
   const pile = await page.locator(".pile__item img.pcard__img").evaluateAll((els) =>
     els.map((e) => e.getAttribute("alt")),

@@ -380,12 +380,17 @@
   cursor: grabbing;
 }
 
+/* Plátno přesahuje balíček o čtvrtinu na každou stranu, aby odtržený pruh mohl odletět
+   a neořízl se. Dotyky bere obdélník balíčku (.packgl), ne přesah. */
 .packgl__canvas {
-  position: relative;
+  position: absolute;
   z-index: 1;
+  left: -25%;
+  top: -25%;
   display: block;
-  width: 100%;
-  height: 100%;
+  width: 150%;
+  height: 150%;
+  pointer-events: none;
 }
 
 .packgl__shadow {
