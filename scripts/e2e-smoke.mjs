@@ -31,11 +31,13 @@ const check = (ok, message) => {
   if (!ok) failures.push(message);
 };
 
-try {
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "block" });
+/**
+ * Stránka v prohlížeči s daným jazykem (aplikace se podle něj přepne; bez něj by Playwright
+ * převzal jazyk systému). Obrázky a API jsou podvržené.
+ */
+async function openPage(locale) {
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "block", locale });
   const page = await ctx.newPage();
-  const errors = [];
-  page.on("pageerror", (e) => errors.push(String(e)));
   // CORS hlavička: 3D model balíčku načítá fotku obalu s crossOrigin (textura WebGL).
   const image = (body) => (r) =>
     r.fulfill({ contentType: "image/svg+xml", body, headers: { "Access-Control-Allow-Origin": "*" } });
@@ -43,6 +45,14 @@ try {
   await page.route(/tcgplayer-cdn/, image(PACK));
   await page.route(/tcg\.pokemon\.com/, image(BACK));
   await page.route(/api\.(pokemontcg\.io|tcgdex\.net)/, (r) => r.abort());
+  return page;
+}
+
+try {
+  // Hlavní průchod v češtině
+  const page = await openPage("cs-CZ");
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
 
   const noHorizontalScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
 
@@ -209,6 +219,43 @@ try {
   check((await page.locator('.packgl canvas[data-e2e="first"]').count()) === 1, "další balíček použije stejný 3D model");
 
   check(errors.length === 0, `bez chyb JavaScriptu${errors.length ? `: ${errors.join(" | ")}` : ""}`);
+
+  // Angličtina: prohlížeč v angličtině dostane celou aplikaci anglicky (bez českých znaků),
+  // ruční volba v sekci More přepne na češtinu.
+  const enPage = await openPage("en-US");
+  const enErrors = [];
+  enPage.on("pageerror", (e) => enErrors.push(String(e)));
+  const czechLeft = () =>
+    enPage.evaluate(() =>
+      // „Čeština“ ve výběru jazyka je název jazyka v jeho vlastním jazyce
+      (document.body.innerText.match(/\S*[ěščřžůťďňĚŠČŘŽŮŤĎŇ]\S*/g) ?? []).filter((w) => w !== "Čeština").join(", "),
+    );
+  await enPage.goto(url);
+  await enPage.waitForSelector(".shop-tile");
+  check((await enPage.locator("h1").first().textContent()) === "Shop", "anglický prohlížeč: obchod je anglicky");
+  check((await enPage.evaluate(() => document.documentElement.lang)) === "en", "anglický prohlížeč: jazyk stránky en");
+  for (const route of ["#/shop", "#/open", "#/album", "#/stats", "#/more"]) {
+    await enPage.goto(url + route);
+    await enPage.waitForTimeout(600);
+    const left = await czechLeft();
+    check(left === "", "anglicky bez českých textů: " + route + (left ? " (" + left + ")" : ""));
+  }
+  await enPage.goto(url + "#/shop");
+  await enPage.waitForSelector(".shop-tile");
+  await enPage.screenshot({ path: join(SHOTS, "8-english-shop.png") });
+  await enPage.getByRole("button", { name: "Odds & sources" }).first().click();
+  await enPage.waitForSelector(".modal .odds");
+  const oddsLeft = await czechLeft();
+  check(oddsLeft === "", "anglicky bez českých textů: okno šancí" + (oddsLeft ? " (" + oddsLeft + ")" : ""));
+  await enPage.waitForTimeout(400);
+  await enPage.screenshot({ path: join(SHOTS, "9-english-odds.png") });
+  await enPage.keyboard.press("Escape");
+  await enPage.goto(url + "#/more");
+  await enPage.waitForSelector('select[aria-label="Language"]');
+  await Promise.all([enPage.waitForEvent("load"), enPage.selectOption('select[aria-label="Language"]', "cs")]);
+  await enPage.waitForSelector("h1");
+  check((await enPage.locator("h1").first().textContent()) === "Více", "ruční volba jazyka přepne na češtinu");
+  check(enErrors.length === 0, "anglicky bez chyb JavaScriptu" + (enErrors.length ? ": " + enErrors.join(" | ") : ""));
 } finally {
   await browser.close();
   await new Promise((resolve) => server.httpServer.close(resolve));

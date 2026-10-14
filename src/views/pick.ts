@@ -1,5 +1,6 @@
 // Regál v obchodě: 10 balíčků sady s předem určeným obsahem, hráč si jeden vybere.
 import { loadCards, loadPools, loadSets } from "../data";
+import { t } from "../i18n";
 import { packProfile } from "../odds";
 import { fromSealed, hintLevel, openPack, toSealed } from "../pack";
 import { getState, pickFromShelf, type SealedPack, setShelf } from "../store";
@@ -14,7 +15,7 @@ export async function renderPick(root: HTMLElement, setId?: string) {
   const sets = await loadSets();
   const set = sets.find((s) => s.id === setId);
   if (!set) {
-    root.append(h("p", { class: "empty" }, "Neznámá sada."));
+    root.append(h("p", { class: "empty" }, t.common.unknownSet));
     return;
   }
   // Z regálu se jde rovnou otevírat: velkou fotku obalu stáhneme dopředu.
@@ -37,7 +38,7 @@ export async function renderPick(root: HTMLElement, setId?: string) {
   let selected: number | null = null;
 
   const refreshOwned = () => {
-    owned.textContent = `Neotevřené: ${getState().packs[set.id] ?? 0}`;
+    owned.textContent = t.common.unopened(getState().packs[set.id] ?? 0);
   };
 
   // Sloty se vytvoří jednou; výběr jen přepíná třídu, aby se animace nerestartovaly.
@@ -88,7 +89,7 @@ export async function renderPick(root: HTMLElement, setId?: string) {
       location.hash = `#/open/${set.id}`;
       return;
     }
-    toast(`Balíček ${set.name} je tvůj`);
+    toast(t.pick.taken(set.name));
     // Na uvolněné místo přijde nový balíček.
     const fresh = slot(set, replacement, byId, index, () => select(index));
     fresh.classList.add("shelf__slot--new");
@@ -100,8 +101,8 @@ export async function renderPick(root: HTMLElement, setId?: string) {
   const renderActions = () => {
     clear(actions);
     actions.append(
-      h("button", { class: "btn btn--primary", disabled: selected === null, onclick: () => take(true) }, "Vzít a otevřít"),
-      h("button", { class: "btn", disabled: selected === null, onclick: () => take(false) }, "Jen vzít"),
+      h("button", { class: "btn btn--primary", disabled: selected === null, onclick: () => take(true) }, t.pick.takeAndOpen),
+      h("button", { class: "btn", disabled: selected === null, onclick: () => take(false) }, t.pick.justTake),
     );
   };
 
@@ -111,9 +112,9 @@ export async function renderPick(root: HTMLElement, setId?: string) {
     h(
       "section",
       { class: "view-head" },
-      h("a", { class: "back", href: "#/shop" }, "← Obchod"),
+      h("a", { class: "back", href: "#/shop" }, t.pick.back),
       h("div", { class: "view-head--row" }, h("h1", null, set.name), h("a", { class: "chip", href: `#/open/${set.id}` }, owned)),
-      h("p", { class: "muted" }, "Vyber si jeden z balíčků na regálu. Je zdarma, ale vybrat můžeš jen jeden najednou."),
+      h("p", { class: "muted" }, t.pick.intro),
     ),
     grid,
     actions,
@@ -139,7 +140,7 @@ function slot(
     {
       class: "shelf__slot",
       "aria-pressed": "false",
-      "aria-label": `Balíček ${index + 1}`,
+      "aria-label": t.pick.slot(index + 1),
       onclick: onSelect,
     },
     el,

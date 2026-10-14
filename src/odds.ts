@@ -3,6 +3,7 @@
 // The Pokémon Company šance oficiálně nezveřejňuje. Čísla níže pocházejí
 // z měření TCGplayer Authentication Center (tisíce otevřených balíčků) a tam,
 // kde chybí, z komunitních sčítání. Každá sada má u sebe uvedené zdroje.
+import { t, type Text, tx } from "./i18n";
 import type { Variant } from "./types";
 
 export interface RarityInfo {
@@ -52,7 +53,7 @@ export const rarityInfo = (rarity: string): RarityInfo =>
   RARITIES[rarity] ?? { rank: 2, short: "?", color: "#888", shine: "holo", hit: false };
 
 export const VARIANT_LABEL: Record<Variant, string> = {
-  normal: "Normální",
+  normal: t.variant.normal,
   reverse: "Reverse holo",
   pokeball: "Poké Ball holo",
   masterball: "Master Ball holo",
@@ -93,7 +94,8 @@ export interface PackProfile {
   colors: [string, string];
   slots: Slot[];
   godPack?: GodPack;
-  note?: string;
+  /** Poznámka k šancím v obou jazycích (zobrazí se v okně „Šance a zdroje“). */
+  note?: Text;
   sources: Source[];
 }
 
@@ -198,7 +200,7 @@ const megaEvolutionRates = (overrides: Partial<StandardRates> = {}): StandardRat
 /** Standardní sada Scarlet & Violet (zlatá karta = Hyper Rare). */
 const svRates = (r: Omit<StandardRates, "goldRarity">): StandardRates => ({ ...r, goldRarity: "Hyper Rare" });
 const tcgtalk = (slug: string, name: string): Source => ({
-  label: `TCGTalk – ${name} pull rates (komunitní data z hromadných otevírání)`,
+  label: `TCGTalk – ${name} pull rates (${t.odds.communityData})`,
   url: `https://tcgtalk.com/guides/${slug}-pack-opening-value-guide`,
 });
 
@@ -235,8 +237,10 @@ const blackWhite = (colors: [string, string]): PackProfile => ({
       base: { rarities: ["Rare"], variant: "normal" },
     },
   ],
-  note:
-    "Black White Rare jsou v sadě dvě (Victini a Zekrom ex / Reshiram ex). Ve vzorku TCGplayer (700+ balíčků) nepadla ani jednou; šance zhruba 1:1800 na každou z nich je komunitní odhad (Pack Magik uvádí u Victini 1:1000). Poké Ball vzor ~1:3, Master Ball vzor ~1:19.",
+  note: {
+    cs: "Black White Rare jsou v sadě dvě (Victini a Zekrom ex / Reshiram ex). Ve vzorku TCGplayer (700+ balíčků) nepadla ani jednou; šance zhruba 1:1800 na každou z nich je komunitní odhad (Pack Magik uvádí u Victini 1:1000). Poké Ball vzor ~1:3, Master Ball vzor ~1:19.",
+    en: "There are two Black White Rares in the set (Victini and Zekrom ex / Reshiram ex). Neither turned up in TCGplayer's sample (700+ packs); odds of roughly 1:1800 for each are a community estimate (Pack Magik puts Victini at 1:1000). Poké Ball pattern ~1:3, Master Ball pattern ~1:19.",
+  },
   sources: [
     { label: "Deltia's Gaming – Black Bolt / White Flare Pull Rates (data TCGplayer)", url: "https://deltiasgaming.com/?p=299238" },
     { label: "CardCodex – Black Bolt / White Flare pull rates", url: "https://cardcodex.com/blog/black-bolt-white-flare-pull-rates/" },
@@ -256,7 +260,10 @@ export const PACKS: Record<string, PackProfile> = {
       gold: 1 / 149,
       goldRarity: "Hyper Rare",
     }),
-    note: "Zdroje se u Destined Rivals rozcházejí (SIR 1:83–1:100). Použity hodnoty z 8 000+ balíčků TCGplayer, jak je cituje Deltia's Gaming.",
+    note: {
+      cs: "Zdroje se u Destined Rivals rozcházejí (SIR 1:83–1:100). Použity hodnoty z 8 000+ balíčků TCGplayer, jak je cituje Deltia's Gaming.",
+      en: "Sources disagree for Destined Rivals (SIR 1:83–1:100). Values from 8,000+ TCGplayer packs are used, as cited by Deltia's Gaming.",
+    },
     sources: [
       { label: "Deltia's Gaming – Destined Rivals Pull Rates (data TCGplayer)", url: "https://deltiasgaming.com/?p=249103" },
       { label: "TCGTalk – Destined Rivals value guide", url: "https://tcgtalk.com/guides/destined-rivals-pack-opening-value-guide" },
@@ -310,8 +317,10 @@ export const PACKS: Record<string, PackProfile> = {
         },
       ],
     },
-    note:
-      "Mega Attack Rare zabírají místo Ultra Rare, proto jsou Ultra Rare vzácnější (1:21). God pack (10 karet, všechny vzácné: 4× IR, 3× full art, 2–3× SIR, případně Mega Hyper Rare) oficiálně potvrzený není; sběratelé ho odhadují na 1:1500–1:4000, ve hře padá častěji (1:500) a jeho složení je odhad.",
+    note: {
+      cs: "Mega Attack Rare zabírají místo Ultra Rare, proto jsou Ultra Rare vzácnější (1:21). God pack (10 karet, všechny vzácné: 4× IR, 3× full art, 2–3× SIR, případně Mega Hyper Rare) oficiálně potvrzený není; sběratelé ho odhadují na 1:1500–1:4000, ve hře padá častěji (1:500) a jeho složení je odhad.",
+      en: "Mega Attack Rares take the Ultra Rare slot, so Ultra Rares are rarer (1:21). The god pack (10 cards, all hits: 4× IR, 3× full art, 2–3× SIR, possibly a Mega Hyper Rare) isn't officially confirmed; collectors estimate 1:1500–1:4000. In this game it drops more often (1:500) and its contents are an estimate.",
+    },
     sources: [
       { label: "TCGplayer – Ascended Heroes Pull Rates", url: `${TCGPLAYER}Pok%C3%A9mon-TCG-Ascended-Heroes-Pull-Rates/60143d94-88a7-42ce-8e73-babd7b3fabd6/` },
       { label: "PokeBeach – Ascended Heroes pull rates", url: "https://www.pokebeach.com/2026/02/ascended-heroes-pull-rates-finally-determined-better-than-usual" },
@@ -322,7 +331,10 @@ export const PACKS: Record<string, PackProfile> = {
   me3: {
     colors: ["#0f3b2e", "#7ee0b5"],
     slots: standardSlots(megaEvolutionRates({ ultraRare: 1 / 12, illustrationRare: 1 / 9, gold: 1 / 1786 })),
-    note: "TCGplayer měl u Perfect Order menší vzorek; šance odpovídají předchozím sadám Mega Evolution.",
+    note: {
+      cs: "TCGplayer měl u Perfect Order menší vzorek; šance odpovídají předchozím sadám Mega Evolution.",
+      en: "TCGplayer's sample for Perfect Order was smaller; the odds match the earlier Mega Evolution sets.",
+    },
     sources: [
       { label: "TCGplayer – Perfect Order Pull Rates", url: `${TCGPLAYER}Pok%C3%A9mon-TCG-Perfect-Order-Pull-Rates/73148119-ebcb-40b7-84b6-52b3a6d0c631/` },
     ],
@@ -330,7 +342,10 @@ export const PACKS: Record<string, PackProfile> = {
   me4: {
     colors: ["#06263d", "#3fb6e8"],
     slots: standardSlots(megaEvolutionRates({ doubleRare: 0.2, illustrationRare: 0.11, specialIllustrationRare: 1 / 83, gold: 1 / 1000 })),
-    note: "U Chaos Rising zatím není článek TCGplayer. Double Rare a IR podle vzorku 5 000+ balíčků (Cardlines), SIR a MHR jsou komunitní odhady.",
+    note: {
+      cs: "U Chaos Rising zatím není článek TCGplayer. Double Rare a IR podle vzorku 5 000+ balíčků (Cardlines), SIR a MHR jsou komunitní odhady.",
+      en: "There's no TCGplayer article for Chaos Rising yet. Double Rare and IR are based on a sample of 5,000+ packs (Cardlines); SIR and MHR are community estimates.",
+    },
     sources: [
       { label: "Cardlines – Chaos Rising pull rates", url: "https://cardlines.com/chaos-rising-one-after-release-pull-rates-prices-and-what-to-buy/" },
       { label: "TCGTalk – Chaos Rising pull rates", url: "https://tcgtalk.com/guides/chaos-rising-pull-rates" },
@@ -379,7 +394,10 @@ export const PACKS: Record<string, PackProfile> = {
         base: { rarities: ["Pikachu Rare"], variant: "normal" },
       },
     ],
-    note: "Speciální sada: 5 foil karet, poslední je vždy jeden z 30 Pikachu Rare. Futuristic Rare podle 3 000 balíčků TCGplayer, ostatní rarity podle ~800 komunitně zapsaných balíčků.",
+    note: {
+      cs: "Speciální sada: 5 foil karet, poslední je vždy jeden z 30 Pikachu Rare. Futuristic Rare podle 3 000 balíčků TCGplayer, ostatní rarity podle ~800 komunitně zapsaných balíčků.",
+      en: "Special set: 5 foil cards, the last one is always one of 30 Pikachu Rares. Futuristic Rare is based on 3,000 TCGplayer packs, the other rarities on ~800 community-logged packs.",
+    },
     sources: [
       { label: "TCGplayer – 30th Celebration Pull Rates", url: `${TCGPLAYER}Pok%C3%A9mon-TCG-30th-Celebration-Pull-Rates/587b3657-481a-4ab8-827c-68cd3ab585b0/` },
       { label: "cardprice.com – 30th Celebration measured odds", url: "https://cardprice.com/guides/30th-celebration-pull-rates" },
@@ -427,16 +445,27 @@ export const PACKS: Record<string, PackProfile> = {
         base: { rarities: ["Rare"], variant: "normal" },
       },
     ],
-    note: "Speciální sada bez Illustration Rare: reverse holo mají vzor Poké Ball (~1:3) nebo Master Ball (~1:20). SIR (32 karet, mezi nimi Eeveelutions) 1:45, Hyper Rare 1:180 – komunitní data, zdroje se rozcházejí (SIR 1:45–1:53).",
+    note: {
+      cs: "Speciální sada bez Illustration Rare: reverse holo mají vzor Poké Ball (~1:3) nebo Master Ball (~1:20). SIR (32 karet, mezi nimi Eeveelutions) 1:45, Hyper Rare 1:180 – komunitní data, zdroje se rozcházejí (SIR 1:45–1:53).",
+      en: "Special set without Illustration Rares: reverse holos have a Poké Ball (~1:3) or Master Ball (~1:20) pattern. SIR (32 cards, including the Eeveelutions) 1:45, Hyper Rare 1:180 – community data, sources disagree (SIR 1:45–1:53).",
+    },
     sources: [
       tcgtalk("prismatic-evolutions", "Prismatic Evolutions"),
-      { label: "cardtracker.au – pull rates by set (TCGplayer přes PokeBeach, 1 200 balíčků)", url: "https://cardtracker.au/insights/guides/pokemon-card-pull-rates" },
+      {
+        label: tx({
+          cs: "cardtracker.au – pull rates by set (TCGplayer přes PokeBeach, 1 200 balíčků)",
+          en: "cardtracker.au – pull rates by set (TCGplayer via PokeBeach, 1,200 packs)",
+        }),
+        url: "https://cardtracker.au/insights/guides/pokemon-card-pull-rates" },
     ],
   },
   sv8: {
     colors: ["#2a1f05", "#ffd23f"],
     slots: standardSlots(svRates({ doubleRare: 0.2, ultraRare: 1 / 15, illustrationRare: 1 / 13, specialIllustrationRare: 1 / 87, gold: 1 / 188, aceSpec: 1 / 20 })),
-    note: "Double Rare zdroj zvlášť neuvádí, použita hodnota okolních sad (1:5).",
+    note: {
+      cs: "Double Rare zdroj zvlášť neuvádí, použita hodnota okolních sad (1:5).",
+      en: "The source doesn't list Double Rare separately; the value from neighbouring sets (1:5) is used.",
+    },
     sources: [tcgtalk("surging-sparks", "Surging Sparks")],
   },
   sv7: {
@@ -447,7 +476,10 @@ export const PACKS: Record<string, PackProfile> = {
   sv6pt5: {
     colors: ["#160d24", "#6d4aa8"],
     slots: standardSlots(svRates({ doubleRare: 0.2, ultraRare: 1 / 15, illustrationRare: 1 / 12, specialIllustrationRare: 1 / 67, gold: 1 / 144, aceSpec: 1 / 20 })),
-    note: "Menší speciální sada; šance podle ~1 500 komunitně zapsaných balíčků (SIR se mezi zdroji liší, 1:50–1:67).",
+    note: {
+      cs: "Menší speciální sada; šance podle ~1 500 komunitně zapsaných balíčků (SIR se mezi zdroji liší, 1:50–1:67).",
+      en: "Smaller special set; odds based on ~1,500 community-logged packs (SIR varies between sources, 1:50–1:67).",
+    },
     sources: [tcgtalk("shrouded-fable", "Shrouded Fable")],
   },
   sv6: {
@@ -458,7 +490,10 @@ export const PACKS: Record<string, PackProfile> = {
   sv5: {
     colors: ["#1d1a3a", "#38bdf8"],
     slots: standardSlots(svRates({ doubleRare: 0.21, ultraRare: 1 / 15, illustrationRare: 1 / 13, specialIllustrationRare: 1 / 86, gold: 1 / 139, aceSpec: 1 / 20 })),
-    note: "První sada s ACE SPEC Rare (1:20), které nahrazují první reverse holo.",
+    note: {
+      cs: "První sada s ACE SPEC Rare (1:20), které nahrazují první reverse holo.",
+      en: "The first set with ACE SPEC Rares (1:20), which replace the first reverse holo.",
+    },
     sources: [
       tcgtalk("temporal-forces", "Temporal Forces"),
       { label: "Temporal Forces pull rates (data TCGplayer)", url: "https://www.josephwriteranderson.com/blog/temporal-forces-pull-rates" },
@@ -491,10 +526,13 @@ export const PACKS: Record<string, PackProfile> = {
         base: { rarities: ["Rare"], variant: "normal" },
       },
     ],
-    note: "Speciální sada: v každém balíčku je Shiny Rare (místo jednoho reverse holo) ze 120 karet, Shiny Ultra Rare 1:13. Komunitní data (~1 500 balíčků); podle jiných zdrojů je Shiny Rare jen v každém 4. balíčku.",
+    note: {
+      cs: "Speciální sada: v každém balíčku je Shiny Rare (místo jednoho reverse holo) ze 120 karet, Shiny Ultra Rare 1:13. Komunitní data (~1 500 balíčků); podle jiných zdrojů je Shiny Rare jen v každém 4. balíčku.",
+      en: "Special set: every pack has a Shiny Rare (in place of one reverse holo) from 120 cards, Shiny Ultra Rare 1:13. Community data (~1,500 packs); other sources say only every 4th pack has a Shiny Rare.",
+    },
     sources: [
       tcgtalk("paldean-fates", "Paldean Fates"),
-      { label: "PokeBeach – Paldean Fates pull rates (1 500 balíčků)", url: "https://www.pokebeach.com/?p=281473" },
+      { label: tx({ cs: "PokeBeach – Paldean Fates pull rates (1 500 balíčků)", en: "PokeBeach – Paldean Fates pull rates (1,500 packs)" }), url: "https://www.pokebeach.com/?p=281473" },
     ],
   },
   sv4: {
@@ -505,7 +543,10 @@ export const PACKS: Record<string, PackProfile> = {
   sv3pt5: {
     colors: ["#0c2340", "#e63946"],
     slots: standardSlots(svRates({ doubleRare: 0.1328, ultraRare: 1 / 16, illustrationRare: 0.085, specialIllustrationRare: 0.0311, gold: 0.0194 })),
-    note: "Šance podle měření TCGplayer. Sada má i god packy, ty ve výpočtu nejsou.",
+    note: {
+      cs: "Šance podle měření TCGplayer. Sada má i god packy, ty ve výpočtu nejsou.",
+      en: "Odds from TCGplayer measurements. The set also has god packs, which aren't included here.",
+    },
     sources: [
       { label: "TCGplayer – Scarlet & Violet—151 Pull Rates", url: `${TCGPLAYER}Pok%C3%A9mon-TCG-Scarlet-Violet%E2%80%94151-Pull-Rates/b237df74-fbb0-40d0-9e13-d69ee6e804d9/` },
     ],
@@ -523,7 +564,10 @@ export const PACKS: Record<string, PackProfile> = {
   sv1: {
     colors: ["#2b0f1f", "#c2185b"],
     slots: standardSlots(svRates({ doubleRare: 0.1354, ultraRare: 0.0648, illustrationRare: 0.0752, specialIllustrationRare: 0.0315, gold: 0.0185 })),
-    note: "SIR a Hyper Rare podle měření TCGplayer (8 000+ balíčků), ostatní podle vzorku 1 728 balíčků (Card Shop Live).",
+    note: {
+      cs: "SIR a Hyper Rare podle měření TCGplayer (8 000+ balíčků), ostatní podle vzorku 1 728 balíčků (Card Shop Live).",
+      en: "SIR and Hyper Rare from TCGplayer measurements (8,000+ packs), the rest from a sample of 1,728 packs (Card Shop Live).",
+    },
     sources: [
       { label: "TCGplayer – Scarlet & Violet Pull Rates", url: `${TCGPLAYER}Pok%C3%A9mon-TCG-Scarlet-Violet-Pull-Rates/a7702fce-dd64-4a58-beb1-0f871c853215/` },
       { label: "cardtracker.au – pull rates by set", url: "https://cardtracker.au/insights/guides/pokemon-card-pull-rates" },
@@ -558,10 +602,13 @@ export const PACKS: Record<string, PackProfile> = {
         base: { rarities: ["Rare"], variant: "normal" },
       },
     ],
-    note: "Éra Sword & Shield: 5 Common, 3 Uncommon, reverse holo a jedna vzácnější karta. V, VMAX, full art, rainbow a zlaté podle Card Codex; alt arty (11 V, 6 VMAX vč. Umbreon VMAX) oficiální data nemají – odhad: alt art V 1:100 (DripShop uvádí 1,2 %), alt art VMAX 1:250, tedy konkrétní alt art VMAX zhruba 1:1500.",
+    note: {
+      cs: "Éra Sword & Shield: 5 Common, 3 Uncommon, reverse holo a jedna vzácnější karta. V, VMAX, full art, rainbow a zlaté podle Card Codex; alt arty (11 V, 6 VMAX vč. Umbreon VMAX) oficiální data nemají – odhad: alt art V 1:100 (DripShop uvádí 1,2 %), alt art VMAX 1:250, tedy konkrétní alt art VMAX zhruba 1:1500.",
+      en: "Sword & Shield era: 5 Commons, 3 Uncommons, a reverse holo and one rarer card. V, VMAX, full art, rainbow and gold from Card Codex; alt arts (11 V, 6 VMAX incl. Umbreon VMAX) have no official data – estimate: alt art V 1:100 (DripShop reports 1.2%), alt art VMAX 1:250, so a specific alt art VMAX is roughly 1:1500.",
+    },
     sources: [
       { label: "Card Codex – Evolving Skies pull rates", url: "https://cardcodex.com/pokemon/sword-shield/evolving-skies/evolving-skies-half-booster-box-swsh7/" },
-      { label: "cardtracker.au – alt art V 1,2 % (DripShop)", url: "https://cardtracker.au/insights/guides/pokemon-card-pull-rates" },
+      { label: tx({ cs: "cardtracker.au – alt art V 1,2 % (DripShop)", en: "cardtracker.au – alt art V 1.2% (DripShop)" }), url: "https://cardtracker.au/insights/guides/pokemon-card-pull-rates" },
     ],
   },
 };
@@ -570,7 +617,10 @@ export const PACKS: Record<string, PackProfile> = {
 export const DEFAULT_PACK: PackProfile = {
   colors: ["#23324a", "#8aa4c8"],
   slots: standardSlots(megaEvolutionRates()),
-  note: "Pro tuto sadu zatím nejsou naměřené šance, používají se průměrné hodnoty éry Mega Evolution.",
+  note: {
+    cs: "Pro tuto sadu zatím nejsou naměřené šance, používají se průměrné hodnoty éry Mega Evolution.",
+    en: "There are no measured odds for this set yet; average Mega Evolution era values are used.",
+  },
   sources: [],
 };
 
@@ -622,6 +672,6 @@ export function oddsTable(profile: PackProfile): { label: string; p: number }[] 
       rows.push({ label: name, p: (hit.p ?? 0) * slot.count });
     }
   }
-  if (profile.godPack) rows.push({ label: "God pack (všech 10 karet vzácných)", p: profile.godPack.p });
+  if (profile.godPack) rows.push({ label: t.odds.godPackRow, p: profile.godPack.p });
   return rows.sort((a, b) => b.p - a.p);
 }

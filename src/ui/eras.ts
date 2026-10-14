@@ -68,6 +68,3 @@ export function eraSection(opts: {
   return section;
 }
 
-/** Česky skloněný počet: plural(3, "sada", "sady", "sad") → „3 sady“. */
-export const plural = (n: number, one: string, few: string, many: string) =>
-  `${n} ${n === 1 ? one : n >= 2 && n <= 4 ? few : many}`;

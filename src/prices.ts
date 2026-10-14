@@ -4,6 +4,7 @@
 //  2. TCGdex (api.tcgdex.net) živě pro jednu kartu v jejím detailu.
 // (Dřívější záloha přes Pokémon TCG API po sadách byla pomalá a nespolehlivá a s cenami
 // pro všechny sady v souboru už nebyla potřeba.)
+import { locale, t } from "./i18n";
 import { parseTcgdexPricing } from "./tcgdexPricing.js";
 import type { Card, Variant } from "./types";
 
@@ -112,8 +113,9 @@ export async function tcgdexPrice(card: Card, setName: string): Promise<CardPric
   }
 }
 
-const eurFmt = new Intl.NumberFormat("cs-CZ", { style: "currency", currency: "EUR" });
-const usdFmt = new Intl.NumberFormat("cs-CZ", { style: "currency", currency: "USD" });
+// „$“ místo „US$“ (britská angličtina i čeština by jinak psaly US$)
+const eurFmt = new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" });
+const usdFmt = new Intl.NumberFormat(locale, { style: "currency", currency: "USD", currencyDisplay: "narrowSymbol" });
 
 export const formatEur = (v: number | undefined) => (v === undefined ? "–" : eurFmt.format(v));
 export const formatUsd = (v: number | undefined) => (v === undefined ? "–" : usdFmt.format(v));
@@ -133,7 +135,7 @@ export function formatTotal(total: PriceTotal, withSource = false): string {
   const parts: string[] = [];
   if (total.eur !== undefined) parts.push(`${formatEur(total.eur)}${withSource ? " (Cardmarket)" : ""}`);
   if (total.usd !== undefined) parts.push(`${formatUsd(total.usd)}${withSource ? " (TCGplayer)" : ""}`);
-  return parts.length ? parts.join(" · ") : "ceny nejsou dostupné";
+  return parts.length ? parts.join(" · ") : t.prices.unavailable;
 }
 
 /** Hodnota pro řazení: přednostně EUR (Cardmarket), jinak USD. */

@@ -1,6 +1,7 @@
 // 3D model karty s prohlížečem: líc s holo efektem, oficiální rub a tenká hrana.
 // Kartou jde otáčet tažením do všech stran (i na rub), po puštění dojíždí
 // setrvačností; lesk se mění podle natočení vůči „světlu“.
+import { t } from "../i18n";
 import type { Card, Variant } from "../types";
 import { h, prefersReducedMotion } from "./dom";
 import { cardBack, cardEl } from "./holo";
@@ -28,7 +29,7 @@ export function card3dViewer(card: Card, variant: Variant, opts: { missing?: boo
     edge("left"),
     edge("right"),
   );
-  const el = h("div", { class: "card3d", role: "img", "aria-label": `${card.name}, 3D náhled` }, body, h("div", { class: "card3d__shadow" }));
+  const el = h("div", { class: "card3d", role: "img", "aria-label": t.card.preview3d(card.name) }, body, h("div", { class: "card3d__shadow" }));
 
   // Natočení karty (stupně) a rychlost pro setrvačnost.
   let rx = 0;

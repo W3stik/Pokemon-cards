@@ -1,20 +1,21 @@
 import { loadSets } from "../data";
+import { locale, t, tx } from "../i18n";
 import { oddsTable, packProfile, packSize } from "../odds";
 import { addPacks, getState } from "../store";
 import type { SetInfo } from "../types";
 import { h, toast } from "../ui/dom";
 import { openModal } from "../ui/modal";
-import { eraSection, groupBySeries, plural } from "../ui/eras";
+import { eraSection, groupBySeries } from "../ui/eras";
 import { formatDate, packThumb } from "../ui/pack";
 
 /** Hromadné balíčky se berou naslepo; jednotlivý balíček si hráč vybírá z regálu. */
 const BULK = [
-  { label: "10 balíčků", count: 10 },
-  { label: "Booster box (36)", count: 36 },
+  { label: t.shop.tenPacks, count: 10 },
+  { label: t.shop.boosterBox, count: 36 },
 ];
 
-const pct = new Intl.NumberFormat("cs-CZ", { style: "percent", maximumFractionDigits: 2 });
-const oneIn = (p: number) => (p >= 0.5 ? "téměř každý" : `1 : ${Math.round(1 / p).toLocaleString("cs-CZ")}`);
+const pct = new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 2 });
+const oneIn = (p: number) => (p >= 0.5 ? t.odds.almostEvery : `1 : ${Math.round(1 / p).toLocaleString(locale)}`);
 
 export function showOdds(set: SetInfo) {
   const profile = packProfile(set.id);
@@ -22,34 +23,30 @@ export function showOdds(set: SetInfo) {
   const content = h(
     "div",
     { class: "odds" },
-    h("h2", null, `Šance – ${set.name}`),
-    h(
-      "p",
-      { class: "muted" },
-      "Šance na balíček. Pokémon je oficiálně nezveřejňuje, jde o měření z tisíců otevřených balíčků (TCGplayer) a komunitní statistiky.",
-    ),
+    h("h2", null, t.odds.title(set.name)),
+    h("p", { class: "muted" }, t.odds.intro),
     h(
       "table",
       { class: "odds__table" },
-      h("thead", null, h("tr", null, h("th", null, "Rarita"), h("th", null, "Šance"), h("th", null, "Na balíček"))),
+      h("thead", null, h("tr", null, h("th", null, t.odds.rarity), h("th", null, t.odds.chance), h("th", null, t.odds.perPack))),
       h(
         "tbody",
         null,
         ...rows.map((r) => h("tr", null, h("td", null, r.label), h("td", null, oneIn(r.p)), h("td", null, pct.format(r.p)))),
       ),
     ),
-    h("h3", null, `Složení balíčku (${packSize(profile)} karet)`),
+    h("h3", null, t.odds.composition(packSize(profile))),
     h(
       "ol",
       { class: "odds__slots" },
       ...profile.slots.map((s) => h("li", null, s.count > 1 ? `${s.count}× ${s.label}` : s.label)),
     ),
-    profile.note ? h("p", { class: "odds__note" }, profile.note) : null,
+    profile.note ? h("p", { class: "odds__note" }, tx(profile.note)) : null,
     profile.sources.length
       ? h(
           "div",
           { class: "odds__sources" },
-          h("h3", null, "Zdroje"),
+          h("h3", null, t.odds.sources),
           h(
             "ul",
             null,
@@ -64,9 +61,9 @@ export function showOdds(set: SetInfo) {
 function setTile(set: SetInfo): HTMLElement {
   const owned = () => getState().packs[set.id] ?? 0;
   const ownedEl = h("span", { class: "chip" });
-  const openBtn = h("a", { class: "btn btn--primary", href: `#/open/${set.id}` }, "Otevřít");
+  const openBtn = h("a", { class: "btn btn--primary", href: `#/open/${set.id}` }, t.shop.open);
   const refresh = () => {
-    ownedEl.textContent = `Neotevřené: ${owned()}`;
+    ownedEl.textContent = t.common.unopened(owned());
     openBtn.classList.toggle("hidden", owned() === 0);
   };
   refresh();
@@ -82,12 +79,12 @@ function setTile(set: SetInfo): HTMLElement {
       h(
         "p",
         { class: "muted" },
-        `${set.series} · ${formatDate(set.releaseDate)} · ${set.total} karet`,
+        `${set.series} · ${formatDate(set.releaseDate)} · ${t.common.cards(set.total)}`,
       ),
       h(
         "div",
         { class: "shop-tile__buy" },
-        h("a", { class: "btn", href: `#/pick/${set.id}` }, h("span", null, "1 balíček"), h("small", null, "Vybrat z regálu")),
+        h("a", { class: "btn", href: `#/pick/${set.id}` }, h("span", null, t.shop.onePack), h("small", null, t.shop.fromShelf)),
         ...BULK.map((p) =>
           h(
             "button",
@@ -96,11 +93,11 @@ function setTile(set: SetInfo): HTMLElement {
               onclick: () => {
                 addPacks(set.id, p.count);
                 refresh();
-                toast(`+${p.count} × ${set.name} (zdarma)`);
+                toast(t.shop.added(p.count, set.name));
               },
             },
             h("span", null, p.label),
-            h("small", null, "Zdarma"),
+            h("small", null, t.common.free),
           ),
         ),
       ),
@@ -108,7 +105,7 @@ function setTile(set: SetInfo): HTMLElement {
         "div",
         { class: "shop-tile__footer" },
         ownedEl,
-        h("button", { class: "btn btn--ghost", onclick: () => showOdds(set) }, "Šance a zdroje"),
+        h("button", { class: "btn btn--ghost", onclick: () => showOdds(set) }, t.shop.odds),
         openBtn,
       ),
     ),
@@ -122,8 +119,8 @@ export async function renderShop(root: HTMLElement) {
     h(
       "section",
       { class: "view-head" },
-      h("h1", null, "Obchod"),
-      h("p", { class: "muted" }, "Sady éry Mega Evolution a Scarlet & Violet a vybrané starší. Všechny balíčky jsou zdarma, vezmi si kolik chceš."),
+      h("h1", null, t.shop.title),
+      h("p", { class: "muted" }, t.shop.intro),
     ),
     // Sady podle éry; otevřená je nejnovější, ostatní se rozbalí klepnutím.
     ...groupBySeries(sets, (s) => s.series).map(({ series, items }, i) => {
@@ -131,7 +128,7 @@ export async function renderShop(root: HTMLElement) {
       return eraSection({
         view: "shop",
         series,
-        meta: plural(items.length, "sada", "sady", "sad") + (unopened ? ` · ${unopened} neotevřených` : ""),
+        meta: t.common.sets(items.length) + (unopened ? t.shop.unopenedInEra(unopened) : ""),
         defaultOpen: i === 0,
         build: () => h("div", { class: "shop-grid" }, ...items.map(setTile)),
       });

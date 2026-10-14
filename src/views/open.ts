@@ -1,6 +1,7 @@
 // Otevírání balíčků: výběr sady, 3D balíček a jeho roztržení, pak balík karet
 // (openPile.ts) a přehled (openSummary.ts). Přehrávání god packu ze Síně slávy.
 import { loadCards, loadPools, loadSets, setIdOfCard } from "../data";
+import { t } from "../i18n";
 import { packProfile, rarityInfo } from "../odds";
 import { fromSealed, hintLevel, isGodPack, openPack } from "../pack";
 import { getState, nextSealed, recordOpening, recordOpenings } from "../store";
@@ -20,14 +21,14 @@ async function renderInventory(root: HTMLElement) {
   const sets = await loadSets();
   const packs = getState().packs;
   const owned = sets.filter((s) => packs[s.id]);
-  root.append(h("section", { class: "view-head" }, h("h1", null, "Moje balíčky")));
+  root.append(h("section", { class: "view-head" }, h("h1", null, t.open.inventoryTitle)));
   if (owned.length === 0) {
     root.append(
       h(
         "div",
         { class: "empty" },
-        h("p", null, "Nemáš žádné neotevřené balíčky."),
-        h("a", { class: "btn btn--primary", href: "#/shop" }, "Do obchodu"),
+        h("p", null, t.open.noPacks),
+        h("a", { class: "btn btn--primary", href: "#/shop" }, t.common.toShop),
       ),
     );
     return;
@@ -59,7 +60,7 @@ export async function renderOpen(root: HTMLElement, setId?: string) {
   const sets = await loadSets();
   const set = sets.find((s) => s.id === setId);
   if (!set) {
-    root.append(h("p", { class: "empty" }, "Neznámá sada."));
+    root.append(h("p", { class: "empty" }, t.common.unknownSet));
     return;
   }
   const [pools, cards] = await Promise.all([loadPools(set.id), loadCards(set.id)]);
@@ -75,7 +76,7 @@ export async function renderReplay(root: HTMLElement, at?: string) {
   const sets = await loadSets();
   const set = record && sets.find((s) => s.id === record.setId);
   if (!record || !set) {
-    root.append(h("p", { class: "empty" }, "Tento balíček v Síni slávy není."));
+    root.append(h("p", { class: "empty" }, t.open.notInHall));
     return;
   }
   const byId = new Map<string, Card>();
@@ -84,7 +85,7 @@ export async function renderReplay(root: HTMLElement, at?: string) {
   }
   const replay = fromSealed(record, byId);
   if (!replay) {
-    root.append(h("p", { class: "empty" }, "Karty tohoto balíčku se nepodařilo načíst."));
+    root.append(h("p", { class: "empty" }, t.open.replayLoadFailed));
     return;
   }
   new OpeningStage(root, set, await loadPools(set.id), byId, replay).showPack();
@@ -136,7 +137,7 @@ class OpeningStage {
   private left = () => (this.replay ? 1 : (getState().packs[this.set.id] ?? 0));
 
   private updateRemaining() {
-    this.remaining.textContent = this.replay ? "Přehrávání" : `Zbývá: ${this.left()}`;
+    this.remaining.textContent = this.replay ? t.open.replaying : t.open.remaining(this.left());
   }
 
   showPack() {
@@ -148,9 +149,9 @@ class OpeningStage {
         h(
           "div",
           { class: "empty" },
-          h("p", null, "Balíčky této sady došly."),
-          h("a", { class: "btn btn--primary", href: "#/shop" }, "Vzít další v obchodě"),
-          h("a", { class: "btn", href: `#/album/${this.set.id}` }, "Do alba"),
+          h("p", null, t.open.soldOut),
+          h("a", { class: "btn btn--primary", href: "#/shop" }, t.open.getMore),
+          h("a", { class: "btn", href: `#/album/${this.set.id}` }, t.common.toAlbum),
         ),
       );
       return;
@@ -160,7 +161,7 @@ class OpeningStage {
     const sealed = this.replay ?? this.sealedCards();
     this.prepare();
     const hintLvl = sealed ? hintLevel(sealed) : 0;
-    const hint = h("p", { class: "stage__hint" }, "Přejeď prstem přes horní okraj, nebo klepni. Tažením jinde balíčkem otočíš.");
+    const hint = h("p", { class: "stage__hint" }, t.open.packHint);
 
     let done = false;
     const once = (fn: () => void) => () => {
@@ -199,10 +200,10 @@ class OpeningStage {
 
     append(this.controls, [
       this.replay
-        ? h("a", { class: "btn", href: "#/stats" }, "← Síň slávy")
-        : h("button", { class: "btn", onclick: once(() => (unlockAudio(), this.quickOpen(1))) }, "Otevřít bez animace"),
+        ? h("a", { class: "btn", href: "#/stats" }, t.common.backToHall)
+        : h("button", { class: "btn", onclick: once(() => (unlockAudio(), this.quickOpen(1))) }, t.open.quickOpen),
       !this.replay && this.left() > 1
-        ? h("button", { class: "btn", onclick: once(() => (unlockAudio(), this.quickOpen(this.left()))) }, `Otevřít vše (${this.left()})`)
+        ? h("button", { class: "btn", onclick: once(() => (unlockAudio(), this.quickOpen(this.left()))) }, t.open.openAll(this.left()))
         : null,
     ]);
   }
@@ -316,7 +317,7 @@ function soundToggle(): HTMLElement {
   const render = () => {
     const on = fxPrefs().sound;
     btn.textContent = on ? "🔊" : "🔇";
-    btn.setAttribute("aria-label", on ? "Vypnout zvuky" : "Zapnout zvuky");
+    btn.setAttribute("aria-label", on ? t.open.soundOff : t.open.soundOn);
     btn.setAttribute("aria-pressed", String(on));
   };
   btn.addEventListener("click", () => {

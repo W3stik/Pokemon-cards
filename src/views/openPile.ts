@@ -1,5 +1,6 @@
 // Balík karet po roztržení balíčku: karty se odhazují klepnutím, tažením nebo klávesnicí,
 // vzácné leží rubem nahoru a odhalí se nabitím a otočením (efekty v src/ui/reveal.ts).
+import { t } from "../i18n";
 import { rarityInfo, VARIANT_LABEL } from "../odds";
 import { isGodPack } from "../pack";
 import { collectionKey } from "../store";
@@ -25,7 +26,7 @@ export function showPile(ctx: PileContext, cards: PulledCard[], fresh: Set<strin
   const stack = h("div", { class: "pile__stack" });
   const pile = h("div", { class: "pile" }, stack);
   enableTilt(pile);
-  stage.append(pile, counter, h("p", { class: "stage__hint" }, "Klepni na kartu, nebo ji odhoď do strany"));
+  stage.append(pile, counter, h("p", { class: "stage__hint" }, t.open.pileHint));
   // God pack se předem neprozradí: zlatá záře a nápis až po odhalení poslední karty.
   const god = isGodPack(cards);
   let godAnnounced = false;
@@ -64,7 +65,7 @@ export function showPile(ctx: PileContext, cards: PulledCard[], fresh: Set<strin
       h(
         "div",
         { class: "pile__tag" },
-        isNew ? h("span", { class: "badge badge--new" }, "NOVÁ") : null,
+        isNew ? h("span", { class: "badge badge--new" }, t.common.newCard) : null,
         pulled.variant !== "normal" ? h("span", { class: "badge" }, VARIANT_LABEL[pulled.variant]) : null,
         info.hit ? h("span", { class: "badge", style: `background: ${info.color}; color: #111` }, pulled.card.rarity) : null,
       ),
@@ -184,7 +185,7 @@ export function showPile(ctx: PileContext, cards: PulledCard[], fresh: Set<strin
     return false;
   });
 
-  ctx.controls.append(h("button", { class: "btn", onclick: () => ctx.done() }, "Přeskočit na přehled"));
+  ctx.controls.append(h("button", { class: "btn", onclick: () => ctx.done() }, t.open.skip));
 }
 
 /** Efekty odhalení vzácné karty podle úrovně rarity (src/ui/reveal.ts). */

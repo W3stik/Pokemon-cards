@@ -2,7 +2,7 @@
 
 Fanouškovská PWA (Android i Windows přes „Instalovat aplikaci“), ve které si uživatel zdarma bere
 a otevírá balíčky **skutečných** sad Pokémon TCG a sbírá karty do alba. Uživatel komunikuje česky,
-celé UI i komentáře jsou česky. Návod pro uživatele je v `README.md`.
+komentáře v kódu jsou česky. UI je česky nebo anglicky podle jazyka zařízení (slovníky v `src/i18n/`). Návod pro uživatele je v `README.md`.
 
 Repozitář `W3stik/Pokemon-cards` obsahuje jen tuto aplikaci (TypeScript, Vite, bez frameworku,
 Vitest). Vznikl vyčleněním složky `pokemon-packs/` z `W3stik/claude-project` i s historií commitů.
@@ -12,7 +12,7 @@ Vitest). Vznikl vyčleněním složky `pokemon-packs/` z `W3stik/claude-project`
 ```bash
 npm install
 npm run dev        # vývojový server http://localhost:5173
-npm test           # Vitest: data, šance, generátor, regál (pack.test.ts), stav a záloha (store.test.ts), ceny (prices.test.ts), nastavení zvuku (sfx.test.ts)
+npm test           # Vitest: data, šance, generátor, regál (pack.test.ts), stav a záloha (store.test.ts), ceny (prices.test.ts), jazyk a překlad (i18n.test.ts), nastavení zvuku (sfx.test.ts)
 npm run build      # tsc --noEmit + vite build → dist/  (vždy před commitem)
 npm run e2e        # Playwright průchod celou aplikací nad buildem, snímky v e2e-shots/ (běží i v CI před nasazením)
                    # (poprvé: npx playwright install chromium); obrázky a API podvrhuje
@@ -41,6 +41,7 @@ Každá obrazovka se kreslí do nového kontejneru (pomalé načítání staré 
 | `src/storage.ts` | Trvalé úložiště (`navigator.storage.persist`, žádá se po prvních kartách v `main.ts`), datum poslední zálohy a připomínka zálohy. |
 | `src/prices.ts` | Ceny: `data/prices.json` z buildu (TCGdex, obnovuje CI denně) a `tcgdexPrice` živě pro jednu kartu v detailu. Záloha přes Pokémon TCG API je pryč (API je nespolehlivé a TCGdex má ceny všech sad); staré klíče `pokemon-packs:prices:*` se z localStorage mažou. Součty přes `addPrice`/`formatTotal` (měna bez cen se nezobrazí jako 0). |
 | `src/tcgdexPricing.js` | Výklad cen TCGdex sdílený aplikací i `scripts/fetch-prices.mjs` (čisté JS + `.d.ts`, aby ho Node spustil bez překladu). |
+| `src/i18n/` | Jazyk: `index.ts` určí jazyk při načtení (`detectLang`: první čeština/slovenština → `cs`, angličtina nebo nic → `en`; ruční volba `pokemon-packs:lang` v sekci Více, změna obnoví stránku), `locale` pro `Intl` (`cs-CZ` / `en-GB`, aby i anglické datum bylo den–měsíc–rok), `t` = slovník. `cs.ts` a `en.ts`: texty po oblastech (`t.shop.title`, `t.common.cards(n)` se skloňováním); `en` má typ `Messages = typeof cs`, chybějící text je chyba překladu TypeScriptu. U dat jsou texty v obou jazycích jako `Text` (`{ cs, en }`, např. `note` v `odds.ts`) a čtou se přes `tx()`. Test `i18n.test.ts` hlídá, že v kódu mimo `cs.ts` nezůstal český řetězec (písmena ěščřžůťďň). |
 | `src/data.ts` | Načítání `sets.json` a karet sady (cache), `setIdOfCard`, `setOfCard` (sada karty včetně podsad, používá album i statistiky), `cardNumber`. |
 | `src/ui/eras.ts` | Třídění podle éry: `groupBySeries`, rozbalovací `eraSection` (obsah se vytvoří až při otevření, stav v localStorage `pokemon-packs:eras:*`), `plural`. Používá obchod, inventář (nadpisy) a přehled alba. |
 | `src/views/shop.ts` | Obchod: „1 balíček“ vede na regál, „10 balíčků“ a „Booster box (36)“ přidají balíčky naslepo; okno „Šance a zdroje“. |
@@ -178,7 +179,7 @@ kopii aplikace pod stejný účet, service worker by mazal mezipaměť té druh�
 - Commit zprávy anglicky (rozkazovací věta v předmětu, tělo vysvětluje proč). Před commitem
   `npm test && npm run build`. Neměň víc, než úkol vyžaduje; nepřidávej závislosti bez důvodu.
 
-- Texty UI, komentáře a hlášky česky; názvy rarit a sad anglicky (oficiální).
+- Komentáře česky. Texty UI a hlášky jen přes slovníky `src/i18n/cs.ts` + `en.ts` (nový text do obou); názvy rarit, sad a karet anglicky (oficiální). E2e běží s jazykem prohlížeče `cs-CZ` a krátce i `en-US` (bez nastaveného jazyka by Playwright převzal jazyk systému a v CI by byla aplikace anglicky).
 - Stav hry měň jen přes funkce ze `store.ts` (ukládají a volají posluchače). Při nekompatibilní
   změně schématu zvyš verzi klíče a doplň migraci (`load()` dnes doplňuje chybějící pole z `empty()`).
 - Žádné reklamy ani zpoplatnění: obrázky a jména patří Nintendo / The Pokémon Company; projekt je

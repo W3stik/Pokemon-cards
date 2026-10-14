@@ -1,4 +1,5 @@
 // Stav hry uložený v prohlížeči (localStorage): neotevřené balíčky a sbírka.
+import { t } from "./i18n";
 import { isGodPack } from "./pack";
 import type { PulledCard, Variant } from "./types";
 
@@ -102,7 +103,7 @@ function packLists(v: unknown): Record<string, SealedPack[]> {
 /** Převede neznámá data na platný stav hry; když to vůbec není stav hry, vyhodí chybu. */
 export function sanitize(raw: unknown): GameState {
   if (!isObject(raw) || raw.version !== 1 || !isObject(raw.collection)) {
-    throw new Error("Soubor neobsahuje zálohu sbírky");
+    throw new Error(t.store.notBackup);
   }
   const packs = numbers(raw.packs, isCount);
   const sealed = packLists(raw.sealed);
@@ -214,7 +215,7 @@ export function setShelf(setId: string, packs: SealedPack[]) {
 export function pickFromShelf(setId: string, index: number, replacement: SealedPack) {
   mutate((s) => {
     const shelf = s.shelf[setId];
-    if (!shelf?.[index]) throw new Error("Balíček na regálu není");
+    if (!shelf?.[index]) throw new Error(t.store.noShelfPack);
     (s.sealed[setId] ??= []).push(shelf[index]);
     shelf[index] = replacement;
     s.packs[setId] = (s.packs[setId] ?? 0) + 1;
@@ -228,7 +229,7 @@ export const unopenedTotal = () => Object.values(state.packs).reduce((a, b) => a
 
 /** Zapíše jeden otevřený balíček do stavu (bez uložení). Vrací klíče karet, které jsou nové. */
 function applyOpening(s: GameState, setId: string, cards: PulledCard[], now: number): Set<string> {
-  if (!s.packs[setId]) throw new Error("Žádný neotevřený balíček této sady");
+  if (!s.packs[setId]) throw new Error(t.store.noPack);
   s.packs[setId] -= 1;
   if (s.packs[setId] === 0) delete s.packs[setId];
   s.sealed[setId]?.shift();
@@ -314,7 +315,7 @@ export function parseBackup(json: string): GameState {
   try {
     raw = JSON.parse(json);
   } catch {
-    throw new Error("Soubor není platná záloha (chybný JSON)");
+    throw new Error(t.store.badJson);
   }
   return sanitize(raw);
 }

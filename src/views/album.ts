@@ -1,4 +1,5 @@
 import { cardNumber, loadCards, loadSets, setIdOfCard, setOfCard } from "../data";
+import { locale, t } from "../i18n";
 import { RARITIES, rarityInfo } from "../odds";
 import { addPrice, type CardPrice, formatEur, formatTotal, formatUsd, loadSetPrices, type PriceTotal, sortValue, variantPrice } from "../prices";
 import { countsFor, getState } from "../store";
@@ -36,7 +37,7 @@ function savePrefs(p: Prefs) {
   }
 }
 
-const pct = new Intl.NumberFormat("cs-CZ", { style: "percent", maximumFractionDigits: 0 });
+const pct = new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 0 });
 const VARIANT_SHORT: Record<Variant, string> = { normal: "", reverse: "RH", pokeball: "PB", masterball: "MB" };
 
 interface Owned {
@@ -146,18 +147,18 @@ async function renderOverview(root: HTMLElement) {
     h(
       "section",
       { class: "view-head view-head--row" },
-      h("h1", null, "Sběratelské album"),
-      h("a", { class: "btn", href: "#/stats" }, "📊 Statistiky a síň slávy"),
+      h("h1", null, t.album.title),
+      h("a", { class: "btn", href: "#/stats" }, t.album.statsLink),
     ),
     h(
       "div",
       { class: "stats" },
-      h("div", null, h("span", null, "Unikátních karet"), h("strong", null, `${st.unique} / ${st.total}`)),
-      h("div", null, h("span", null, "Kusů celkem"), h("strong", null, String(st.copies))),
-      h("div", null, h("span", null, "Duplikáty"), h("strong", null, `${st.extra}`)),
-      h("div", null, h("span", null, "Otevřeno balíčků"), h("strong", null, String(opened))),
-      godPacks ? h("div", null, h("span", null, "God packy"), h("strong", null, String(godPacks))) : null,
-      h("div", { class: "stats__wide" }, h("span", null, "Hodnota sbírky"), valueEl),
+      h("div", null, h("span", null, t.album.unique), h("strong", null, `${st.unique} / ${st.total}`)),
+      h("div", null, h("span", null, t.album.copies), h("strong", null, String(st.copies))),
+      h("div", null, h("span", null, t.album.dupes), h("strong", null, `${st.extra}`)),
+      h("div", null, h("span", null, t.album.opened), h("strong", null, String(opened))),
+      godPacks ? h("div", null, h("span", null, t.album.godPacks), h("strong", null, String(godPacks))) : null,
+      h("div", { class: "stats__wide" }, h("span", null, t.album.collectionValue), valueEl),
     ),
     // Sady podle éry; otevřené jsou éry, ze kterých už něco máš (a nejnovější).
     ...groupBySeries(perSet, (p) => p.set.series).map(({ series, items }, i) => {
@@ -165,7 +166,7 @@ async function renderOverview(root: HTMLElement) {
       return eraSection({
         view: "album",
         series,
-        meta: `${era.unique}/${era.total} karet · ${pct.format(era.unique / era.total)}`,
+        meta: t.album.eraMeta(era.unique, era.total, pct.format(era.unique / era.total)),
         defaultOpen: i === 0 || era.unique > 0,
         build: () =>
           h(
@@ -179,7 +180,7 @@ async function renderOverview(root: HTMLElement) {
                 h("img", { src: set.logo, alt: set.name, loading: "lazy" }),
                 h("div", null, h("strong", null, set.name), h("span", { class: "muted" }, ` ${s.unique}/${s.total} · ${pct.format(s.unique / s.total)}`)),
                 progress(s.unique / s.total),
-                s.extra ? h("span", { class: "muted small" }, `${s.extra} duplikátů`) : null,
+                s.extra ? h("span", { class: "muted small" }, t.album.dupeCount(s.extra)) : null,
               );
             }),
           ),
@@ -223,7 +224,7 @@ function tile(o: Owned, set: SetInfo, prices: Record<string, CardPrice>): HTMLEl
     "button",
     { class: `album-tile${o.total ? "" : " album-tile--missing"}`, onclick: () => openCardModal(o.card, set) },
     cardEl(o.card, shown, { missing: o.total === 0, tilt: true, gyro: false }),
-    o.total > 1 ? h("span", { class: "count-badge", title: `${o.total - 1} duplikátů` }, `×${o.total}`) : null,
+    o.total > 1 ? h("span", { class: "count-badge", title: t.album.dupeCount(o.total - 1) }, `×${o.total}`) : null,
     h(
       "div",
       { class: "album-tile__meta" },
@@ -250,7 +251,7 @@ async function renderSetAlbum(root: HTMLElement, setId: string) {
   const sets = await loadSets();
   const set = sets.find((s) => s.id === setId);
   if (!set) {
-    root.append(h("p", { class: "empty" }, "Neznámá sada."));
+    root.append(h("p", { class: "empty" }, t.common.unknownSet));
     return;
   }
   const cards = await loadCards(set.id);
@@ -282,27 +283,27 @@ async function renderSetAlbum(root: HTMLElement, setId: string) {
       if (q && !o.card.name.toLowerCase().includes(q) && cardNumber(o.card).toLowerCase() !== q) return false;
       return true;
     });
-    countEl.textContent = `${list.length} karet`;
+    countEl.textContent = t.album.count(list.length);
     grid.replaceChildren(...sortOwned(list, prefs.sort, prices).map((o) => tile(o, set, prices)));
-    if (list.length === 0) grid.append(h("p", { class: "empty" }, "Žádná karta neodpovídá filtru."));
+    if (list.length === 0) grid.append(h("p", { class: "empty" }, t.album.noMatch));
   };
 
   root.append(
     h(
       "section",
       { class: "album-head" },
-      h("a", { class: "back", href: "#/album" }, "← Všechny sady"),
+      h("a", { class: "back", href: "#/album" }, t.album.allSets),
       h("img", { class: "album-head__logo", src: set.logo, alt: set.name }),
       h(
         "div",
         { class: "stats" },
-        h("div", null, h("span", null, "Sesbíráno"), h("strong", null, `${st.unique} / ${st.total} (${pct.format(st.unique / st.total)})`)),
-        h("div", null, h("span", null, "Duplikáty"), h("strong", null, `${st.dupeCards} karet · ${st.extra} kusů navíc`)),
-        h("div", null, h("span", null, "Otevřeno balíčků"), h("strong", null, String(getState().opened[set.id] ?? 0))),
+        h("div", null, h("span", null, t.album.collected), h("strong", null, `${st.unique} / ${st.total} (${pct.format(st.unique / st.total)})`)),
+        h("div", null, h("span", null, t.album.dupes), h("strong", null, t.album.dupeDetail(st.dupeCards, st.extra))),
+        h("div", null, h("span", null, t.album.opened), h("strong", null, String(getState().opened[set.id] ?? 0))),
         getState().godPacks[set.id]
-          ? h("div", null, h("span", null, "God packy"), h("strong", null, String(getState().godPacks[set.id])))
+          ? h("div", null, h("span", null, t.album.godPacks), h("strong", null, String(getState().godPacks[set.id])))
           : null,
-        h("div", null, h("span", null, "Hodnota"), valueEl),
+        h("div", null, h("span", null, t.album.value), valueEl),
       ),
       progress(st.unique / st.total),
     ),
@@ -312,10 +313,10 @@ async function renderSetAlbum(root: HTMLElement, setId: string) {
       h(
         "label",
         { class: "field field--grow" },
-        h("span", null, "Hledat"),
+        h("span", null, t.album.search),
         h("input", {
           type: "search",
-          placeholder: "Jméno nebo číslo",
+          placeholder: t.album.searchPlaceholder,
           // Překreslení stovek karet až po krátké pauze v psaní, ne po každém písmenu.
           oninput: (e: Event) => {
             query = (e.target as HTMLInputElement).value;
@@ -324,18 +325,34 @@ async function renderSetAlbum(root: HTMLElement, setId: string) {
           },
         }),
       ),
-      select<Filter>("Zobrazit", prefs.filter, [["all", "Vše"], ["owned", "Mám"], ["missing", "Chybí"], ["dupes", "Duplikáty"]], (v) => {
-        prefs.filter = v;
-        render();
-      }),
-      select<string>("Rarita", prefs.rarity, [["", "Všechny"], ...rarities.map((r): [string, string] => [r, r])], (v) => {
+      select<Filter>(
+        t.album.show,
+        prefs.filter,
+        [
+          ["all", t.album.filter.all],
+          ["owned", t.album.filter.owned],
+          ["missing", t.album.filter.missing],
+          ["dupes", t.album.filter.dupes],
+        ],
+        (v) => {
+          prefs.filter = v;
+          render();
+        },
+      ),
+      select<string>(t.album.rarity, prefs.rarity, [["", t.album.allRarities], ...rarities.map((r): [string, string] => [r, r])], (v) => {
         prefs.rarity = v;
         render();
       }),
       select<Sort>(
-        "Řadit",
+        t.album.sort,
         prefs.sort,
-        [["number", "Podle čísla"], ["rarity", "Podle rarity"], ["name", "Podle jména"], ["price", "Podle ceny"], ["count", "Podle počtu kusů"]],
+        [
+          ["number", t.album.sortBy.number],
+          ["rarity", t.album.sortBy.rarity],
+          ["name", t.album.sortBy.name],
+          ["price", t.album.sortBy.price],
+          ["count", t.album.sortBy.count],
+        ],
         (v) => {
           prefs.sort = v;
           render();

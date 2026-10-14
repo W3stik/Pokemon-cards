@@ -10,6 +10,7 @@
 //
 // Přední strana je fotka obalu, zadní strana se kreslí do canvasu v barvách sady
 // (šev, logo sady, drobný text, čárový kód). Světlo a lesk fólie počítá shader.
+import { t } from "../i18n";
 import { packProfile, packSize } from "../odds";
 import type { SetInfo } from "../types";
 import { h, prefersReducedMotion } from "./dom";
@@ -395,7 +396,7 @@ function drawBack(set: SetInfo, logo: HTMLImageElement | null): HTMLCanvasElemen
   ctx.fillText(set.name.toUpperCase(), TEX_W / 2, TEX_H * 0.375);
   ctx.font = "700 34px system-ui, sans-serif";
   ctx.fillStyle = ink(0.7);
-  ctx.fillText(`BOOSTER PACK · ${packSize(packProfile(set.id))} KARET`, TEX_W / 2, TEX_H * 0.405);
+  ctx.fillText(t.common.packLabel(packSize(packProfile(set.id))).toUpperCase(), TEX_W / 2, TEX_H * 0.405);
 
   // drobný text (jen naznačený řádky)
   const rnd = seeded(set.id);
@@ -459,7 +460,7 @@ function drawFallbackFront(set: SetInfo, logo: HTMLImageElement | null): HTMLCan
   ctx.textAlign = "center";
   ctx.font = "800 52px system-ui, sans-serif";
   ctx.fillText(set.series.toUpperCase(), TEX_W / 2, TEX_H * 0.2);
-  ctx.fillText(`BOOSTER PACK · ${packSize(packProfile(set.id))} KARET`, TEX_W / 2, TEX_H * 0.72);
+  ctx.fillText(t.common.packLabel(packSize(packProfile(set.id))).toUpperCase(), TEX_W / 2, TEX_H * 0.72);
   return c;
 }
 
@@ -506,7 +507,7 @@ export function createPackModel(set: SetInfo, opts: Options): PackModel | null {
 
   const el = h(
     "div",
-    { class: "packgl", role: "img", "aria-label": `Balíček ${set.name}` },
+    { class: "packgl", role: "img", "aria-label": t.common.pack(set.name) },
     canvas,
     h("div", { class: "packgl__shadow" }),
   );

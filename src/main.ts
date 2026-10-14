@@ -1,4 +1,5 @@
 import "./styles/index.css";
+import { lang, t } from "./i18n";
 import { persistStorage, shouldRemindBackup } from "./storage";
 import { stateSummary, storageFailed, subscribe, unopenedTotal } from "./store";
 import { clear, h, toast } from "./ui/dom";
@@ -50,9 +51,9 @@ async function route() {
       h(
         "div",
         { class: "empty" },
-        h("p", null, "Něco se nepovedlo načíst."),
+        h("p", null, t.app.loadError),
         h("p", { class: "muted small" }, err instanceof Error ? err.message : String(err)),
-        h("button", { class: "btn", onclick: () => route() }, "Zkusit znovu"),
+        h("button", { class: "btn", onclick: () => route() }, t.app.retry),
       ),
     );
   }
@@ -74,7 +75,7 @@ async function protectCollection() {
   storageChecked = true;
   const persisted = await persistStorage();
   if (!persisted && stateSummary().cards >= 50 && (await shouldRemindBackup())) {
-    toast("Tip: zálohuj si sbírku v sekci Více");
+    toast(t.app.backupTip);
   }
 }
 
@@ -95,13 +96,13 @@ function checkStorage() {
   const banner = h(
     "div",
     { class: "update-banner storage-banner", role: "alert" },
-    h("span", null, "Sbírku se nepodařilo uložit – prohlížeč nemá místo nebo ukládání nedovolí. Než stránku zavřeš, stáhni si zálohu."),
-    h("a", { class: "btn btn--primary", href: "#/more" }, "Záloha"),
+    h("span", null, t.app.storageFailed),
+    h("a", { class: "btn btn--primary", href: "#/more" }, t.app.backup),
     h(
       "button",
       {
         class: "btn btn--ghost",
-        "aria-label": "Zavřít",
+        "aria-label": t.common.close,
         onclick: () => {
           storageWarningClosed = true;
           banner.remove();
@@ -119,9 +120,9 @@ function showUpdateBanner() {
   const banner = h(
     "div",
     { class: "update-banner", role: "status" },
-    h("span", null, "Je k dispozici nová verze aplikace."),
-    h("button", { class: "btn btn--primary", onclick: () => location.reload() }, "Obnovit"),
-    h("button", { class: "btn btn--ghost", "aria-label": "Zavřít", onclick: () => banner.remove() }, "×"),
+    h("span", null, t.app.newVersion),
+    h("button", { class: "btn btn--primary", onclick: () => location.reload() }, t.app.reload),
+    h("button", { class: "btn btn--ghost", "aria-label": t.common.close, onclick: () => banner.remove() }, "×"),
   );
   document.body.append(banner);
 }
@@ -137,6 +138,21 @@ window.addEventListener(
   },
   { passive: false },
 );
+
+// Pevné texty z index.html v jazyce aplikace.
+document.documentElement.lang = lang;
+document.querySelector('meta[name="description"]')?.setAttribute("content", t.app.description);
+document.querySelector(".tabbar")?.setAttribute("aria-label", t.app.nav);
+const TAB_LABEL: Record<string, string> = {
+  shop: t.app.tabs.shop,
+  open: t.app.tabs.packs,
+  album: t.app.tabs.album,
+  more: t.app.tabs.more,
+};
+document.querySelectorAll<HTMLAnchorElement>(".tabbar a").forEach((a) => {
+  const label = a.querySelector(".tabbar__label");
+  if (label && TAB_LABEL[a.dataset.route ?? ""]) label.textContent = TAB_LABEL[a.dataset.route ?? ""];
+});
 
 window.addEventListener("hashchange", route);
 subscribe(updateBadge);

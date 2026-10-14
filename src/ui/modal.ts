@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import { h } from "./dom";
 import { closeOnBack, trapFocus } from "./history";
 
@@ -8,7 +9,7 @@ import { closeOnBack, trapFocus } from "./history";
  */
 export function openModal(content: Node, extraClass = ""): () => void {
   const previous = document.activeElement as HTMLElement | null;
-  const closeBtn = h("button", { class: "modal__close", "aria-label": "Zavřít" }, "×");
+  const closeBtn = h("button", { class: "modal__close", "aria-label": t.common.close }, "×");
   const box = h("div", { class: `modal__box ${extraClass}`, role: "dialog", "aria-modal": "true" }, closeBtn, content);
   const overlay = h("div", { class: "modal" }, box);
   const focusTrap = trapFocus(box);

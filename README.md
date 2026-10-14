@@ -41,6 +41,7 @@ a karty Pokémon TCG, šance na tah podle reálných měření a tržní ceny ka
   uložené god packy, které jde kdykoli znovu „otevřít“ – celé roztržení i odhalení, jen bez nových karet.
 - **Hodnota sbírky** podle aktuálních cen, **záloha** sbírky do souboru a obnovení na jiném zařízení.
 - Funguje **offline**: data sad jsou součástí aplikace, obrázky karet se po prvním zobrazení ukládají.
+- **Čeština a angličtina** podle jazyka zařízení (slovenština dostane češtinu), v sekci Více jde jazyk zvolit ručně.
 
 ## Spuštění
 

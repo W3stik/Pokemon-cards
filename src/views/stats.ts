@@ -1,6 +1,7 @@
 // Statistiky: měřák štěstí (kolik vzácných karet padlo proti očekávání podle šancí)
 // a Síň slávy (natrvalo uložené balíčky s opravdu dobrými kartami).
 import { loadCards, loadSets, setIdOfCard, setOfCard } from "../data";
+import { locale, t } from "../i18n";
 import { expectedPerPack, packProfile, rarityInfo } from "../odds";
 import { addPrice, formatTotal, loadSetPrices, type PriceTotal, variantPrice } from "../prices";
 import { addToHall, getState, type PullRecord } from "../store";
@@ -9,9 +10,9 @@ import { h } from "../ui/dom";
 import { cardEl } from "../ui/holo";
 import { openCardModal } from "./cardModal";
 
-const dateFmt = new Intl.DateTimeFormat("cs-CZ", { dateStyle: "medium", timeStyle: "short" });
-const num = new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 1 });
-const small = new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 2 });
+const dateFmt = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" });
+const num = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 });
+const small = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 });
 /** Očekávaný počet: malé hodnoty se dvěma desetinnými místy (0,04 místo 0). */
 const expectedText = (v: number) => (v > 0 && v < 0.1 ? small.format(v) : num.format(v));
 /** Měřák počítá s raritami od Double Rare výš (běžné karty padají pořád). */
@@ -66,15 +67,12 @@ function verdict(rows: LuckRow[]): { text: string; tone: string } {
   const rare = rows.filter((r) => rarityInfo(r.rarity).rank >= 6);
   const actual = rare.reduce((n, r) => n + r.actual, 0);
   const expected = rare.reduce((n, r) => n + r.expected, 0);
-  if (expected < 3) return { text: "Zatím málo otevřených balíčků, aby to o štěstí něco řeklo.", tone: "neutral" };
+  if (expected < 3) return { text: t.stats.tooFew, tone: "neutral" };
   const ratio = actual / expected;
-  const detail = `vzácných karet (IR a výš) máš ${actual}, podle šancí by jich mělo být ${num.format(expected)}`;
-  if (ratio >= 1.3) return { text: `Máš štěstí! ${capital(detail)} (${num.format(ratio)}×).`, tone: "good" };
-  if (ratio <= 0.77) return { text: `Zatím smůla: ${detail} (${num.format(ratio)}×).`, tone: "bad" };
-  return { text: `V normálu: ${detail}.`, tone: "neutral" };
+  if (ratio >= 1.3) return { text: t.stats.lucky(actual, num.format(expected), num.format(ratio)), tone: "good" };
+  if (ratio <= 0.77) return { text: t.stats.unlucky(actual, num.format(expected), num.format(ratio)), tone: "bad" };
+  return { text: t.stats.normal(actual, num.format(expected)), tone: "neutral" };
 }
-
-const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 function luckSection(sets: SetInfo[], cards: Map<string, Card>): HTMLElement {
   const opened = getState().opened;
@@ -82,8 +80,8 @@ function luckSection(sets: SetInfo[], cards: Map<string, Card>): HTMLElement {
   const body = h("div");
   const select = h(
     "select",
-    { "aria-label": "Sada" },
-    h("option", { value: "" }, "Všechny sady"),
+    { "aria-label": t.stats.setFilter },
+    h("option", { value: "" }, t.stats.allSets),
     ...openedSets.map((s) => h("option", { value: s.id }, `${s.name} (${opened[s.id]}×)`)),
   );
   const render = () => {
@@ -95,7 +93,7 @@ function luckSection(sets: SetInfo[], cards: Map<string, Card>): HTMLElement {
         ? h(
             "table",
             { class: "luck__table" },
-            h("thead", null, h("tr", null, h("th", null, "Rarita"), h("th", null, "Máš"), h("th", null, "Očekáváno"), h("th", null, ""))),
+            h("thead", null, h("tr", null, h("th", null, t.stats.rarity), h("th", null, t.stats.have), h("th", null, t.stats.expected), h("th", null, ""))),
             h(
               "tbody",
               null,
@@ -113,12 +111,8 @@ function luckSection(sets: SetInfo[], cards: Map<string, Card>): HTMLElement {
               }),
             ),
           )
-        : h("p", { class: "muted" }, "Zatím jsi neotevřel žádný balíček."),
-      h(
-        "p",
-        { class: "muted small" },
-        "Očekávaný počet = otevřené balíčky × šance z okna „Šance a zdroje“. Při malém počtu balíčků je náhoda velká.",
-      ),
+        : h("p", { class: "muted" }, t.stats.noneOpened),
+      h("p", { class: "muted small" }, t.stats.expectedNote),
     );
   };
   select.addEventListener("change", render);
@@ -126,7 +120,7 @@ function luckSection(sets: SetInfo[], cards: Map<string, Card>): HTMLElement {
   return h(
     "section",
     { class: "panel" },
-    h("div", { class: "row luck__head" }, h("h2", null, "Měřák štěstí"), h("label", { class: "field" }, select)),
+    h("div", { class: "row luck__head" }, h("h2", null, t.stats.luckTitle), h("label", { class: "field" }, select)),
     body,
   );
 }
@@ -149,9 +143,9 @@ function hallSection(sets: SetInfo[], cards: Map<string, Card>): HTMLElement {
   const list = h("div", { class: "hall" });
   const sort = h(
     "select",
-    { "aria-label": "Řadit" },
-    h("option", { value: "new" }, "Nejnovější"),
-    h("option", { value: "value" }, "Nejcennější"),
+    { "aria-label": t.stats.sort },
+    h("option", { value: "new" }, t.stats.newest),
+    h("option", { value: "value" }, t.stats.mostValuable),
   );
   let prices: Awaited<ReturnType<typeof loadSetPrices>> = {};
 
@@ -198,7 +192,7 @@ function hallSection(sets: SetInfo[], cards: Map<string, Card>): HTMLElement {
               ),
             ),
           ),
-          h("a", { class: "btn btn--primary hall__replay", href: `#/replay/${r.at}` }, "▶ Otevřít znovu"),
+          h("a", { class: "btn btn--primary hall__replay", href: `#/replay/${r.at}` }, t.stats.replay),
         );
       }),
     );
@@ -207,7 +201,7 @@ function hallSection(sets: SetInfo[], cards: Map<string, Card>): HTMLElement {
         h(
           "p",
           { class: "muted" },
-          "Zatím žádný god pack. Padá v Ascended Heroes zhruba jednou za 500 balíčků; každý se tu uloží natrvalo a půjde kdykoli znovu otevřít.",
+          t.stats.hallEmpty,
         ),
       );
     }
@@ -227,13 +221,13 @@ function hallSection(sets: SetInfo[], cards: Map<string, Card>): HTMLElement {
     h(
       "div",
       { class: "row luck__head" },
-      h("h2", null, "Síň slávy", h("span", { class: "muted" }, ` · ${hall.length}`)),
+      h("h2", null, t.stats.hallTitle, h("span", { class: "muted" }, ` · ${hall.length}`)),
       hall.length > 1 ? h("label", { class: "field" }, sort) : null,
     ),
     h(
       "p",
       { class: "muted small" },
-      "Tvoje god packy, uložené natrvalo (i v záloze). Každý můžeš znovu otevřít – projde celé roztržení a odhalení, jen se karty do sbírky už nepřidají.",
+      t.stats.hallIntro,
     ),
     list,
   );
@@ -255,8 +249,8 @@ export async function renderStats(root: HTMLElement) {
     h(
       "section",
       { class: "view-head" },
-      h("a", { class: "back", href: "#/album" }, "← Album"),
-      h("h1", null, "Statistiky"),
+      h("a", { class: "back", href: "#/album" }, t.stats.back),
+      h("h1", null, t.stats.title),
     ),
     luckSection(sets, cards),
     hallSection(sets, cards),

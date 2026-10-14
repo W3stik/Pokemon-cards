@@ -1,11 +1,11 @@
+import { lang, langPref, locale, setLangPref, t } from "../i18n";
 import { isPersisted, lastBackup, markBackup } from "../storage";
 import { exportState, importState, parseBackup, resetState, stateSummary } from "../store";
 import { h, toast } from "../ui/dom";
 import { CHARGE_MS, type Tier } from "../ui/reveal";
 import { fxPrefs, setFxPrefs, sfxCharge, sfxFlip, sfxGodPack, sfxHit, sfxSwipe, sfxTear, unlockAudio } from "../ui/sfx";
 
-const dateFmt = new Intl.DateTimeFormat("cs-CZ", { dateStyle: "medium" });
-const kusu = (n: number) => `${n} ${n === 1 ? "kus" : n >= 2 && n <= 4 ? "kusy" : "kusů"}`;
+const dateFmt = new Intl.DateTimeFormat(locale, { dateStyle: "medium" });
 
 function fxToggle(key: "sound" | "vibrate", label: string, note?: string, onChange?: () => void) {
   const input = h("input", {
@@ -31,7 +31,7 @@ function volumeSlider(): HTMLElement {
     max: "100",
     step: "5",
     value: String(Math.round(fxPrefs().volume * 100)),
-    "aria-label": "Hlasitost",
+    "aria-label": t.settings.volume,
   });
   input.addEventListener("input", () => setFxPrefs({ volume: Number(input.value) / 100 }));
   // po puštění posuvníku ukázka nové hlasitosti
@@ -39,7 +39,7 @@ function volumeSlider(): HTMLElement {
     unlockAudio();
     sfxHit(6);
   });
-  return h("label", { class: "volume" }, h("span", null, "Hlasitost"), input);
+  return h("label", { class: "volume" }, h("span", null, t.settings.volume), input);
 }
 
 /** Ukázka odhalení vzácné karty: nabití, otočení a zvuk podle rarity (jako při otevírání). */
@@ -57,16 +57,16 @@ function soundPreview(): HTMLElement {
   return h(
     "div",
     null,
-    h("p", { class: "muted small" }, "Ukázky zvuků:"),
+    h("p", { class: "muted small" }, t.settings.samples),
     h(
       "div",
       { class: "row" },
-      sample("Roztržení", sfxTear),
-      sample("Odhození", () => sfxSwipe(Math.random() < 0.5 ? -1 : 1)),
+      sample(t.settings.sampleTear, sfxTear),
+      sample(t.settings.sampleSwipe, () => sfxSwipe(Math.random() < 0.5 ? -1 : 1)),
       sample("RR", () => previewRare(1)),
       sample("IR / UR", () => previewRare(2)),
       sample("SIR", () => previewRare(3)),
-      sample("Zlatá", () => previewRare(4)),
+      sample(t.settings.sampleGold, () => previewRare(4)),
       sample("God pack", sfxGodPack),
     ),
   );
@@ -74,7 +74,7 @@ function soundPreview(): HTMLElement {
 
 /** Hlasitost a ukázky mají smysl jen se zapnutým zvukem: jinak jsou zašedlé a s vysvětlením. */
 function soundControls(): { el: HTMLElement; sync: () => void } {
-  const note = h("p", { class: "muted small" }, "Zvuky jsou vypnuté – zapni je výše.");
+  const note = h("p", { class: "muted small" }, t.settings.soundIsOff);
   const el = h("div", null, volumeSlider(), soundPreview(), note);
   const sync = () => {
     const on = fxPrefs().sound;
@@ -83,6 +83,19 @@ function soundControls(): { el: HTMLElement; sync: () => void } {
   };
   sync();
   return { el, sync };
+}
+
+/** Volba jazyka: podle zařízení, nebo natvrdo čeština / angličtina (změna obnoví stránku). */
+function languageSelect(): HTMLElement {
+  const select = h(
+    "select",
+    { "aria-label": t.settings.languageTitle },
+    h("option", { value: "auto", selected: langPref === "auto" }, `${t.settings.languageAuto} (${lang === "cs" ? "Čeština" : "English"})`),
+    h("option", { value: "cs", selected: langPref === "cs" }, "Čeština"),
+    h("option", { value: "en", selected: langPref === "en" }, "English"),
+  );
+  select.addEventListener("change", () => setLangPref(select.value as "auto" | "cs" | "en"));
+  return h("label", { class: "field" }, select);
 }
 
 function download(name: string, text: string) {
@@ -110,16 +123,13 @@ export function renderSettings(root: HTMLElement) {
         const backup = parseBackup(await file.text());
         const next = stateSummary(backup);
         const now = stateSummary();
-        const question =
-          `Záloha obsahuje ${kusu(next.cards)} karet a ${next.packs} neotevřených balíčků.
-` +
-          `Nahradit jí současnou sbírku (${kusu(now.cards)} karet, ${now.packs} balíčků)? Současná sbírka se ztratí.`;
+        const question = t.settings.restoreConfirm(next.cards, next.packs, now.cards, now.packs);
         if (now.cards + now.packs > 0 && !confirm(question)) return;
         importState(backup);
-        toast("Sbírka obnovena ze zálohy");
+        toast(t.settings.restored);
         refreshStatus();
       } catch (err) {
-        toast(err instanceof Error ? err.message : "Zálohu se nepodařilo načíst");
+        toast(err instanceof Error ? err.message : t.settings.restoreFailed);
       }
     },
   });
@@ -129,24 +139,17 @@ export function renderSettings(root: HTMLElement) {
     const at = lastBackup();
     const persisted = await isPersisted();
     status.textContent =
-      `Poslední záloha: ${at ? dateFmt.format(at) : "zatím žádná"}. ` +
-      (persisted
-        ? "Úložiště je trvalé, prohlížeč ho sám nesmaže."
-        : "Úložiště není trvalé: při nedostatku místa ho prohlížeč může smazat, proto si sbírku zálohuj.");
+      t.settings.lastBackup(at ? dateFmt.format(at) : null) + (persisted ? t.settings.persisted : t.settings.notPersisted);
   };
   refreshStatus();
 
   root.append(
-    h("section", { class: "view-head" }, h("h1", null, "Více")),
+    h("section", { class: "view-head" }, h("h1", null, t.settings.title)),
     h(
       "section",
       { class: "panel" },
-      h("h2", null, "Záloha sbírky"),
-      h(
-        "p",
-        { class: "muted" },
-        "Sbírka se ukládá jen v tomto prohlížeči. Zálohou ji přeneseš do jiného zařízení (např. z počítače do telefonu).",
-      ),
+      h("h2", null, t.settings.backupTitle),
+      h("p", { class: "muted" }, t.settings.backupIntro),
       h(
         "div",
         { class: "row" },
@@ -160,22 +163,22 @@ export function renderSettings(root: HTMLElement) {
               refreshStatus();
             },
           },
-          "Stáhnout zálohu",
+          t.settings.download,
         ),
-        h("button", { class: "btn", onclick: () => fileInput.click() }, "Nahrát zálohu"),
+        h("button", { class: "btn", onclick: () => fileInput.click() }, t.settings.upload),
         fileInput,
         h(
           "button",
           {
             class: "btn btn--danger",
             onclick: () => {
-              if (confirm("Opravdu smazat celou sbírku a všechny neotevřené balíčky?")) {
+              if (confirm(t.settings.resetConfirm)) {
                 resetState();
-                toast("Sbírka smazána");
+                toast(t.settings.resetDone);
               }
             },
           },
-          "Smazat sbírku",
+          t.settings.reset,
         ),
       ),
       status,
@@ -183,52 +186,41 @@ export function renderSettings(root: HTMLElement) {
     h(
       "section",
       { class: "panel" },
-      h("h2", null, "Zvuky a vibrace"),
-      fxToggle("sound", "Zvuky při otevírání balíčků", undefined, sound.sync),
+      h("h2", null, t.settings.soundTitle),
+      fxToggle("sound", t.settings.sound, undefined, sound.sync),
       sound.el,
-      fxToggle(
-        "vibrate",
-        "Vibrace při vzácné kartě",
-        "vibrate" in navigator ? undefined : "toto zařízení nebo prohlížeč vibrace nepodporuje",
-      ),
+      fxToggle("vibrate", t.settings.vibrate, "vibrate" in navigator ? undefined : t.settings.noVibrate),
     ),
+    h("section", { class: "panel" }, h("h2", null, t.settings.languageTitle), languageSelect()),
     h(
       "section",
       { class: "panel" },
-      h("h2", null, "Odkud jsou data"),
+      h("h2", null, t.settings.dataTitle),
       h(
         "ul",
         { class: "plain" },
         h(
           "li",
           null,
-          "Karty a sady: ",
+          t.settings.dataCards,
           h("a", { href: "https://github.com/PokemonTCG/pokemon-tcg-data", target: "_blank", rel: "noopener" }, "PokemonTCG/pokemon-tcg-data"),
-          " (stejná data jako Pokémon TCG API).",
+          t.settings.dataCardsNote,
         ),
         h(
           "li",
           null,
-          "Ceny: ",
+          t.settings.dataPrices,
           h("a", { href: "https://tcgdex.dev", target: "_blank", rel: "noopener" }, "TCGdex"),
-          " (Cardmarket v EUR a TCGplayer v USD), přibalené k aplikaci a obnovované každý den; detail karty zkouší i aktuální cenu z TCGdex.",
+          t.settings.dataPricesNote,
         ),
-        h(
-          "li",
-          null,
-          "Šance na tah: měření TCGplayer a komunitní statistiky. Přesné zdroje najdeš u každé sady v obchodě pod „Šance a zdroje“.",
-        ),
+        h("li", null, t.settings.dataOdds),
       ),
     ),
     h(
       "section",
       { class: "panel" },
-      h("h2", null, "Upozornění"),
-      h(
-        "p",
-        { class: "muted" },
-        "Neoficiální fanouškovský projekt pro soukromé použití, bez reklam a bez prodeje. Pokémon, názvy karet a ilustrace patří společnostem Nintendo, Creatures, GAME FREAK a The Pokémon Company. Projekt s nimi nijak nesouvisí.",
-      ),
+      h("h2", null, t.settings.disclaimerTitle),
+      h("p", { class: "muted" }, t.settings.disclaimer),
     ),
   );
 }

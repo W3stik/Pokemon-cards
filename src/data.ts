@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 import { byRarity } from "./pack";
 import type { Card, SetInfo } from "./types";
 
@@ -9,7 +10,7 @@ const poolCache = new Map<string, Map<string, Card[]>>();
 
 async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(`${base}data/${path}`);
-  if (!res.ok) throw new Error(`Nepodařilo se načíst ${path} (HTTP ${res.status})`);
+  if (!res.ok) throw new Error(t.data.loadFailed(path, res.status));
   return res.json() as Promise<T>;
 }
 

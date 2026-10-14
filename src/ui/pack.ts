@@ -1,3 +1,4 @@
+import { lang, locale, t } from "../i18n";
 import { packProfile, packSize } from "../odds";
 import type { SetInfo } from "../types";
 import { h } from "./dom";
@@ -89,7 +90,7 @@ export function packThumb(set: SetInfo, opts: { hint?: number } = {}): HTMLEleme
     h("div", { class: "packthumb__fallback", style: `--c1: ${packProfile(set.id).colors[0]}; --c2: ${packProfile(set.id).colors[1]}` },
       h("img", { src: set.logo, alt: "", draggable: "false", loading: "lazy" }),
     );
-  const el = h("div", { class: "packthumb", style: `--ratio: ${ratio}`, role: "img", "aria-label": `Balíček ${set.name}` });
+  const el = h("div", { class: "packthumb", style: `--ratio: ${ratio}`, role: "img", "aria-label": t.common.pack(set.name) });
   if (art) {
     const img = h("img", { class: "packthumb__img", src: art, alt: "", draggable: "false", loading: "lazy", decoding: "async" });
     img.addEventListener("load", () => {
@@ -118,7 +119,7 @@ function backDesign(set: SetInfo): HTMLElement {
     "div",
     { class: "pack3d__backdesign" },
     h("img", { class: "pack3d__backlogo", src: set.logo, alt: "", draggable: "false", loading: "lazy" }),
-    h("div", { class: "pack3d__backlabel" }, `${set.name} · ${packSize(packProfile(set.id))} karet`),
+    h("div", { class: "pack3d__backlabel" }, `${set.name} · ${t.common.cards(packSize(packProfile(set.id)))}`),
   );
 }
 
@@ -129,7 +130,7 @@ function fallbackArt(set: SetInfo): HTMLElement {
     { class: "pack3d__fallback" },
     h("div", { class: "pack__series" }, set.series),
     h("img", { class: "pack__logo", src: set.logo, alt: "", draggable: "false" }),
-    h("div", { class: "pack__label" }, `Booster Pack · ${packSize(packProfile(set.id))} karet`),
+    h("div", { class: "pack__label" }, t.common.packLabel(packSize(packProfile(set.id)))),
   );
 }
 
@@ -158,7 +159,7 @@ export function packEl(set: SetInfo, opts: { large?: boolean; tilt?: boolean; hi
       class: `pack3d${art ? "" : " pack3d--noart"}`,
       style: `--c1: ${c1}; --c2: ${c2};${art ? ` --art: url("${art}");` : ""}${ratio ? ` --ratio: ${ratio};` : ""}`,
       role: "img",
-      "aria-label": `Balíček ${set.name}`,
+      "aria-label": t.common.pack(set.name),
     },
     h(
       "div",
@@ -231,5 +232,6 @@ function twinkle(level: number): HTMLElement {
   });
 }
 
-const dateFmt = new Intl.DateTimeFormat("cs-CZ", { day: "numeric", month: "long", year: "numeric" });
+// datum vydání: česky „14. listopadu 2025“, anglicky stejné pořadí „14 Nov 2025“
+const dateFmt = new Intl.DateTimeFormat(locale, { day: "numeric", month: lang === "cs" ? "long" : "short", year: "numeric" });
 export const formatDate = (iso: string) => dateFmt.format(new Date(`${iso}T12:00:00`));

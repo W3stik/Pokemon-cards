@@ -1,4 +1,5 @@
 import { cardNumber, setIdOfCard } from "../data";
+import { locale, t } from "../i18n";
 import { rarityInfo, VARIANT_LABEL } from "../odds";
 import { type CardPrice, formatEur, formatUsd, loadSetPrices, tcgdexPrice } from "../prices";
 import { countsFor, getState } from "../store";
@@ -8,11 +9,11 @@ import { card3dViewer } from "../ui/card3d";
 import { closeOnBack, trapFocus } from "../ui/history";
 import { openModal } from "../ui/modal";
 
-const dateFmt = new Intl.DateTimeFormat("cs-CZ", { dateStyle: "medium", timeStyle: "short" });
+const dateFmt = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" });
 
 function priceBlock(price: CardPrice | undefined): HTMLElement {
   if (!price || (price.eur === undefined && price.usd === undefined)) {
-    return h("p", { class: "muted" }, "Cena není k dispozici (karta je nová, nebo jsi offline).");
+    return h("p", { class: "muted" }, t.card.noPrice);
   }
   const row = (label: string, value: string) => h("tr", null, h("th", null, label), h("td", null, value));
   return h(
@@ -33,7 +34,7 @@ function priceBlock(price: CardPrice | undefined): HTMLElement {
     h(
       "p",
       { class: "muted small" },
-      `Zdroj: ${price.source}${price.updated ? `, aktualizováno ${price.updated}` : ""}. `,
+      t.card.source(price.source, price.updated),
       price.cardmarketUrl ? h("a", { href: price.cardmarketUrl, target: "_blank", rel: "noopener" }, "Cardmarket") : null,
       price.cardmarketUrl && price.tcgplayerUrl ? " · " : null,
       price.tcgplayerUrl ? h("a", { href: price.tcgplayerUrl, target: "_blank", rel: "noopener" }, "TCGplayer") : null,
@@ -70,15 +71,15 @@ function openFullscreen(card: Card, variant: Variant, missing: boolean) {
   };
   const overlay = h(
     "div",
-    { class: "viewer", role: "dialog", "aria-modal": "true", "aria-label": `${card.name} ve 3D` },
+    { class: "viewer", role: "dialog", "aria-modal": "true", "aria-label": t.card.in3d(card.name) },
     h("h2", { class: "viewer__title" }, card.name),
     viewer.el,
     h(
       "div",
       { class: "card3d-controls" },
-      h("button", { class: "btn", onclick: () => viewer.flip() }, "↻ Otočit"),
-      h("button", { class: "btn", onclick: () => viewer.reset() }, "Výchozí pohled"),
-      h("button", { class: "btn btn--primary", onclick: close }, "Zavřít"),
+      h("button", { class: "btn", onclick: () => viewer.flip() }, t.card.flip),
+      h("button", { class: "btn", onclick: () => viewer.reset() }, t.card.resetView),
+      h("button", { class: "btn btn--primary", onclick: close }, t.common.close),
     ),
   );
   const focusTrap = trapFocus(overlay);
@@ -95,7 +96,7 @@ export function openCardModal(card: Card, set: SetInfo) {
   const owned = Object.entries(counts) as [Variant, number][];
   const total = owned.reduce((n, [, c]) => n + c, 0);
   const firstSeen = getState().firstSeen[card.id];
-  const priceSlot = h("div", null, h("p", { class: "muted" }, "Načítám ceny…"));
+  const priceSlot = h("div", null, h("p", { class: "muted" }, t.card.loadingPrices));
 
   // Ve 3D ukážeme nejlepší vlastněné provedení (reverse / vzorované holo má přednost).
   const variant = owned.find(([v]) => v !== "normal")?.[0] ?? "normal";
@@ -111,11 +112,11 @@ export function openCardModal(card: Card, set: SetInfo) {
       h(
         "div",
         { class: "card3d-controls" },
-        h("button", { class: "btn", onclick: () => viewer.flip() }, "↻ Otočit"),
-        h("button", { class: "btn", onclick: () => viewer.reset() }, "Výchozí pohled"),
-        h("button", { class: "btn", onclick: () => openFullscreen(card, variant, total === 0) }, "⛶ Celá obrazovka"),
+        h("button", { class: "btn", onclick: () => viewer.flip() }, t.card.flip),
+        h("button", { class: "btn", onclick: () => viewer.reset() }, t.card.resetView),
+        h("button", { class: "btn", onclick: () => openFullscreen(card, variant, total === 0) }, t.card.fullscreen),
       ),
-      h("p", { class: "card3d-hint muted" }, "Táhni kartou a otoč ji, dvojklikem ji obrátíš."),
+      h("p", { class: "card3d-hint muted" }, t.card.hint3d),
     ),
     h(
       "div",
@@ -125,13 +126,13 @@ export function openCardModal(card: Card, set: SetInfo) {
         "p",
         null,
         h("span", { class: "rarity-dot", style: `background: ${info.color}` }),
-        ` ${card.rarity}${card.printedRarity ? ` (původně ${card.printedRarity})` : ""}`,
+        ` ${card.rarity}${card.printedRarity ? t.card.printedAs(card.printedRarity) : ""}`,
       ),
       h(
         "p",
         { class: "muted" },
-        `${set.name} · č. ${cardNumber(card)}${card.prefix ? "" : `/${set.printedTotal}`}`,
-        card.artist ? ` · ilustrace ${card.artist}` : "",
+        t.card.number(set.name, `${cardNumber(card)}${card.prefix ? "" : `/${set.printedTotal}`}`),
+        card.artist ? t.card.illustrator(card.artist) : "",
       ),
       h(
         "p",
@@ -140,17 +141,17 @@ export function openCardModal(card: Card, set: SetInfo) {
         card.hp ? ` · ${card.hp} HP` : "",
         card.types.length ? ` · ${card.types.join(", ")}` : "",
       ),
-      h("h3", null, "Ve sbírce"),
+      h("h3", null, t.card.inCollection),
       total
         ? h(
             "ul",
             { class: "owned-list" },
             ...owned.map(([v, c]) => h("li", null, `${VARIANT_LABEL[v]}: ${c}×`)),
-            h("li", null, h("strong", null, `Celkem ${total}×`), total > 1 ? ` (${total - 1} duplikát${total - 1 === 1 ? "" : total - 1 < 5 ? "y" : "ů"})` : ""),
+            h("li", null, h("strong", null, t.card.total(total)), total > 1 ? t.card.dupes(total - 1) : ""),
           )
-        : h("p", { class: "muted" }, "Tuto kartu zatím nemáš."),
-      firstSeen ? h("p", { class: "muted small" }, `Poprvé získána ${dateFmt.format(firstSeen)}`) : null,
-      h("h3", null, "Tržní cena"),
+        : h("p", { class: "muted" }, t.card.notOwned),
+      firstSeen ? h("p", { class: "muted small" }, t.card.firstSeen(dateFmt.format(firstSeen))) : null,
+      h("h3", null, t.card.marketPrice),
       priceSlot,
     ),
   );

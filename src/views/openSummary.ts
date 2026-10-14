@@ -1,4 +1,5 @@
 // Přehled otevřeného balíčku (nebo více balíčků naráz): karty, nové do sbírky, hodnota.
+import { t } from "../i18n";
 import { rarityInfo, VARIANT_LABEL } from "../odds";
 import { addPrice, type CardPrice, formatEur, formatTotal, formatUsd, loadSetPrices, type PriceTotal, variantPrice } from "../prices";
 import { setIdOfCard } from "../data";
@@ -47,7 +48,7 @@ export function showSummary(ctx: SummaryContext, cards: PulledCard[], fresh: Set
   }
   const hits = entries.filter((e) => rarityInfo(e.pulled.card.rarity).hit);
 
-  const total = h("strong", null, "načítám ceny…");
+  const total = h("strong", null, t.summary.loadingPrices);
   const grid = h("div", { class: "summary__grid" });
   let prices: Record<string, CardPrice> | null = null;
   let priceEls: { el: HTMLElement; pulled: PulledCard }[] = [];
@@ -70,7 +71,7 @@ export function showSummary(ctx: SummaryContext, cards: PulledCard[], fresh: Set
         "div",
         { class: "summary__meta" },
         h("span", { class: "rarity-chip", style: `--rc: ${rarityInfo(pulled.card.rarity).color}` }, rarityInfo(pulled.card.rarity).short),
-        fresh.has(collectionKey(pulled.card.id, pulled.variant)) ? h("span", { class: "badge badge--new" }, "NOVÁ") : null,
+        fresh.has(collectionKey(pulled.card.id, pulled.variant)) ? h("span", { class: "badge badge--new" }, t.common.newCard) : null,
         pulled.variant !== "normal" ? h("span", { class: "badge" }, VARIANT_LABEL[pulled.variant]) : null,
         price,
       ),
@@ -83,8 +84,8 @@ export function showSummary(ctx: SummaryContext, cards: PulledCard[], fresh: Set
     const list = showAll ? entries : hits;
     priceEls = [];
     grid.replaceChildren(...list.map(tile));
-    if (list.length === 0) grid.append(h("p", { class: "muted" }, "Tentokrát žádná vzácná karta."));
-    toggle.textContent = showAll ? "Jen vzácné karty" : `Zobrazit všechny karty (${entries.length})`;
+    if (list.length === 0) grid.append(h("p", { class: "muted" }, t.summary.noHits));
+    toggle.textContent = showAll ? t.summary.onlyHits : t.summary.showAll(entries.length);
   };
   toggle.addEventListener("click", () => {
     showAll = !showAll;
@@ -99,18 +100,12 @@ export function showSummary(ctx: SummaryContext, cards: PulledCard[], fresh: Set
       h(
         "div",
         { class: "summary__head" },
-        h("h2", null, packs > 1 ? `Otevřeno ${packs} balíčků` : godPacks ? "GOD PACK!" : "Tvůj balíček"),
-        packs > 1 && godPacks
-          ? h("p", { class: "summary__god" }, godPacks === 1
-              ? "V balíčcích byl god pack!"
-              : godPacks < 5
-                ? `V balíčcích byly ${godPacks} god packy!`
-                : `V balíčcích bylo ${godPacks} god packů!`)
-          : null,
+        h("h2", null, packs > 1 ? t.summary.openedPacks(packs) : godPacks ? "GOD PACK!" : t.summary.yourPack),
+        packs > 1 && godPacks ? h("p", { class: "summary__god" }, t.summary.godInPacks(godPacks)) : null,
         ctx.replay
-          ? h("p", { class: "muted" }, "Přehrávání ze Síně slávy – karty se do sbírky znovu nepřidávají. Hodnota ", total)
-          : h("p", null, `${cards.length} karet · ${fresh.size} nových do sbírky · hodnota `, total),
-        packs > 1 ? h("div", { class: "row" }, h("span", { class: "muted" }, `Vzácných karet: ${hits.reduce((n, e) => n + e.count, 0)}`), toggle) : null,
+          ? h("p", { class: "muted" }, t.summary.replayNote, total)
+          : h("p", null, t.summary.result(cards.length, fresh.size), total),
+        packs > 1 ? h("div", { class: "row" }, h("span", { class: "muted" }, t.summary.hits(hits.reduce((n, e) => n + e.count, 0))), toggle) : null,
       ),
       grid,
     ),
@@ -125,11 +120,13 @@ export function showSummary(ctx: SummaryContext, cards: PulledCard[], fresh: Set
   const next = () => (unlockAudio(), ctx.next());
   ctx.controls.append(
     ctx.replay
-      ? h("button", { class: "btn btn--primary", onclick: next }, "▶ Přehrát znovu")
+      ? h("button", { class: "btn btn--primary", onclick: next }, t.summary.replayAgain)
       : ctx.left() > 0
-        ? h("button", { class: "btn btn--primary", onclick: next }, `Otevřít další (${ctx.left()})`)
-        : h("a", { class: "btn btn--primary", href: "#/shop" }, "Vzít další balíčky"),
-    ctx.replay ? h("a", { class: "btn", href: "#/stats" }, "← Síň slávy") : h("a", { class: "btn", href: `#/album/${ctx.set.id}` }, "Do alba"),
+        ? h("button", { class: "btn btn--primary", onclick: next }, t.summary.openNext(ctx.left()))
+        : h("a", { class: "btn btn--primary", href: "#/shop" }, t.summary.getMorePacks),
+    ctx.replay
+      ? h("a", { class: "btn", href: "#/stats" }, t.common.backToHall)
+      : h("a", { class: "btn", href: `#/album/${ctx.set.id}` }, t.common.toAlbum),
   );
 
   loadSetPrices(priceSetIds(cards)).then((loaded) => {
