@@ -163,9 +163,10 @@ kopii aplikace pod stejný účet, service worker by mazal mezipaměť té druh�
   −21 až −28, odhalení −24 (RR) až −15,5 (zlatá), god pack −15,4, špička nejvýš −4 dB. Malé reproduktory telefonu
   nehrají pod ~200 Hz, proto mají dopady a tlukot srdce zkreslení (alikvoty).
 - **Model balíčku (WebGL)**: uniformy sdílené vertex a fragment shaderem musí mít stejnou přesnost; fragment shader bez
-  highp by se nesestavil, proto má ohyb pruhu vlastní uniformy `uBend*` (fragment používá `uCut`, `uDir`). V zataveném
-  pruhu leží přední a zadní strana na sobě (tloušťka 0) – v ohybu se oddělí o 0,0015, jinak by po přeložení vyhrál
-  šedý vnitřek místo potisku rubu. Ve skrytém panelu prohlížeče neběží requestAnimationFrame: snímek animace roztržení
+  highp by se nesestavil, proto má ohyb pruhu vlastní uniformy `uBend*` (fragment používá `uCut`, `uDir`). V zatavených
+  okrajích a v horním pruhu leží přední a zadní stěna na sobě (tloušťka 0): o pořadí rozhodovalo vykreslení a zezadu
+  (i u přeloženého pruhu) vyhrával šedý vnitřek místo potisku. Fragment shader proto rub stěny (`!gl_FrontFacing`)
+  zahodí, kde je tloušťka ~0 (`vThick`); stříbrný vnitřek se kreslí jen tam, kde má obal tloušťku. Ve skrytém panelu prohlížeče neběží requestAnimationFrame: snímek animace roztržení
   jde udělat jen s podvrženým časem (`performance.now` a `requestAnimationFrame` vrací pevnou hodnotu) a s prodlouženou
   pojistkou `sleep(2600)` v `open.ts`.
 - Esc a Tab v celoobrazovkovém prohlížeči se zachytávají ve fázi capture, aby nezavřely detail pod ním

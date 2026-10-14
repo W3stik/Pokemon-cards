@@ -179,6 +179,7 @@ varying vec3 vPos;
 varying vec2 vUv;
 varying float vSide;
 varying vec2 vParam;
+varying float vThick;
 const float BEND_R = 0.03;
 void main() {
   vec3 pos = aPos;
@@ -196,10 +197,7 @@ void main() {
       vec2 tangent = vec2(-uBendDir * cos(phi), sin(phi));
       vec2 bent = vec2(-uBendDir * BEND_R * sin(phi), BEND_R * (1.0 - cos(phi))) + tangent * max(0.0, d - BEND_R * maxPhi);
       vec2 normal2 = vec2(uBendDir * sin(phi), cos(phi));
-      // V zataveném pruhu leží přední a zadní strana na sobě; v ohybu se nepatrně oddělí,
-      // aby po přeložení byl vidět potisk zadní strany, ne vnitřek obalu.
-      float layer = (aSide > 0.5 ? -0.0015 : 0.0015) * min(d / 0.01, 1.0);
-      vec2 xz = vec2(hingeX, 0.0) + bent + normal2 * (aPos.z + layer);
+      vec2 xz = vec2(hingeX, 0.0) + bent + normal2 * aPos.z;
       // odtržený konec jde zároveň mírně nahoru (jako když ho prsty táhnou)
       pos = vec3(xz.x, aPos.y + 0.1 * bent.y, xz.y);
       float b = uBendDir * phi;
@@ -212,6 +210,7 @@ void main() {
   vUv = aUv;
   vSide = aSide;
   vParam = aParam;
+  vThick = abs(aPos.z);
   gl_Position = uProj * uView * world;
 }`;
 
@@ -238,6 +237,7 @@ varying vec3 vPos;
 varying vec2 vUv;
 varying float vSide;
 varying vec2 vParam;
+varying float vThick;
 // zuby a vlnění trhliny (obě části obalu počítají stejnou čáru, takže na sebe přesně sedí)
 float jag(float u) {
   return 0.005 * sin(u * 13.0 + 2.0) + 0.004 * sin(u * 71.0) + 0.003 * sin(u * 173.0 + 1.3) + 0.0022 * sin(u * 431.0 + 0.7);
@@ -251,6 +251,10 @@ void main() {
   if (gl_FrontFacing) {
     base = vSide < 0.5 ? texture2D(uFront, vUv).rgb : texture2D(uBack, vUv).rgb;
   } else {
+    // V zatavených okrajích (a v horním pruhu) leží přední a zadní stěna na sobě: rub
+    // jedné stěny by překryl potisk druhé (zezadu by byl pruh šedý). Vnitřek se kreslí
+    // jen tam, kde má obal tloušťku.
+    if (vThick < 0.0002) discard;
     // vnitřek obalu (vidět po odtržení pruhu): stříbrná fólie
     n = -n;
     base = vec3(0.42, 0.44, 0.48);
