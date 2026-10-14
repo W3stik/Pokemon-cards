@@ -157,61 +157,63 @@ function hallSection(sets: SetInfo[], cards: Map<string, Card>): HTMLElement {
       })
       .sort((a, b) => rarityInfo(b.card.rarity).rank - rarityInfo(a.card.rarity).rank);
   const valueOf = (r: PullRecord) => {
-    const t: PriceTotal = {};
-    for (const ref of r.cards) addPrice(t, variantPrice(prices[ref.id], ref.variant));
-    return t;
+    const total: PriceTotal = {};
+    for (const ref of r.cards) addPrice(total, variantPrice(prices[ref.id], ref.variant));
+    return total;
   };
-  const amount = (t: PriceTotal) => t.eur ?? t.usd ?? 0;
+  const amount = (total: PriceTotal) => total.eur ?? total.usd ?? 0;
+
+  // Každý balíček se vytvoří jednou; řazení jen přeskládá hotové prvky a načtené ceny
+  // doplní hodnotu. (Dřív se po načtení cen celý seznam vytvořil znovu: karty problikly
+  // a klepnutí v tu chvíli mohlo trefit odkaz, který už na stránce nebyl.)
+  const values = new Map<PullRecord, HTMLElement>();
+  const packEls = new Map(
+    hall.map((r) => {
+      const set = sets.find((s) => s.id === r.setId);
+      const value = h("span", { class: "hall__value" });
+      values.set(r, value);
+      const el = h(
+        "article",
+        { class: "hall__pack hall__pack--god" },
+        h(
+          "div",
+          { class: "hall__head" },
+          h("strong", null, set?.name ?? r.setId),
+          h("span", { class: "badge hall__god" }, "GOD PACK"),
+          h("span", { class: "muted small" }, dateFmt.format(r.at)),
+          value,
+        ),
+        h(
+          "div",
+          { class: "hall__cards" },
+          ...pulled(r).map((p) =>
+            h(
+              "button",
+              { class: "hall__card", onclick: () => set && openCardModal(p.card, set), title: `${p.card.name} – ${p.card.rarity}` },
+              cardEl(p.card, p.variant),
+              h("span", { class: "rarity-chip", style: `--rc: ${rarityInfo(p.card.rarity).color}` }, rarityInfo(p.card.rarity).short),
+            ),
+          ),
+        ),
+        h("a", { class: "btn btn--primary hall__replay", href: `#/replay/${r.at}` }, t.stats.replay),
+      );
+      return [r, el] as const;
+    }),
+  );
 
   const render = () => {
     const entries = [...hall];
     if (sort.value === "value") entries.sort((a, b) => amount(valueOf(b)) - amount(valueOf(a)));
-    list.replaceChildren(
-      ...entries.map((r) => {
-        const set = sets.find((s) => s.id === r.setId);
-        return h(
-          "article",
-          { class: "hall__pack hall__pack--god" },
-          h(
-            "div",
-            { class: "hall__head" },
-            h("strong", null, set?.name ?? r.setId),
-            h("span", { class: "badge hall__god" }, "GOD PACK"),
-            h("span", { class: "muted small" }, dateFmt.format(r.at)),
-            h("span", { class: "hall__value" }, Object.keys(prices).length ? formatTotal(valueOf(r)) : ""),
-          ),
-          h(
-            "div",
-            { class: "hall__cards" },
-            ...pulled(r).map((p) =>
-              h(
-                "button",
-                { class: "hall__card", onclick: () => set && openCardModal(p.card, set), title: `${p.card.name} – ${p.card.rarity}` },
-                cardEl(p.card, p.variant),
-                h("span", { class: "rarity-chip", style: `--rc: ${rarityInfo(p.card.rarity).color}` }, rarityInfo(p.card.rarity).short),
-              ),
-            ),
-          ),
-          h("a", { class: "btn btn--primary hall__replay", href: `#/replay/${r.at}` }, t.stats.replay),
-        );
-      }),
-    );
-    if (entries.length === 0) {
-      list.append(
-        h(
-          "p",
-          { class: "muted" },
-          t.stats.hallEmpty,
-        ),
-      );
-    }
+    list.replaceChildren(...entries.map((r) => packEls.get(r)!));
+    if (entries.length === 0) list.append(h("p", { class: "muted" }, t.stats.hallEmpty));
   };
   sort.addEventListener("change", render);
   render();
   if (hall.length) {
     loadSetPrices([...new Set(hall.flatMap((r) => r.cards.map((c) => setIdOfCard(c.id))))]).then((p) => {
       prices = p;
-      render();
+      for (const [r, el] of values) el.textContent = formatTotal(valueOf(r));
+      if (sort.value === "value") render();
     });
   }
 

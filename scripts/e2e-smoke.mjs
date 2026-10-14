@@ -26,9 +26,16 @@ const server = await preview({ root: ROOT, preview: { port: 4173, strictPort: fa
 const url = server.resolvedUrls.local[0];
 const browser = await chromium.launch();
 const failures = [];
+// V GitHub Actions se chyby vypíšou i jako anotace: ty jsou vidět bez přihlášení (logy ne).
+const annotate = (message) => {
+  if (process.env.GITHUB_ACTIONS) console.log(`::error title=e2e::${message.split(/\s*\n\s*/).join(" ")}`);
+};
 const check = (ok, message) => {
   console.log(`${ok ? "✓" : "✗"} ${message}`);
-  if (!ok) failures.push(message);
+  if (!ok) {
+    failures.push(message);
+    annotate(message);
+  }
 };
 
 /**
@@ -48,9 +55,13 @@ async function openPage(locale) {
   return page;
 }
 
+/** Stránka, se kterou test právě pracuje (při pádu se z ní uloží snímek a adresa). */
+let active = null;
+
 try {
   // Hlavní průchod v češtině
   const page = await openPage("cs-CZ");
+  active = page;
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));
 
@@ -187,13 +198,18 @@ try {
   await page.evaluate(() => {
     const key = "pokemon-packs:state:v1";
     const s = JSON.parse(localStorage.getItem(key));
-    s.hallOfFame.unshift({ ...s.history[0], god: true });
+    const record = { ...s.history[0], god: true };
+    // U 30th Celebration vždy i karta podsady Classic Collection (id me55c-…, soubor
+    // me55c.json neexistuje): přehrávání ji dřív nenačetlo a padalo, když náhodou padla.
+    if (record.setId === "me55") record.cards = [...record.cards.slice(0, -1), { id: "me55c-58", variant: "normal" }];
+    s.hallOfFame.unshift(record);
     localStorage.setItem(key, JSON.stringify(s));
   });
   await page.reload();
   await page.waitForSelector(".hall__replay");
   check((await page.locator(".hall__pack").count()) === 1, "Síň slávy ukazuje god pack");
-  await page.locator(".hall__pack").first().scrollIntoViewIfNeeded();
+  // Seznam se po načtení cen překreslí: posun přímo na stránce, ať prvek neodpadne pod rukama.
+  await page.evaluate(() => document.querySelector(".hall__pack")?.scrollIntoView({ block: "center" }));
   await page.screenshot({ path: join(SHOTS, "6b-hall.png") });
   const before = await progress();
   await page.locator(".hall__replay").first().click();
@@ -223,6 +239,7 @@ try {
   // Angličtina: prohlížeč v angličtině dostane celou aplikaci anglicky (bez českých znaků),
   // ruční volba v sekci More přepne na češtinu.
   const enPage = await openPage("en-US");
+  active = enPage;
   const enErrors = [];
   enPage.on("pageerror", (e) => enErrors.push(String(e)));
   const czechLeft = () =>
@@ -256,6 +273,20 @@ try {
   await enPage.waitForSelector("h1");
   check((await enPage.locator("h1").first().textContent()) === "Více", "ruční volba jazyka přepne na češtinu");
   check(enErrors.length === 0, "anglicky bez chyb JavaScriptu" + (enErrors.length ? ": " + enErrors.join(" | ") : ""));
+} catch (err) {
+  // nečekaná chyba (např. prvek se nedočkal): zapíše se jako selhání, ne jen do logu
+  // první řádky chyby Playwrightu: co se dělo a na jaký prvek se čekalo; k tomu adresa
+  // a začátek textu stránky (snímek je v e2e-shots/x-pad.png)
+  let state = "";
+  if (active) {
+    await active.screenshot({ path: join(SHOTS, "x-pad.png") }).catch(() => undefined);
+    const text = await active.evaluate(() => document.body.innerText.slice(0, 160)).catch(() => "");
+    state = ` | adresa ${active.url()} | stránka: ${text.replace(/\s+/g, " ")}`;
+  }
+  const message = `test spadl: ${err instanceof Error ? err.message.split("\n").slice(0, 3).join(" ") : err}${state}`;
+  console.log(`✗ ${message}`);
+  failures.push(message);
+  annotate(message);
 } finally {
   await browser.close();
   await new Promise((resolve) => server.httpServer.close(resolve));

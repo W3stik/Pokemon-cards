@@ -1,6 +1,6 @@
 // Otevírání balíčků: výběr sady, 3D balíček a jeho roztržení, pak balík karet
 // (openPile.ts) a přehled (openSummary.ts). Přehrávání god packu ze Síně slávy.
-import { loadCards, loadPools, loadSets, setIdOfCard } from "../data";
+import { loadCards, loadPools, loadSets } from "../data";
 import { t } from "../i18n";
 import { packProfile, rarityInfo } from "../odds";
 import { fromSealed, hintLevel, isGodPack, openPack } from "../pack";
@@ -79,10 +79,9 @@ export async function renderReplay(root: HTMLElement, at?: string) {
     root.append(h("p", { class: "empty" }, t.open.notInHall));
     return;
   }
-  const byId = new Map<string, Card>();
-  for (const id of new Set(record.cards.map((c) => setIdOfCard(c.id)))) {
-    for (const c of await loadCards(id)) byId.set(c.id, c);
-  }
+  // Karty balíčku jsou v souboru jeho sady, i ty z podsad (Classic Collection má id
+  // me55c-…, ale soubor me55c.json neexistuje – podle id karty se načítat nedá).
+  const byId = new Map((await loadCards(set.id)).map((c): [string, Card] => [c.id, c]));
   const replay = fromSealed(record, byId);
   if (!replay) {
     root.append(h("p", { class: "empty" }, t.open.replayLoadFailed));

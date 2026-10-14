@@ -169,6 +169,14 @@ kopii aplikace pod stejný účet, service worker by mazal mezipaměť té druh�
   zahodí, kde je tloušťka ~0 (`vThick`); stříbrný vnitřek se kreslí jen tam, kde má obal tloušťku. Ve skrytém panelu prohlížeče neběží requestAnimationFrame: snímek animace roztržení
   jde udělat jen s podvrženým časem (`performance.now` a `requestAnimationFrame` vrací pevnou hodnotu) a s prodlouženou
   pojistkou `sleep(2600)` v `open.ts`.
+- `setIdOfCard` vrací předponu id karty: u podsad je to `me55c`, ale karty podsady jsou v souboru hlavní sady
+  (`me55.json`, `me55c.json` neexistuje a server místo něj vrátí index.html → „Unexpected token '<'“). Karty načítej
+  podle sady balíčku (`record.setId`) nebo `setOfCard`; ceny (`prices.json`) jsou naopak po předponách, tam `setIdOfCard` sedí.
+- Seznamy, které po načtení cen překreslují celé prvky, dělaly e2e nestabilní (klepnutí trefilo odkaz, který mezitím
+  zmizel). Album a Síň slávy proto ceny doplňují do hotových prvků; celé překreslení jen při řazení podle ceny.
+- E2e v CI: neúspěšné kontroly a pády vypisuje jako anotace GitHubu (`::error`), ty jdou přečíst bez přihlášení
+  přes API (`/repos/W3stik/Pokemon-cards/check-runs/{job}/annotations`); logy vyžadují přihlášení. Při pádu je
+  v `e2e-shots/x-pad.png` snímek a v hlášce adresa a začátek textu stránky.
 - Esc a Tab v celoobrazovkovém prohlížeči se zachytávají ve fázi capture, aby nezavřely detail pod ním
   (Tab by jinak focus trap detailu přesunul zpět do detailu).
 - Okno zavřené jinak než Zpět volá `history.back()`; ten je asynchronní a jeho popstate se nesmí

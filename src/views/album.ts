@@ -215,11 +215,19 @@ function sortOwned(list: Owned[], sort: Sort, prices: Record<string, CardPrice>)
   return [...list].sort(cmp[sort]);
 }
 
-function tile(o: Owned, set: SetInfo, prices: Record<string, CardPrice>): HTMLElement {
+/** Cena zobrazeného provedení karty (EUR, jinak USD), nebo prázdný text. */
+function priceText(o: Owned, prices: Record<string, CardPrice>): string {
+  const price = variantPrice(prices[o.card.id], shownVariant(o));
+  return price.eur !== undefined ? formatEur(price.eur) : price.usd !== undefined ? formatUsd(price.usd) : "";
+}
+
+/** Dlaždice karty; místo pro cenu se zapíše do `priceSlots`, aby šlo ceny doplnit bez překreslení. */
+function tile(o: Owned, set: SetInfo, prices: Record<string, CardPrice>, priceSlots: Map<Owned, HTMLElement>): HTMLElement {
   const info = rarityInfo(o.card.rarity);
   const variants = (Object.keys(o.counts) as Variant[]).filter((v) => v !== "normal");
   const shown = shownVariant(o);
-  const price = variantPrice(prices[o.card.id], shown);
+  const price = h("span", { class: "album-tile__price" }, priceText(o, prices));
+  priceSlots.set(o, price);
   return h(
     "button",
     { class: `album-tile${o.total ? "" : " album-tile--missing"}`, onclick: () => openCardModal(o.card, set) },
@@ -231,9 +239,7 @@ function tile(o: Owned, set: SetInfo, prices: Record<string, CardPrice>): HTMLEl
       h("span", { class: "rarity-chip", style: `--rc: ${info.color}` }, info.short),
       h("span", null, `#${cardNumber(o.card)}`),
       ...variants.map((v) => h("span", { class: "variant-chip" }, VARIANT_SHORT[v])),
-      price.eur !== undefined || price.usd !== undefined
-        ? h("span", { class: "album-tile__price" }, price.eur !== undefined ? formatEur(price.eur) : formatUsd(price.usd))
-        : null,
+      price,
     ),
   );
 }
@@ -272,6 +278,7 @@ async function renderSetAlbum(root: HTMLElement, setId: string) {
 
   if (!rarities.includes(prefs.rarity)) prefs.rarity = "";
 
+  const priceSlots = new Map<Owned, HTMLElement>();
   const render = () => {
     savePrefs(prefs);
     const q = query.trim().toLowerCase();
@@ -284,7 +291,8 @@ async function renderSetAlbum(root: HTMLElement, setId: string) {
       return true;
     });
     countEl.textContent = t.album.count(list.length);
-    grid.replaceChildren(...sortOwned(list, prefs.sort, prices).map((o) => tile(o, set, prices)));
+    priceSlots.clear();
+    grid.replaceChildren(...sortOwned(list, prefs.sort, prices).map((o) => tile(o, set, prices, priceSlots)));
     if (list.length === 0) grid.append(h("p", { class: "empty" }, t.album.noMatch));
   };
 
@@ -366,7 +374,11 @@ async function renderSetAlbum(root: HTMLElement, setId: string) {
 
   prices = await loadSetPrices(priceIds(cards));
   valueEl.textContent = st.unique ? formatTotal(collectionValue(owned, prices)) : formatEur(0);
-  if (grid.isConnected) render();
+  // Ceny se doplní do hotových dlaždic; mřížka se přestaví jen při řazení podle ceny.
+  // (Přestavění stovek dlaždic problikávalo a klepnutí v tu chvíli mohlo minout kartu.)
+  if (!grid.isConnected) return;
+  if (prefs.sort === "price") render();
+  else for (const [o, el] of priceSlots) el.textContent = priceText(o, prices);
 }
 
 export async function renderAlbum(root: HTMLElement, setId?: string) {
