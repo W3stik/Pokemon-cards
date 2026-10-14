@@ -5,7 +5,7 @@ import { fromSealed, hintLevel, openPack, toSealed } from "../pack";
 import { getState, pickFromShelf, type SealedPack, setShelf } from "../store";
 import type { Card, SetInfo } from "../types";
 import { clear, h, toast } from "../ui/dom";
-import { packRatio, packThumb, prefetchPackArt } from "../ui/pack";
+import { PACK_RATIO, packRatio, packThumb, prefetchPackArt } from "../ui/pack";
 import { createPackModel, type PackModel } from "../ui/packModel";
 
 const SHELF_SIZE = 10;
@@ -60,8 +60,10 @@ export async function renderPick(root: HTMLElement, setId?: string) {
     if (model?.usable()) model.reset({ hint, onTear: () => undefined });
     else if (model !== null) model = createPackModel(set, { hint, onTear: () => undefined, alive: () => root.isConnected });
     if (!model) return;
-    // obal 3D modelu stejně vysoký jako náhled (model zabírá 84 % výšky svého obdélníku)
-    model.el.style.setProperty("--model-w", `${(0.62 / (0.84 * packRatio(set.id))) * 100}%`);
+    // Obal 3D modelu stejně vysoký jako náhled: model zabírá 84 % výšky svého obdélníku
+    // (poměr 0,62), náhled je vysoký jako balíček s poměrem PACK_RATIO (širší je nižší).
+    const thumbRatio = Math.max(packRatio(set.id), PACK_RATIO);
+    model.el.style.setProperty("--model-w", `${(0.62 / (0.84 * thumbRatio)) * 100}%`);
     slots[i].classList.add("has-model");
     slots[i].append(model.el);
   };

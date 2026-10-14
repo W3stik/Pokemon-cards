@@ -75,8 +75,11 @@
 /* Lehký náhled balíčku (obchod, inventář) */
 .packthumb {
   position: relative;
-  width: 100%;
-  aspect-ratio: var(--ratio, 0.55);
+  /* Všechny náhledy stejně vysoké: šířka podle poměru stran fotky vůči běžnému balíčku
+     (0,547 = PACK_RATIO v ui/pack.ts). Užší balíček je užší, ne vyšší než ostatní. */
+  width: min(100%, calc(100% * var(--ratio, 0.547) / 0.547));
+  margin-inline: auto;
+  aspect-ratio: var(--ratio, 0.547);
   border-radius: 6px;
   overflow: hidden;
   box-shadow: 0 10px 22px rgb(0 0 0 / 0.45);

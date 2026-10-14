@@ -56,8 +56,15 @@ const ratios: Record<string, number> = (() => {
   }
 })();
 
+/**
+ * Poměr stran běžného balíčku na fotkách (šířka / výška). Náhledy jsou všechny stejně
+ * vysoké jako balíček s tímto poměrem; užší balíček (30th Celebration, 0,497) je užší,
+ * ne vyšší. Stejné číslo je v CSS .packthumb.
+ */
+export const PACK_RATIO = 0.547;
+
 /** Poměr stran fotky obalu (šířka / výška), dokud se fotka nenačte odhad. */
-export const packRatio = (setId: string) => ratios[setId] ?? 0.55;
+export const packRatio = (setId: string) => ratios[setId] ?? PACK_RATIO;
 
 function rememberRatio(setId: string, ratio: number) {
   if (Math.abs((ratios[setId] ?? 0) - ratio) < 0.001) return;

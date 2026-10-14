@@ -1,6 +1,10 @@
 /* --- Regál s balíčky ------------------------------------------------------ */
 
 .shelf {
+  /* 3D model vybraného balíčku přesahuje slot; u krajního sloupce by se stránka dala
+     posouvat do stran. Ořízne se až u okraje obrazovky (rezerva pro záři). */
+  overflow-x: clip;
+  overflow-clip-margin: 16px;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 28px 18px;
@@ -58,6 +62,14 @@
   width: var(--model-w, 134%);
   transform: translate(-50%, -50%);
   pointer-events: none;
+}
+
+/* Na regálu se netrhá: plátno nemusí přesahovat balíček jako při otevírání. */
+.shelf__slot .packgl__canvas {
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .shelf__slot.has-model .shelf__sway {

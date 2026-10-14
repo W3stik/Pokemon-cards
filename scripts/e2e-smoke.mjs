@@ -79,6 +79,7 @@ try {
   check((await page.locator(".shelf__slot .packthumb").count()) === 10, "balíčky na regálu jsou lehké náhledy");
   await page.locator(".shelf__slot").nth(2).click();
   check((await page.locator(".shelf__slot.has-model .packgl canvas").count()) === 1, "vybraný balíček na regálu je 3D model");
+  check(await noHorizontalScroll(), "regál s vybraným krajním balíčkem nepřetéká do šířky");
   await page.waitForTimeout(400);
   await page.screenshot({ path: join(SHOTS, "2-shelf.png") });
   await page.getByText("Vzít a otevřít").click();
