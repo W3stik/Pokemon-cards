@@ -1,9 +1,8 @@
-// Balík karet po roztržení balíčku, jako v ruce: karty vyjedou z obalu (3D model leží
-// nad balíkem a zakrývá jeho spodek, pak sjede dolů), další karta se vytahuje zezadu
-// balíku a pokládá dopředu. Karta sleduje prst; vytažená celá ven jde do popředí a jde ji
-// položit tahem, krátký švih nebo klepnutí ji dotáhne samo. Na konci je v ruce celý
-// balík a nejvzácnější karta vepředu. Vzácné karty nejsou rubem nahoru: zpoza balíku
-// prosvítá barva rarity karty, která je na řadě, efekty (src/ui/reveal.ts) přijdou po položení.
+// Balík karet po roztržení balíčku: karty vyjedou z obalu (3D model leží nad balíkem
+// a zakrývá jeho spodek, pak sjede dolů). Horní karta sleduje prst (natočení podle místa
+// úchopu) a odletí švihem nebo odtažením; klepnutí ji odhodí do strany. Vzácné karty jsou
+// lícem nahoru: zpoza horní karty prosvítá barva rarity karty pod ní a efekty
+// (src/ui/reveal.ts) přijdou, když se dostane nahoru.
 import { t } from "../i18n";
 import { rarityInfo, VARIANT_LABEL } from "../odds";
 import { isGodPack } from "../pack";
@@ -86,119 +85,98 @@ export function showPile(ctx: PileContext, cards: PulledCard[], fresh: Set<strin
     return item;
   });
 
-  // Pořadí v ruce: vepředu poslední položená karta, za ní dřív položené, vzadu ty, které
-  // přijdou na řadu – úplně vzadu ta další (vytahuje se zezadu). Karta 0 je vepředu hned.
-  let next = 1;
-  /** Položené karty nejsou srovnané úplně přesně; ty v balíku jsou rovně (nevykukují). */
-  const tilt = (i: number) => (((i * 37) % 7) - 3) * 0.6;
-  const depthOf = (i: number) => (i < next ? next - 1 - i : next + (n - 1 - i));
-  const backZ = () => -(n - 1) * 3;
+  // Pořadí v ruce: vepředu karta, která je na řadě, pod ní další; odhozené jsou pryč.
+  let index = 0;
   const layout = () => {
     items.forEach((item, i) => {
-      const d = depthOf(i);
+      const d = Math.max(0, i - index);
       item.style.setProperty("--z", `${-d * 3}px`);
-      item.style.setProperty("--rot", i < next ? `${tilt(i)}deg` : "0deg");
       item.style.zIndex = String(n - d);
-      item.classList.toggle("is-current", i === next - 1);
+      item.classList.toggle("is-current", i === index);
     });
-    counter.textContent = `${Math.min(next, n)} / ${n}`;
-    hint.textContent = next < n ? t.open.pileHint : t.open.pileDone;
-    // napětí: zpoza balíku prosvítá barva vzácné karty, která je na řadě
-    const waiting = next < n ? rarityInfo(cards[next].card.rarity) : null;
-    const tease = Boolean(waiting?.hit);
+    counter.textContent = `${Math.min(index + 1, n)} / ${n}`;
+    // napětí: zpoza horní karty prosvítá barva vzácné karty, která je pod ní
+    const below = index + 1 < n ? rarityInfo(cards[index + 1].card.rarity) : null;
+    const tease = Boolean(below?.hit);
     pile.classList.toggle("pile--tease", tease);
-    for (const tier of [1, 2, 3, 4]) pile.classList.toggle(`pile--tier-${tier}`, tease && tierOf(waiting!.rank) === tier);
-    if (waiting && tease) pile.style.setProperty("--tease", waiting.color);
+    for (const tier of [1, 2, 3, 4]) pile.classList.toggle(`pile--tier-${tier}`, tease && tierOf(below!.rank) === tier);
+    if (below && tease) pile.style.setProperty("--tease", below.color);
   };
   layout();
+  hint.textContent = t.open.pileHint;
 
   let busy = true;
   const width = () => pile.clientWidth || 1;
   const height = () => pile.clientHeight || 1;
 
-  /** Položení vytažené karty dopředu (z pózy, ve které je teď) a efekty vzácné karty. */
-  const place = async (item: HTMLElement, from: Pose) => {
-    busy = true;
-    const i = next;
-    next++;
-    layout();
-    item.classList.remove("is-pulled");
-    // Pozici přebírá CSS (--z, --rot z layout); is-dragging vypíná přechod, aby po animaci
-    // nedojížděl a kartou necuknul.
-    const anim = reduced
-      ? null
-      : item.animate([{ transform: transform(from, 4, 1.03) }, { transform: transform({ x: 0, y: 0, rot: tilt(i) }, 0) }], {
-          duration: 320,
-          easing: "cubic-bezier(0.2, 0.9, 0.3, 1.15)",
-        });
-    item.style.transform = "";
-    await anim?.finished.catch(() => undefined);
-    item.classList.remove("is-dragging");
-    const info = rarityInfo(cards[i].card.rarity);
-    if (info.hit) revealHit(stage, item, info.rank);
-    if (next === n) await announceGod();
-    busy = false;
+  /** Karta, která se právě dostala nahoru: u vzácné efekty, u poslední ohlášení god packu. */
+  const revealCurrent = async () => {
+    const info = rarityInfo(cards[index].card.rarity);
+    if (info.hit) revealHit(stage, items[index], info.rank);
+    if (index === n - 1) await announceGod();
   };
 
-  /**
-   * Dotažení karty zezadu: pokračuje směrem tahu (bez tahu nahoru), dokud balík nepřestane
-   * překrývat – teprve pak jde dopředu, takže neproskočí skrz ostatní karty.
-   */
-  const pullOut = async (from: Pose, dirX: number, dirY: number) => {
+  /** Odhození horní karty: odletí z pózy, ve které je, směrem (dirX, dirY) a zmizí. */
+  const throwAway = async (from: Pose, dirX: number, dirY: number) => {
     busy = true;
-    const item = items[next];
+    const item = items[index];
     item.classList.add("is-pulled", "is-dragging");
     const len = Math.hypot(dirX, dirY) || 1;
     const ux = dirX / len;
-    const uy = len > 0.0001 ? dirY / len : -1;
-    const s = 1.03 / Math.max(Math.abs(ux) / width(), Math.abs(uy) / height(), 1e-6);
-    const out: Pose = { x: ux * s, y: uy * s, rot: from.rot * 1.2 };
+    const uy = dirY / len;
+    const far = 1.6 * Math.max(width(), height());
+    const out: Pose = { x: from.x + ux * far, y: from.y + uy * far, rot: from.rot + (ux < 0 ? -28 : 28) };
     sfxSwipe(ux < 0 ? -1 : 1);
-    if (!reduced) {
-      const anim = item.animate([{ transform: transform(from, backZ(), 1.02) }, { transform: transform(out, backZ(), 1.03) }], {
-        duration: 200,
-        easing: "cubic-bezier(0.3, 0.6, 0.5, 1)",
-        fill: "forwards",
-      });
-      await anim.finished.catch(() => undefined);
-      item.style.transform = transform(out, 4, 1.03);
-      anim.cancel();
+    const anim = reduced
+      ? null
+      : item.animate(
+          [
+            { transform: transform(from, 4, 1.02), opacity: 1 },
+            { transform: transform(out, 40, 1.02), opacity: 0 },
+          ],
+          { duration: 300, easing: "cubic-bezier(0.3, 0.5, 0.6, 1)", fill: "forwards" },
+        );
+    index++;
+    layout();
+    await anim?.finished.catch(() => undefined);
+    item.classList.add("is-gone");
+    item.classList.remove("is-pulled");
+    anim?.cancel();
+    if (index >= n) {
+      await sleep(200);
+      ctx.done();
+      return;
     }
-    await place(item, out);
+    busy = false;
+    await revealCurrent();
   };
 
-  const advance = () => {
-    if (busy) return;
-    if (next >= n) return ctx.done();
-    pullOut({ x: 0, y: 0, rot: 0 }, 0, -1);
+  /** Klepnutí / klávesa: horní karta odletí do strany. */
+  const advance = (dir = -1) => {
+    if (busy || index >= n) return;
+    throwAway({ x: 0, y: 0, rot: 0 }, dir, -0.25);
   };
 
-  // Tah prstem: karta zezadu se drží tam, kde jsi ji chytil, a natáčí se podle místa úchopu.
+  // Tah prstem: horní karta se drží tam, kde jsi ji chytil, a natáčí se podle místa úchopu.
   let drag: {
     item: HTMLElement;
     x0: number;
     y0: number;
     grabY: number;
     moved: boolean;
-    front: boolean;
     pose: Pose;
     samples: { x: number; y: number; t: number }[];
   } | null = null;
   pile.addEventListener("pointerdown", (e) => {
     unlockAudio();
-    if (busy) return;
-    if (next >= n) {
-      ctx.done();
-      return;
-    }
+    if (busy || index >= n) return;
     const r = pile.getBoundingClientRect();
     drag = {
-      item: items[next],
+      item: items[index],
       x0: e.clientX,
       y0: e.clientY,
       grabY: (e.clientY - r.top) / r.height - 0.5,
       moved: false,
-      front: false,
       pose: { x: 0, y: 0, rot: 0 },
       samples: [{ x: e.clientX, y: e.clientY, t: performance.now() }],
     };
@@ -212,17 +190,16 @@ export function showPile(ctx: PileContext, cards: PulledCard[], fresh: Set<strin
     if (!drag.moved) {
       drag.moved = true;
       drag.item.classList.add("is-pulled", "is-dragging");
-      if (drag.item.classList.contains("is-hit")) pile.classList.add("pile--pulling");
+      // pod kartou čeká vzácná: záře se při tahu rozhoří
+      if (pile.classList.contains("pile--tease")) pile.classList.add("pile--pulling");
     }
     const now = performance.now();
     drag.samples.push({ x: e.clientX, y: e.clientY, t: now });
     while (drag.samples.length > 2 && now - drag.samples[0].t > 90) drag.samples.shift();
     // chycená nad středem se při tahu do strany natáčí jedním směrem, pod středem druhým
-    const rot = Math.max(-22, Math.min(22, (dx / width()) * 18 * (drag.grabY < 0 ? 1 : -1)));
+    const rot = Math.max(-25, Math.min(25, (dx / width()) * 20 * (drag.grabY < 0 ? 1 : -1)));
     drag.pose = { x: dx, y: dy, rot };
-    // vytažená celá ven (balík ji už nepřekrývá) jde do popředí, odtud ji položíš tahem
-    if (!drag.front && Math.max(Math.abs(dx) / width(), Math.abs(dy) / height()) >= 1) drag.front = true;
-    drag.item.style.transform = transform(drag.pose, drag.front ? 4 : backZ(), 1.02);
+    drag.item.style.transform = transform(drag.pose, 4, 1.02);
   });
   const release = () => {
     if (!drag) return;
@@ -233,21 +210,17 @@ export function showPile(ctx: PileContext, cards: PulledCard[], fresh: Set<strin
       advance();
       return;
     }
-    if (d.front) {
-      place(d.item, d.pose);
-      return;
-    }
     const first = d.samples[0];
     const last = d.samples[d.samples.length - 1];
     const dt = Math.max(1, last.t - first.t);
     const vx = (last.x - first.x) / dt;
     const vy = (last.y - first.y) / dt;
-    const pulled = Math.max(Math.abs(d.pose.x) / width(), Math.abs(d.pose.y) / height());
-    const outward = vx * d.pose.x + vy * d.pose.y > 0;
-    if (pulled >= 0.4 || (Math.hypot(vx, vy) > 0.5 && outward)) {
-      pullOut(d.pose, d.pose.x || vx, d.pose.y || vy);
-    } else {
-      // vytažená málo: zajede zpátky dozadu
+    const moved = Math.max(Math.abs(d.pose.x) / width(), Math.abs(d.pose.y) / height());
+    // odletí švihem (směr švihu), nebo když je odtažená aspoň o třetinu (směr tahu)
+    if (Math.hypot(vx, vy) > 0.5) throwAway(d.pose, vx, vy);
+    else if (moved >= 0.35) throwAway(d.pose, d.pose.x, d.pose.y);
+    else {
+      // málo: vrátí se na balík
       d.item.classList.remove("is-dragging", "is-pulled");
       d.item.style.transform = "";
     }
@@ -255,8 +228,9 @@ export function showPile(ctx: PileContext, cards: PulledCard[], fresh: Set<strin
   pile.addEventListener("pointerup", release);
   pile.addEventListener("pointercancel", release);
   ctx.setKeys((e) => {
-    if (e.key !== "Enter" && e.key !== " " && e.key !== "ArrowUp") return false;
-    advance();
+    if (e.key === "Enter" || e.key === " ") advance(-1);
+    else if (e.key === "ArrowLeft" || e.key === "ArrowRight") advance(e.key === "ArrowLeft" ? -1 : 1);
+    else return false;
     return true;
   });
   ctx.controls.append(h("button", { class: "btn", onclick: () => ctx.done() }, t.open.skip));
@@ -289,9 +263,7 @@ export function showPile(ctx: PileContext, cards: PulledCard[], fresh: Set<strin
       await sleep(700);
     }
     busy = false;
-    const first = rarityInfo(cards[0].card.rarity);
-    if (first.hit) revealHit(stage, items[0], first.rank);
-    if (n === 1) announceGod();
+    revealCurrent();
   };
   intro();
 }

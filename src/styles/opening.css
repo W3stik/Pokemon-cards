@@ -72,7 +72,7 @@
   width: 100%;
 }
 
-/* Poloha karty v ruce: hloubka a pootočení z JS (openPile.ts, layout). */
+/* Poloha karty v balíku: hloubka z JS (openPile.ts, layout). */
 .pile__item {
   position: absolute;
   inset: 0;
@@ -97,7 +97,12 @@
   transition: none;
 }
 
-/* Karta vytahovaná zezadu: vlastní stín, ať je vidět, že je zvednutá. */
+/* odhozená karta (odletěla animací) */
+.pile__item.is-gone {
+  visibility: hidden;
+}
+
+/* Karta v ruce (tažená, odlétající): vlastní stín, ať je vidět, že je zvednutá. */
 .pile__item.is-pulled .pcard__inner {
   box-shadow: 0 12px 28px rgb(0 0 0 / 0.5);
 }

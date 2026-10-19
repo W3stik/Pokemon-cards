@@ -134,23 +134,26 @@ try {
   );
   check(pile.length > 0, `balíček obsahuje ${pile.length} karet`);
   await page.screenshot({ path: join(SHOTS, "3c-pile.png") });
-  // Karta zezadu se tahem vytáhne nahoru (celá ven = jde do popředí) a položí se dopředu.
+  // Horní karta jde odtáhnout prstem do strany (pomalý tah přes polovinu šířky ji odhodí).
   const pileBox = await page.locator(".pile").boundingBox();
   const cx = pileBox.x + pileBox.width / 2;
   const cy = pileBox.y + pileBox.height / 2;
   await page.mouse.move(cx, cy);
   await page.mouse.down();
-  for (let i = 1; i <= 12; i++) await page.mouse.move(cx, cy - (pileBox.height * 1.1 * i) / 12);
-  for (let i = 1; i <= 6; i++) await page.mouse.move(cx, cy - pileBox.height * 1.1 + (pileBox.height * 1.1 * i) / 6);
+  for (let i = 1; i <= 10; i++) {
+    await page.mouse.move(cx + (pileBox.width * 0.5 * i) / 10, cy);
+    await page.waitForTimeout(30);
+  }
+  await page.waitForTimeout(150);
   await page.mouse.up();
   await page.waitForTimeout(700);
-  check((await page.locator(".stage__counter").textContent()).startsWith("2 /"), "kartu jde vytáhnout zezadu a položit dopředu");
-  // zbytek klepnutím (každé vytáhne další kartu), na konci klepnutí ukáže přehled
+  check((await page.locator(".stage__counter").textContent()).startsWith("2 /"), "horní kartu jde odhodit tahem");
+  // zbytek klepnutím (každé odhodí horní kartu), po poslední se ukáže přehled
   for (let i = 0; i < 40 && !(await page.locator(".summary").count()); i++) {
     await page.locator(".pile").click({ force: true });
     await page.waitForTimeout(800);
   }
-  check((await page.locator(".summary").count()) === 1, "po vytažení všech karet se ukáže přehled");
+  check((await page.locator(".summary").count()) === 1, "po odhození všech karet se ukáže přehled");
   await page.screenshot({ path: join(SHOTS, "4-summary.png"), fullPage: true });
 
   // Album a 3D detail karty

@@ -1,6 +1,6 @@
 /* --- Odhalení vzácné karty (src/ui/reveal.ts, open.ts) ----------------------- */
 
-/* Po položení přejede přes holo fólii pruh světla. */
+/* Po odkrytí přejede přes holo fólii pruh světla. */
 .pile__item.is-revealed .flip__front::after {
   content: "";
   position: absolute;
@@ -35,7 +35,7 @@
     0 6px 16px rgb(0 0 0 / 0.45);
 }
 
-/* Karta po položení poskočí. */
+/* Karta po odkrytí poskočí. */
 .pile__item.is-pop .flip__front {
   animation: card-pop 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.4);
 }
@@ -69,8 +69,8 @@
   }
 }
 
-/* Aura: když je vzadu balíku na řadě vzácná karta, prosvítá zpoza balíku barva její
-   rarity (u vzácnějších víc a rychleji); při vytahování se rozhoří naplno. */
+/* Aura: když je pod horní kartou vzácná karta, prosvítá zpoza balíku barva její
+   rarity (u vzácnějších víc a rychleji); při tahu horní karty se rozhoří naplno. */
 .pile::before {
   content: "";
   position: absolute;
