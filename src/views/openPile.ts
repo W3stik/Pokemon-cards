@@ -38,6 +38,8 @@ const transform = (p: Pose, z: number, scale = 1) =>
 
 export function showPile(ctx: PileContext, cards: PulledCard[], fresh: Set<string>) {
   const { stage } = ctx;
+  // kde byl obal před roztržením (z té polohy a velikosti balík plynule přejede)
+  const packFrom = ctx.pack?.el.isConnected ? ctx.pack.el.getBoundingClientRect() : null;
   clear(stage);
   const reduced = prefersReducedMotion();
   const fromPack = Boolean(ctx.pack) && !reduced;
@@ -251,7 +253,26 @@ export function showPile(ctx: PileContext, cards: PulledCard[], fresh: Set<strin
       });
       wrap.append(ctx.pack.el);
       pile.append(wrap);
-      await sleep(80);
+      // Obal je teď jinde a větší než před roztržením: celý balík (obal i karty v něm)
+      // přejede z původní polohy a velikosti, místo aby skočil.
+      if (packFrom && packFrom.width > 0) {
+        const to = ctx.pack.el.getBoundingClientRect();
+        const origin = pile.getBoundingClientRect();
+        const scale = packFrom.width / to.width;
+        const tx = packFrom.left - origin.left - scale * (to.left - origin.left);
+        const ty = packFrom.top - origin.top - scale * (to.top - origin.top);
+        await pile
+          .animate(
+            [
+              { transform: `translate(${tx}px, ${ty}px) scale(${scale})`, transformOrigin: "0 0" },
+              { transform: "none", transformOrigin: "0 0" },
+            ],
+            { duration: 450, easing: "cubic-bezier(0.3, 0.7, 0.3, 1)" },
+          )
+          .finished.catch(() => undefined);
+      } else {
+        await sleep(80);
+      }
       pile.classList.add("is-rising");
       await sleep(750);
       const dropped = ctx.pack.drop();
