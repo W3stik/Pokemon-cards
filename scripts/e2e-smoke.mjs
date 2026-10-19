@@ -123,22 +123,34 @@ try {
   await page.mouse.up();
   await page.waitForSelector(".pile");
   check(true, "dotažený tah přes horní pruh balíček otevře");
-  await page.waitForTimeout(900);
+  check((await page.locator(".pile__pack .packgl canvas").count()) === 1, "karty vyjíždějí z 3D obalu");
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: join(SHOTS, "3b-rising.png") });
+  // obal sjede dolů a zmizí
+  await page.locator(".pile__pack").waitFor({ state: "detached", timeout: 5000 }).catch(() => undefined);
+  check((await page.locator(".pile__pack").count()) === 0, "obal po vytažení karet zmizí");
   const pile = await page.locator(".pile__item img.pcard__img").evaluateAll((els) =>
     els.map((e) => e.getAttribute("alt")),
   );
   check(pile.length > 0, `balíček obsahuje ${pile.length} karet`);
-  await page.screenshot({ path: join(SHOTS, "3b-pile.png") });
-  // Vzácné karty leží rubem nahoru: první klepnutí je otočí (nabití + otočení až ~1,7 s),
-  // další je odhodí.
-  let flipped = 0;
+  await page.screenshot({ path: join(SHOTS, "3c-pile.png") });
+  // Karta zezadu se tahem vytáhne nahoru (celá ven = jde do popředí) a položí se dopředu.
+  const pileBox = await page.locator(".pile").boundingBox();
+  const cx = pileBox.x + pileBox.width / 2;
+  const cy = pileBox.y + pileBox.height / 2;
+  await page.mouse.move(cx, cy);
+  await page.mouse.down();
+  for (let i = 1; i <= 12; i++) await page.mouse.move(cx, cy - (pileBox.height * 1.1 * i) / 12);
+  for (let i = 1; i <= 6; i++) await page.mouse.move(cx, cy - pileBox.height * 1.1 + (pileBox.height * 1.1 * i) / 6);
+  await page.mouse.up();
+  await page.waitForTimeout(700);
+  check((await page.locator(".stage__counter").textContent()).startsWith("2 /"), "kartu jde vytáhnout zezadu a položit dopředu");
+  // zbytek klepnutím (každé vytáhne další kartu), na konci klepnutí ukáže přehled
   for (let i = 0; i < 40 && !(await page.locator(".summary").count()); i++) {
-    if (await page.locator(".pile__item.is-current.is-facedown").count()) flipped++;
     await page.locator(".pile").click({ force: true });
-    await page.waitForTimeout(900);
+    await page.waitForTimeout(800);
   }
-  if (flipped) check(true, `vzácné karty se otočily z rubu (${flipped}×)`);
-  check((await page.locator(".summary").count()) === 1, "po odhození všech karet se ukáže přehled");
+  check((await page.locator(".summary").count()) === 1, "po vytažení všech karet se ukáže přehled");
   await page.screenshot({ path: join(SHOTS, "4-summary.png"), fullPage: true });
 
   // Album a 3D detail karty

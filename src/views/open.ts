@@ -9,7 +9,7 @@ import type { Card, PulledCard, SetInfo } from "../types";
 import { animationEnd, append, clear, h, sleep } from "../ui/dom";
 import { CARD_BACK_URL, preload } from "../ui/holo";
 import { groupBySeries } from "../ui/eras";
-import { packThumb, prefetchPackArt } from "../ui/pack";
+import { packRatio, packThumb, prefetchPackArt } from "../ui/pack";
 import { createPackModel, type PackModel } from "../ui/packModel";
 import { fxPrefs, setFxPrefs, sfxGodPack, sfxHit, sfxRip, sfxTear, unlockAudio } from "../ui/sfx";
 import { cssPack } from "./openCssPack";
@@ -250,16 +250,18 @@ class OpeningStage {
       torn = target.tear();
     }
     await Promise.race([Promise.all([torn, imagesReady]), sleep(2600)]);
-    this.reveal(cards, fresh);
+    // 3D obal zůstane a karty z něj vyjedou (CSS balík bez WebGL už je pryč)
+    this.reveal(cards, fresh, target instanceof HTMLElement ? undefined : target);
   }
 
-  private reveal(cards: PulledCard[], fresh: Set<string>) {
+  private reveal(cards: PulledCard[], fresh: Set<string>, model?: PackModel) {
     showPile(
       {
         stage: this.stage,
         controls: this.controls,
         setKeys: (fn) => (this.keys = fn),
         done: () => this.summary(cards, fresh),
+        pack: model && { el: model.el, ratio: packRatio(this.set.id), drop: () => model.drop() },
       },
       cards,
       fresh,

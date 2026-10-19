@@ -77,7 +77,8 @@ export const en: Messages = {
     openAll: (count) => `Open all (${count})`,
     soundOff: "Mute sounds",
     soundOn: "Unmute sounds",
-    pileHint: "Tap a card, or flick it aside",
+    pileHint: "Pull a card from the back of the stack, or tap",
+    pileDone: "All cards are in your hand – tap for the summary",
     skip: "Skip to summary",
   },
   summary: {

@@ -20,12 +20,12 @@ a karty Pokémon TCG, šance na tah podle reálných měření a tržní ceny ka
   karty Pokémon TCG. Když se obrázek nenačte, použije se náhradní potisk.
 - **Otevírání ve 3D**: balíček má přední a zadní stranu i boky, pohupuje se a naklání podle prstu, myši
   nebo náklonu telefonu; tažením ho jde otočit. Roztrhneš ho tažením přes horní okraj (nebo klepnutím),
-  horní pruh odletí a karty vyjedou z balíčku jako 3D balík lícem nahoru. Kartu odhodíš klepnutím nebo
-  tažením do strany. Vzácné karty leží rubem nahoru a září barvou rarity; klepnutím se nabijí, otočí
-  a vybuchnou efekty, které sílí s raritou (tlaková vlna, hvězdičky, paprsky, u SIR ztmavení a nápis,
-  u zlatých karet zlatý déšť a otřes). Jde i otevřít bez animace nebo všechny balíčky naráz.
-  Na počítači jde všechno i klávesnicí: Enter / mezerník roztrhne balíček a otočí nebo odhodí kartu,
-  šipky ji odhodí do strany.
+  horní pruh odletí a karty vyjedou z obalu, který pak sjede dolů. Karty pak bereš jako v ruce: další
+  vytáhneš zezadu balíku (karta drží za prstem) a položíš dopředu, nebo stačí klepnout. Když je vzadu
+  vzácná karta, prosvítá zpoza balíku barva její rarity; po položení vybuchnou efekty, které sílí
+  s raritou (tlaková vlna, hvězdičky, paprsky, u SIR ztmavení a nápis, u zlatých karet zlatý déšť a otřes).
+  Na konci držíš celý balík s nejvzácnější kartou vepředu. Jde i otevřít bez animace nebo všechny
+  balíčky naráz. Na počítači jde všechno i klávesnicí (Enter / mezerník).
 - **Holo efekty**: lesk podle rarity (holo, duhový, zlatý, Black White) a reverse holo včetně vzorů
   Poké Ball / Master Ball. Reaguje na myš, prst i náklon telefonu.
 - **Album**: přehled všech sad s procentem kompletnosti. Album sady zobrazuje všechny karty

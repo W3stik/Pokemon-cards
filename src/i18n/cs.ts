@@ -78,7 +78,8 @@ export const cs = {
     openAll: (count: number) => `Otevřít vše (${count})`,
     soundOff: "Vypnout zvuky",
     soundOn: "Zapnout zvuky",
-    pileHint: "Klepni na kartu, nebo ji odhoď do strany",
+    pileHint: "Vytáhni kartu zezadu balíku, nebo klepni",
+    pileDone: "Všechny karty máš v ruce – klepni pro přehled",
     skip: "Přeskočit na přehled",
   },
   summary: {

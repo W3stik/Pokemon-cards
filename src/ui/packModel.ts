@@ -18,8 +18,13 @@ import { packArtUrl } from "./pack";
 
 export interface PackModel {
   el: HTMLElement;
-  /** Přehraje roztržení (pruh odletí, obal spadne); splní se po skončení animace. */
+  /**
+   * Přehraje roztržení: trhlina se dotrhne a pruh odletí; obal zůstane natočený
+   * zepředu, aby z něj mohly vyjet karty. Splní se, jakmile pruh zmizí.
+   */
   tear(): Promise<void>;
+  /** Roztržený obal sjede dolů a zmizí (karty už jsou venku); splní se po animaci. */
+  drop(): Promise<void>;
   /**
    * Připraví model na další balíček téže sady (celý, neroztržený). Při „Otevřít další“
    * se tak nevytváří nový kontext WebGL ani se znovu nenahrávají textury.
@@ -663,6 +668,10 @@ export function createPackModel(set: SetInfo, opts: Options): PackModel | null {
   let tearDone: (() => void) | null = null;
   let cutAtTear = 0;
   const TEAR_MS = 1150;
+  // Odjetí obalu po vytažení karet
+  let dropStart = 0;
+  let dropDone: (() => void) | null = null;
+  const DROP_MS = 650;
 
   // Jiskřička
   let hint = opts.hint ?? 0;
@@ -838,12 +847,19 @@ export function createPackModel(set: SetInfo, opts: Options): PackModel | null {
         pitch = Math.sin(t * 0.6) * 4;
       }
     }
+    // po roztržení se obal natočí zepředu (karty z něj vyjíždějí rovně nahoru)
+    if (tearStart) {
+      const home = Math.round(yaw / 360) * 360;
+      yaw += (home - yaw) * 0.14;
+      pitch += (0 - pitch) * 0.14;
+      vyaw = vpitch = 0;
+    }
     // odtržená část: při tažení přeložená k prstu, po puštění se trochu narovná (zůstane odtržená)
     const liftTarget = tearStart || dragging?.mode === "tear" ? 1 : cut > 0 ? 0.7 : 0;
     lift += (liftTarget - lift) * 0.18;
-    gyaw += (gyawTarget - gyaw) * 0.08;
-    gpitch += (gpitchTarget - gpitch) * 0.08;
-    const bob = touched || reduced ? 0 : Math.sin(t * 1.1) * 0.015;
+    gyaw += ((tearStart ? 0 : gyawTarget) - gyaw) * 0.08;
+    gpitch += ((tearStart ? 0 : gpitchTarget) - gpitch) * 0.08;
+    const bob = touched || reduced || tearStart ? 0 : Math.sin(t * 1.1) * 0.015;
 
     const aspect = canvas.width / canvas.height;
     const fov = 30 * DEG;
@@ -914,7 +930,7 @@ export function createPackModel(set: SetInfo, opts: Options): PackModel | null {
       return;
     }
 
-    // animace roztržení: trhlina se dotrhne, pruh odletí nahoru ve směru tahu, obal pak spadne
+    // animace roztržení: trhlina se dotrhne a pruh odletí nahoru ve směru tahu
     const p = tp;
     const pivotY = 0.5 - CUT_V / 2;
     const ps = smoothstep(0.15, 0.6, p);
@@ -926,12 +942,18 @@ export function createPackModel(set: SetInfo, opts: Options): PackModel | null {
       ),
     );
     drawPiece(top!, strip, 1 - smoothstep(0.4, 0.7, p), 0);
-    const pm = clamp((p - 0.3) / 0.7, 0, 1);
-    const body = mul(base, mul(translate(0, -1.6 * pm * pm, -0.3 * pm), rotX(12 * pm * DEG)));
-    drawPiece(main!, body, 1 - smoothstep(0.55, 1, p), 1);
-    if (p >= 1 && tearDone) {
+    // obal zůstane na místě (vyjíždějí z něj karty), dokud nezavolá drop()
+    const pm = dropStart ? clamp((now - dropStart) / DROP_MS, 0, 1) : 0;
+    const body = mul(base, mul(translate(0, -1.5 * pm * pm, -0.2 * pm), rotX(10 * pm * DEG)));
+    drawPiece(main!, body, 1 - smoothstep(0.5, 1, pm), 1);
+    if (p >= 0.7 && tearDone) {
       const done = tearDone;
       tearDone = null;
+      done();
+    }
+    if (pm >= 1 && dropDone) {
+      const done = dropDone;
+      dropDone = null;
       done();
     }
   };
@@ -954,11 +976,17 @@ export function createPackModel(set: SetInfo, opts: Options): PackModel | null {
         tearDone = resolve;
         if (destroyed) resolve();
       }),
+    drop: () =>
+      new Promise<void>((resolve) => {
+        if (dropStart || destroyed || !tearStart) return resolve();
+        dropStart = performance.now();
+        dropDone = resolve;
+      }),
     reset: (next) => {
       hint = next.hint ?? 0;
       onTear = next.onTear;
-      tearStart = 0;
-      tearDone = null;
+      tearStart = dropStart = 0;
+      tearDone = dropDone = null;
       cut = lift = cutAtTear = 0;
       dir = 1;
       dirChosen = false;

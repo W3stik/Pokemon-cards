@@ -48,19 +48,41 @@
   position: absolute;
   inset: 0;
   transform-style: preserve-3d;
-  transform: rotateX(calc(var(--rx, 0deg) * 0.7)) rotateY(calc(var(--ry, 0deg) * 0.7));
+  transform: translateY(var(--rise, 0%)) rotateX(calc(var(--rx, 0deg) * 0.7)) rotateY(calc(var(--ry, 0deg) * 0.7));
   transition: transform 0.3s ease-out;
 }
 
-/* Karty vyjedou z otevřeného balíčku jedna po druhé. */
+/* Karty vyjíždějí z obalu: 3D model obalu leží nad balíkem karet a zakrývá ho, karty se
+   zpod něj vysunou nahoru (is-rising), pak obal sjede dolů a karty dosednou. */
+.pile--intro .pile__stack {
+  transition: transform 0.75s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+.pile--intro.is-rising .pile__stack {
+  --rise: -45%;
+}
+
+.pile__pack {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.pile__pack .packgl {
+  width: 100%;
+}
+
+/* Poloha karty v ruce: hloubka a pootočení z JS (openPile.ts, layout). */
 .pile__item {
   position: absolute;
   inset: 0;
   transform-style: preserve-3d;
-  transform: translateZ(var(--z)) rotateZ(var(--rot));
-  transition:
-    transform 0.55s cubic-bezier(0.25, 0.8, 0.3, 1),
-    opacity 0.55s;
+  transform: translate3d(0, 0, var(--z, 0px)) rotateZ(var(--rot, 0deg));
+  transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.3, 1);
+}
+
+/* Bez 3D obalu (prohlížeč bez WebGL) karty vyjedou zespodu jedna po druhé. */
+.pile--rise-in .pile__item {
   animation: card-rise 0.7s calc(var(--i) * 45ms) cubic-bezier(0.2, 0.8, 0.3, 1) backwards;
 }
 
@@ -71,24 +93,17 @@
   }
 }
 
-.pile__item.is-current {
-  transform: translateZ(0) rotateZ(0);
-}
-
 .pile__item.is-dragging {
   transition: none;
 }
 
-.pile__item.is-gone {
-  transform: translate3d(calc(var(--dir, -1) * 135%), -18%, 200px) rotateY(calc(var(--dir, -1) * 60deg))
-    rotateZ(calc(var(--dir, -1) * 24deg));
-  opacity: 0;
-  pointer-events: none;
+/* Karta vytahovaná zezadu: vlastní stín, ať je vidět, že je zvednutá. */
+.pile__item.is-pulled .pcard__inner {
+  box-shadow: 0 12px 28px rgb(0 0 0 / 0.5);
 }
 
 /* Stín jen u horní karty, jinak se stíny deseti karet sčítají do tmavého rámu. */
-.pile__item:not(.is-current) .pcard__inner,
-.pile__item:not(.is-current) .pback {
+.pile__item:not(.is-current):not(.is-pulled) .pcard__inner {
   box-shadow: none;
 }
 
@@ -107,7 +122,7 @@
   display: flex;
 }
 
-/* Karta má líc a rub; při odhození do strany je vidět i rub. */
+/* Obal líce karty (na .flip__front visí lesk po odhalení). */
 .flip {
   position: relative;
   width: 100%;
@@ -115,17 +130,7 @@
   transform-style: preserve-3d;
 }
 
-.flip__front,
-.flip__back {
+.flip__front {
   position: absolute;
   inset: 0;
-  backface-visibility: hidden;
-}
-
-.flip__front {
-  transform: translateZ(1px);
-}
-
-.flip__back {
-  transform: rotateY(180deg) translateZ(1px);
 }
