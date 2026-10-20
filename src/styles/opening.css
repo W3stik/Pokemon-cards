@@ -125,11 +125,20 @@
   transition:
     opacity 0.45s ease-out,
     transform 0.6s cubic-bezier(0.2, 0.8, 0.3, 1);
+  /* měkké světlo: zářící sloup nad trhlinou a široké kužely (přechody uvnitř kuželu, ne ostré pruhy);
+     maska u spodku končí v šířce obalu, jinak by po stranách vykukoval rovný okraj */
   background:
-    radial-gradient(ellipse 30% 70% at 50% 100%, color-mix(in srgb, var(--lc) 85%, white), transparent 70%),
-    repeating-conic-gradient(from -80deg at 50% 100%, var(--lc) 0deg 3deg, transparent 3deg 11deg);
-  -webkit-mask-image: radial-gradient(ellipse 50% 100% at 50% 100%, #000 25%, transparent 72%);
-  mask-image: radial-gradient(ellipse 50% 100% at 50% 100%, #000 25%, transparent 72%);
+    radial-gradient(ellipse 22% 85% at 50% 100%, color-mix(in srgb, var(--lc) 70%, white), transparent 70%),
+    radial-gradient(ellipse 48% 60% at 50% 100%, color-mix(in srgb, var(--lc) 45%, transparent), transparent 75%),
+    repeating-conic-gradient(
+      from -78deg at 50% 100%,
+      transparent 0deg,
+      color-mix(in srgb, var(--lc) 50%, transparent) 7deg,
+      transparent 14deg,
+      transparent 30deg
+    );
+  -webkit-mask-image: radial-gradient(ellipse 34% 100% at 50% 100%, #000 15%, rgb(0 0 0 / 0.4) 55%, transparent 80%);
+  mask-image: radial-gradient(ellipse 34% 100% at 50% 100%, #000 15%, rgb(0 0 0 / 0.4) 55%, transparent 80%);
   mix-blend-mode: screen;
 }
 
@@ -151,15 +160,23 @@
   --li: 0.75;
 }
 
+/* u SIR a vzácnějších světlo pomalu dýchá */
 .pile__light--tier-3,
 .pile__light--tier-4 {
   --li: 1;
-  animation: light-flicker 0.32s ease-in-out infinite alternate;
 }
 
-@keyframes light-flicker {
+.pile__light--tier-3.is-on,
+.pile__light--tier-4.is-on {
+  animation: light-breathe 0.9s ease-in-out infinite alternate;
+}
+
+@keyframes light-breathe {
+  from {
+    opacity: 0.75;
+  }
   to {
-    filter: brightness(1.35);
+    opacity: 1;
   }
 }
 
