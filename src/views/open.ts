@@ -11,7 +11,7 @@ import { CARD_BACK_URL, preload } from "../ui/holo";
 import { groupBySeries } from "../ui/eras";
 import { packRatio, packThumb, prefetchPackArt } from "../ui/pack";
 import { createPackModel, type PackModel } from "../ui/packModel";
-import { fxPrefs, setFxPrefs, sfxGodPack, sfxHit, sfxRip, sfxTear, unlockAudio } from "../ui/sfx";
+import { sfxGodPack, sfxHit, sfxRip, sfxTear, unlockAudio } from "../ui/sfx";
 import { cssPack } from "./openCssPack";
 import { showPile } from "./openPile";
 import { showSummary } from "./openSummary";
@@ -94,6 +94,8 @@ class OpeningStage {
   private stage = h("div", { class: "stage" });
   private controls = h("div", { class: "stage__controls" });
   private remaining = h("span", { class: "chip" });
+  /** Hodnota odhalených karet během otevírání (v horním řádku, na pevném místě). */
+  private value = h("span", { class: "chip pile-value hidden" });
   /** Obsah dalšího balíčku, vylosovaný dopředu, aby se obrázky karet stáhly ještě před roztržením. */
   private pending: PulledCard[] | null = null;
   /** 3D model balíčku (WebGL) – jeden pro celou obrazovku; null = WebGL není, undefined = zatím nezkoušeno. */
@@ -126,7 +128,7 @@ class OpeningStage {
         "section",
         { class: "view-head view-head--row" },
         h("h1", null, set.name),
-        h("div", { class: "row" }, soundToggle(), this.remaining),
+        h("div", { class: "row" }, this.value, this.remaining),
       ),
       this.stage,
       this.controls,
@@ -140,6 +142,7 @@ class OpeningStage {
   }
 
   showPack() {
+    this.value.classList.add("hidden");
     this.updateRemaining();
     clear(this.stage);
     clear(this.controls);
@@ -261,6 +264,7 @@ class OpeningStage {
         controls: this.controls,
         setKeys: (fn) => (this.keys = fn),
         done: () => this.summary(cards, fresh),
+        value: this.value,
         pack: model && { el: model.el, ratio: packRatio(this.set.id), drop: () => model.drop() },
       },
       cards,
@@ -291,6 +295,7 @@ class OpeningStage {
   }
 
   private summary(cards: PulledCard[], fresh: Set<string>, packs = 1, godPacks = packs === 1 && isGodPack(cards) ? 1 : 0) {
+    this.value.classList.add("hidden");
     this.updateRemaining();
     showSummary(
       {
@@ -310,22 +315,4 @@ class OpeningStage {
     // Další balíček se připraví (a jeho karty stáhnou), zatímco hráč prohlíží přehled.
     this.prepare();
   }
-}
-
-/** Tlačítko pro rychlé ztlumení zvuků přímo při otevírání. */
-function soundToggle(): HTMLElement {
-  const btn = h("button", { class: "btn btn--ghost sound-toggle" });
-  const render = () => {
-    const on = fxPrefs().sound;
-    btn.textContent = on ? "🔊" : "🔇";
-    btn.setAttribute("aria-label", on ? t.open.soundOff : t.open.soundOn);
-    btn.setAttribute("aria-pressed", String(on));
-  };
-  btn.addEventListener("click", () => {
-    setFxPrefs({ sound: !fxPrefs().sound });
-    unlockAudio();
-    render();
-  });
-  render();
-  return btn;
 }

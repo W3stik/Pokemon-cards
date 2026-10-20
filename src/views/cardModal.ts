@@ -42,6 +42,11 @@ function priceBlock(price: CardPrice | undefined): HTMLElement {
   );
 }
 
+/** Karta ve 3D přes celou obrazovku (při otevírání balíčku podržením karty). */
+export function openCardViewer(card: Card, variant: Variant) {
+  openFullscreen(card, variant, false);
+}
+
 /** Karta ve 3D přes celou obrazovku. */
 function openFullscreen(card: Card, variant: Variant, missing: boolean) {
   const viewer = card3dViewer(card, variant, { missing });

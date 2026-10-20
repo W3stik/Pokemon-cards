@@ -76,9 +76,8 @@ export const cs = {
     packHint: "Přejeď prstem přes horní okraj, nebo klepni. Tažením jinde balíčkem otočíš.",
     quickOpen: "Otevřít bez animace",
     openAll: (count: number) => `Otevřít vše (${count})`,
-    soundOff: "Vypnout zvuky",
-    soundOn: "Zapnout zvuky",
-    pileHint: "Klepni na kartu, nebo ji odhoď do strany",
+    pileHint: "Klepni na kartu, nebo ji odhoď do strany. Podržením ji prohlédneš.",
+    packValue: "Hodnota",
     skip: "Přeskočit na přehled",
   },
   summary: {

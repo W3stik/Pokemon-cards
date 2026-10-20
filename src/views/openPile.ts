@@ -3,15 +3,18 @@
 // úchopu) a odletí švihem nebo odtažením; klepnutí ji odhodí do strany. Vzácné karty jsou
 // lícem nahoru: zpoza horní karty prosvítá barva rarity karty pod ní a efekty
 // (src/ui/reveal.ts) přijdou, když se dostane nahoru.
+import { setIdOfCard } from "../data";
 import { t } from "../i18n";
 import { rarityInfo, VARIANT_LABEL } from "../odds";
 import { isGodPack } from "../pack";
+import { addPrice, formatTotal, loadSetPrices, type PriceTotal, variantPrice } from "../prices";
 import { collectionKey } from "../store";
 import type { PulledCard } from "../types";
 import { clear, h, prefersReducedMotion, sleep } from "../ui/dom";
 import { cardEl, enableTilt } from "../ui/holo";
 import { flash, goldRain, rarityBanner, rays, shake, shockwave, stars, tierOf } from "../ui/reveal";
-import { sfxDeal, sfxGodPack, sfxHit, sfxSwipe, unlockAudio } from "../ui/sfx";
+import { sfxCharge, sfxDeal, sfxGodPack, sfxHit, sfxSwipe, unlockAudio } from "../ui/sfx";
+import { openCardViewer } from "./cardModal";
 
 export interface PileContext {
   stage: HTMLElement;
@@ -20,6 +23,8 @@ export interface PileContext {
   setKeys(handler: (e: KeyboardEvent) => boolean): void;
   /** Všechny karty jsou v ruce a hráč pokračuje, nebo přeskočil: přehled. */
   done(): void;
+  /** Místo pro hodnotu odhalených karet (horní řádek obrazovky). */
+  value?: HTMLElement;
   /** Roztržený 3D obal, ze kterého karty vyjedou (bez WebGL chybí, karty pak vyjedou zespodu). */
   pack?: { el: HTMLElement; ratio: number; drop(): Promise<void> };
 }
@@ -46,9 +51,23 @@ export function showPile(ctx: PileContext, cards: PulledCard[], fresh: Set<strin
   const counter = h("div", { class: "stage__counter" });
   const hint = h("p", { class: "stage__hint" });
   const stack = h("div", { class: "pile__stack" });
-  const pile = h("div", { class: `pile ${fromPack ? "pile--intro" : "pile--rise-in"}` }, stack);
+  // Světlo z otevřeného balíčku v barvě nejvzácnější karty (prozradí, co přijde, ale ne co):
+  // bílé bez vzácné karty, jinak barva rarity a víc světla u vzácnějších.
+  const best = cards.map((c) => rarityInfo(c.card.rarity)).reduce((a, b) => (b.rank > a.rank ? b : a));
+  const bestTier = best.hit ? tierOf(best.rank) : 0;
+  const light = h("div", {
+    class: `pile__light pile__light--tier-${bestTier}`,
+    style: `--lc: ${best.hit ? best.color : "#ffffff"}`,
+  });
+  const pile = h("div", { class: `pile ${fromPack ? "pile--intro" : "pile--rise-in"}` }, light, stack);
   enableTilt(pile);
+  // Hodnota odhalených karet: v horním řádku obrazovky, na pevném místě
+  const valueAmount = h("strong", null, "…");
+  const value = ctx.value ?? h("span", { class: "chip pile-value" });
+  value.replaceChildren(h("span", null, t.open.packValue), valueAmount);
+  value.classList.remove("hidden");
   stage.append(pile, counter, hint);
+  if (!ctx.value) stage.prepend(value);
 
   // God pack se předem neprozradí: zlatá záře a nápis až po položení poslední karty.
   const god = isGodPack(cards);
@@ -111,8 +130,34 @@ export function showPile(ctx: PileContext, cards: PulledCard[], fresh: Set<strin
   const width = () => pile.clientWidth || 1;
   const height = () => pile.clientHeight || 1;
 
+  // Ceny karet; hodnota se přičítá, jak se karty dostávají nahoru.
+  let prices: Awaited<ReturnType<typeof loadSetPrices>> | null = null;
+  let shown = -1;
+  const updateValue = (pop: boolean) => {
+    if (!prices) return;
+    const sum: PriceTotal = {};
+    for (let i = 0; i <= Math.min(shown, n - 1); i++) addPrice(sum, variantPrice(prices[cards[i].card.id], cards[i].variant));
+    valueAmount.textContent = shown < 0 ? "–" : formatTotal(sum);
+    if (!pop || reduced) return;
+    // dražší karta (aspoň 2 €/$): hodnota poskočí výrazněji
+    const card = variantPrice(prices[cards[shown].card.id], cards[shown].variant);
+    const big = (card.eur ?? card.usd ?? 0) >= 2;
+    value.animate(
+      [{ transform: `scale(${big ? 1.18 : 1.06})`, color: big ? "var(--accent)" : "inherit" }, { transform: "scale(1)" }],
+      { duration: big ? 600 : 300, easing: "cubic-bezier(0.2, 0.9, 0.3, 1.3)" },
+    );
+  };
+  loadSetPrices([...new Set(cards.map((c) => setIdOfCard(c.card.id)))]).then((p) => {
+    prices = p;
+    // žádná karta cenu nemá: hodnota se neukazuje
+    if (!cards.some((c) => p[c.card.id])) value.classList.add("hidden");
+    updateValue(false);
+  });
+
   /** Karta, která se právě dostala nahoru: u vzácné efekty, u poslední ohlášení god packu. */
   const revealCurrent = async () => {
+    shown = index;
+    updateValue(true);
     const info = rarityInfo(cards[index].card.rarity);
     if (info.hit) revealHit(stage, items[index], info.rank);
     if (index === n - 1) await announceGod();
@@ -169,9 +214,24 @@ export function showPile(ctx: PileContext, cards: PulledCard[], fresh: Set<strin
     pose: Pose;
     samples: { x: number; y: number; t: number }[];
   } | null = null;
+  // Podržení (bez pohybu) otevře horní kartu ve 3D přes celou obrazovku.
+  let holdTimer: ReturnType<typeof setTimeout> | undefined;
+  const cancelHold = () => {
+    clearTimeout(holdTimer);
+    items[index]?.classList.remove("is-holding");
+  };
   pile.addEventListener("pointerdown", (e) => {
     unlockAudio();
     if (busy || index >= n) return;
+    cancelHold();
+    const held = index;
+    items[held].classList.add("is-holding");
+    holdTimer = setTimeout(() => {
+      items[held].classList.remove("is-holding");
+      if (!drag || drag.moved || index !== held) return;
+      drag = null;
+      openCardViewer(cards[held].card, cards[held].variant);
+    }, 450);
     const r = pile.getBoundingClientRect();
     drag = {
       item: items[index],
@@ -191,6 +251,7 @@ export function showPile(ctx: PileContext, cards: PulledCard[], fresh: Set<strin
     if (!drag.moved && Math.hypot(dx, dy) < 6) return;
     if (!drag.moved) {
       drag.moved = true;
+      cancelHold();
       drag.item.classList.add("is-pulled", "is-dragging");
       // pod kartou čeká vzácná: záře se při tahu rozhoří
       if (pile.classList.contains("pile--tease")) pile.classList.add("pile--pulling");
@@ -204,6 +265,7 @@ export function showPile(ctx: PileContext, cards: PulledCard[], fresh: Set<strin
     drag.item.style.transform = transform(drag.pose, 4, 1.02);
   });
   const release = () => {
+    cancelHold();
     if (!drag) return;
     const d = drag;
     drag = null;
@@ -273,16 +335,19 @@ export function showPile(ctx: PileContext, cards: PulledCard[], fresh: Set<strin
       } else {
         await sleep(80);
       }
-      pile.classList.add("is-rising");
-      await sleep(750);
+      pile.classList.add("is-rising", "is-lit");
+      if (bestTier >= 2) sfxCharge(bestTier, 900);
+      // u vzácnějších karet světlo chvíli posvítí, než obal odjede
+      await sleep(750 + [0, 0, 150, 350, 500][bestTier]);
       const dropped = ctx.pack.drop();
-      pile.classList.remove("is-rising");
+      pile.classList.remove("is-rising", "is-lit");
       await dropped;
       wrap.remove();
       pile.classList.remove("pile--intro");
     } else if (!reduced) {
       await sleep(700);
     }
+    light.remove();
     busy = false;
     revealCurrent();
   };

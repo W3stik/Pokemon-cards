@@ -75,9 +75,8 @@ export const en: Messages = {
     packHint: "Swipe across the top edge, or tap. Drag elsewhere to turn the pack.",
     quickOpen: "Open without animation",
     openAll: (count) => `Open all (${count})`,
-    soundOff: "Mute sounds",
-    soundOn: "Unmute sounds",
-    pileHint: "Tap a card, or flick it aside",
+    pileHint: "Tap a card or flick it aside. Hold it to take a closer look.",
+    packValue: "Value",
     skip: "Skip to summary",
   },
   summary: {

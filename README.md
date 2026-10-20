@@ -24,7 +24,9 @@ a karty Pokémon TCG, šance na tah podle reálných měření a tržní ceny ka
   tam, kde jsi ji chytil) a švihem nebo tahem ji odhodíš, klepnutí ji odhodí do strany. Když je pod ní
   vzácná karta, prosvítá zpoza balíku barva její rarity; když se dostane nahoru, vybuchnou efekty, které
   sílí s raritou (tlaková vlna, hvězdičky, paprsky, u SIR ztmavení a nápis, u zlatých karet zlatý déšť
-  a otřes). Jde i otevřít bez animace nebo všechny balíčky naráz. Na počítači jde všechno i klávesnicí (Enter / mezerník).
+  a otřes). Už při vyjíždění karet z obalu vyšlehne z balíčku světlo v barvě nejvzácnější karty, nahoře
+  se sčítá hodnota odhalených karet a podržením horní karty si ji prohlédneš ve 3D. Jde i otevřít bez
+  animace nebo všechny balíčky naráz. Na počítači jde všechno i klávesnicí (Enter / mezerník).
 - **Holo efekty**: lesk podle rarity (holo, duhový, zlatý, Black White) a reverse holo včetně vzorů
   Poké Ball / Master Ball. Reaguje na myš, prst i náklon telefonu.
 - **Album**: přehled všech sad s procentem kompletnosti. Album sady zobrazuje všechny karty

@@ -129,6 +129,19 @@ try {
   // obal sjede dolů a zmizí
   await page.locator(".pile__pack").waitFor({ state: "detached", timeout: 5000 }).catch(() => undefined);
   check((await page.locator(".pile__pack").count()) === 0, "obal po vytažení karet zmizí");
+  check((await page.locator(".pile-value").textContent()).startsWith("Hodnota"), "nahoře je hodnota odhalených karet");
+  check(await noHorizontalScroll(), "otevírání nepřetéká do šířky");
+  // podržení horní karty ji otevře ve 3D, Esc vrátí
+  {
+    const b = await page.locator(".pile").boundingBox();
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(700);
+    await page.mouse.up();
+    check((await page.locator(".viewer .card3d").count()) === 1, "podržení karty ji otevře ve 3D");
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(200);
+  }
   const pile = await page.locator(".pile__item img.pcard__img").evaluateAll((els) =>
     els.map((e) => e.getAttribute("alt")),
   );

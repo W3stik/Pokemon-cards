@@ -74,12 +74,6 @@
   accent-color: var(--accent);
 }
 
-.sound-toggle {
-  padding: 6px 10px;
-  font-size: 1.1rem;
-  line-height: 1;
-}
-
 .view-head--row .row {
   align-items: center;
   flex-wrap: nowrap;
