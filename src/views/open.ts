@@ -13,7 +13,7 @@ import { packRatio, packThumb, prefetchPackArt } from "../ui/pack";
 import { createPackModel, type PackModel } from "../ui/packModel";
 import { sfxGodPack, sfxHit, sfxRip, sfxTear, unlockAudio } from "../ui/sfx";
 import { cssPack } from "./openCssPack";
-import { showPile } from "./openPile";
+import { type PackLight, packLight, showPile } from "./openPile";
 import { showSummary } from "./openSummary";
 
 /** Výběr sady z neotevřených balíčků. */
@@ -245,19 +245,22 @@ class OpeningStage {
     const imagesReady = preload([...cards.map((c) => c.card.img), CARD_BACK_URL]);
 
     let torn: Promise<void>;
+    let light: PackLight | undefined;
     if (target instanceof HTMLElement) {
       target.classList.remove("pack3d--idle");
       target.classList.add("pack3d--torn");
       torn = animationEnd(target.querySelector(".pack3d__piece--main")!, 1400);
     } else {
       torn = target.tear();
+      // z trhliny hned vyšlehne světlo v barvě nejvzácnější karty
+      light = packLight(target.el, cards);
     }
     await Promise.race([Promise.all([torn, imagesReady]), sleep(2600)]);
     // 3D obal zůstane a karty z něj vyjedou (CSS balík bez WebGL už je pryč)
-    this.reveal(cards, fresh, target instanceof HTMLElement ? undefined : target);
+    this.reveal(cards, fresh, target instanceof HTMLElement ? undefined : target, light);
   }
 
-  private reveal(cards: PulledCard[], fresh: Set<string>, model?: PackModel) {
+  private reveal(cards: PulledCard[], fresh: Set<string>, model?: PackModel, light?: PackLight) {
     showPile(
       {
         stage: this.stage,
@@ -265,7 +268,7 @@ class OpeningStage {
         setKeys: (fn) => (this.keys = fn),
         done: () => this.summary(cards, fresh),
         value: this.value,
-        pack: model && { el: model.el, ratio: packRatio(this.set.id), drop: () => model.drop() },
+        pack: model && { el: model.el, ratio: packRatio(this.set.id), drop: () => model.drop(), light },
       },
       cards,
       fresh,

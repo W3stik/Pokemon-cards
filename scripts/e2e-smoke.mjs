@@ -163,7 +163,8 @@ try {
   check((await page.locator(".stage__counter").textContent()).startsWith("2 /"), "horní kartu jde odhodit tahem");
   // zbytek klepnutím (každé odhodí horní kartu), po poslední se ukáže přehled
   for (let i = 0; i < 40 && !(await page.locator(".summary").count()); i++) {
-    await page.locator(".pile").click({ force: true });
+    // po poslední kartě balík mezi kontrolou a klepnutím zmizí (přehled): klepnutí to snese
+    await page.locator(".pile").click({ force: true, timeout: 2000 }).catch(() => undefined);
     await page.waitForTimeout(800);
   }
   check((await page.locator(".summary").count()) === 1, "po odhození všech karet se ukáže přehled");

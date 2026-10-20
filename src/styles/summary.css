@@ -84,30 +84,6 @@
   }
 }
 
-.flash {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  background: #fff;
-  pointer-events: none;
-  animation: flash 0.6s ease-out forwards;
-}
-
-/* záblesk v barvě rarity: bílý střed, barevný okraj */
-.flash--tinted {
-  background: radial-gradient(circle at 50% 42%, #fff 0%, color-mix(in srgb, var(--c) 70%, white) 30%, color-mix(in srgb, var(--c) 40%, transparent) 75%);
-  animation-duration: 0.75s;
-}
-
-@keyframes flash {
-  from {
-    opacity: 0.85;
-  }
-  to {
-    opacity: 0;
-  }
-}
-
 .summary {
   width: 100%;
 }

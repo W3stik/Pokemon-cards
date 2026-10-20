@@ -107,14 +107,16 @@
   transition: transform 0.45s ease-out;
 }
 
-/* Světlo z otevřeného balíčku: paprsky vějířem z trhliny (řez je 6 % pod horním okrajem
-   karet, spodek světla tam končí a zbytek zakryje obal), barva podle nejvzácnější karty. */
+/* Světlo z otevřeného balíčku: paprsky vějířem z trhliny, barva podle nejvzácnější karty.
+   Při roztržení leží v 3D obalu (.packgl) za plátnem: spodek je u řezu (16 % výšky
+   obdélníku obalu shora) a obal ho zakryje. Při vyjíždění karet je v balíku za kartami
+   (pile__light--in-pile, rozměry z JS). */
 .pile__light {
   position: absolute;
   left: -45%;
   right: -45%;
-  bottom: 94%;
-  height: 140%;
+  bottom: 84%;
+  height: 75%;
   z-index: 0;
   pointer-events: none;
   opacity: 0;
@@ -131,7 +133,12 @@
   mix-blend-mode: screen;
 }
 
-.pile.is-lit .pile__light {
+.pile__light--in-pile {
+  right: auto;
+  bottom: auto;
+}
+
+.pile__light.is-on {
   opacity: var(--li, 0.35);
   transform: scaleY(1);
 }

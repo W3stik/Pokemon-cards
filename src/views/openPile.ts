@@ -12,7 +12,7 @@ import { collectionKey } from "../store";
 import type { PulledCard } from "../types";
 import { clear, h, prefersReducedMotion, sleep } from "../ui/dom";
 import { cardEl, enableTilt } from "../ui/holo";
-import { flash, goldRain, rarityBanner, rays, shake, shockwave, stars, tierOf } from "../ui/reveal";
+import { bokeh, flash, goldRain, rarityBanner, rays, shake, shockwave, stars, tierOf } from "../ui/reveal";
 import { sfxCharge, sfxDeal, sfxGodPack, sfxHit, sfxSwipe, unlockAudio } from "../ui/sfx";
 import { openCardViewer } from "./cardModal";
 
@@ -26,7 +26,34 @@ export interface PileContext {
   /** Místo pro hodnotu odhalených karet (horní řádek obrazovky). */
   value?: HTMLElement;
   /** Roztržený 3D obal, ze kterého karty vyjedou (bez WebGL chybí, karty pak vyjedou zespodu). */
-  pack?: { el: HTMLElement; ratio: number; drop(): Promise<void> };
+  pack?: { el: HTMLElement; ratio: number; drop(): Promise<void>; light?: PackLight };
+}
+
+export interface PackLight {
+  el: HTMLElement;
+  tier: number;
+}
+
+/**
+ * Světlo z roztrženého balíčku v barvě nejvzácnější karty (prozradí, co přijde, ale ne
+ * co): bílé bez vzácné karty, jinak barva rarity a víc světla u vzácnějších. Rozsvítí se
+ * hned při roztržení – vloží se do 3D obalu za plátno (spodek zakryje obal) – a při
+ * vyjíždění karet svítí za nimi, dokud obal neodjede.
+ */
+export function packLight(model: HTMLElement, cards: PulledCard[]): PackLight {
+  const best = cards.map((c) => rarityInfo(c.card.rarity)).reduce((a, b) => (b.rank > a.rank ? b : a));
+  const tier = best.hit ? tierOf(best.rank) : 0;
+  const el = h("div", {
+    class: `pile__light pile__light--tier-${tier}`,
+    style: `--lc: ${best.hit ? best.color : "#ffffff"}`,
+  });
+  model.prepend(el);
+  if (!prefersReducedMotion()) {
+    el.getBoundingClientRect(); // výchozí (zhasnutý) stav, ať se rozsvícení animuje
+    el.classList.add("is-on");
+    if (tier >= 2) sfxCharge(tier, 1100);
+  }
+  return { el, tier };
 }
 
 /** Řez pod horním zataveným okrajem a rezerva obdélníku 3D modelu (stejné jako v packModel.ts). */
@@ -51,15 +78,8 @@ export function showPile(ctx: PileContext, cards: PulledCard[], fresh: Set<strin
   const counter = h("div", { class: "stage__counter" });
   const hint = h("p", { class: "stage__hint" });
   const stack = h("div", { class: "pile__stack" });
-  // Světlo z otevřeného balíčku v barvě nejvzácnější karty (prozradí, co přijde, ale ne co):
-  // bílé bez vzácné karty, jinak barva rarity a víc světla u vzácnějších.
-  const best = cards.map((c) => rarityInfo(c.card.rarity)).reduce((a, b) => (b.rank > a.rank ? b : a));
-  const bestTier = best.hit ? tierOf(best.rank) : 0;
-  const light = h("div", {
-    class: `pile__light pile__light--tier-${bestTier}`,
-    style: `--lc: ${best.hit ? best.color : "#ffffff"}`,
-  });
-  const pile = h("div", { class: `pile ${fromPack ? "pile--intro" : "pile--rise-in"}` }, light, stack);
+  const light = ctx.pack?.light;
+  const pile = h("div", { class: `pile ${fromPack ? "pile--intro" : "pile--rise-in"}` }, stack);
   enableTilt(pile);
   // Hodnota odhalených karet: v horním řádku obrazovky, na pevném místě
   const valueAmount = h("strong", null, "…");
@@ -315,6 +335,12 @@ export function showPile(ctx: PileContext, cards: PulledCard[], fresh: Set<strin
       });
       wrap.append(ctx.pack.el);
       pile.append(wrap);
+      // Světlo z obalu přejde za karty (ve stejném místě nad trhlinou), ať jim nesvítí přes líc.
+      if (light) {
+        light.el.classList.add("pile__light--in-pile");
+        light.el.style.cssText += `; left: ${(w - boxW) / 2 - 0.45 * boxW}px; width: ${1.9 * boxW}px; height: ${0.75 * boxH}px; top: ${0.06 * hgt - 0.75 * boxH}px`;
+        pile.prepend(light.el);
+      }
       // Obal je teď jinde a větší než před roztržením: celý balík (obal i karty v něm)
       // přejede z původní polohy a velikosti, místo aby skočil.
       if (packFrom && packFrom.width > 0) {
@@ -335,19 +361,19 @@ export function showPile(ctx: PileContext, cards: PulledCard[], fresh: Set<strin
       } else {
         await sleep(80);
       }
-      pile.classList.add("is-rising", "is-lit");
-      if (bestTier >= 2) sfxCharge(bestTier, 900);
+      pile.classList.add("is-rising");
       // u vzácnějších karet světlo chvíli posvítí, než obal odjede
-      await sleep(750 + [0, 0, 150, 350, 500][bestTier]);
+      await sleep(750 + [0, 0, 150, 350, 500][light?.tier ?? 0]);
       const dropped = ctx.pack.drop();
-      pile.classList.remove("is-rising", "is-lit");
+      pile.classList.remove("is-rising");
+      light?.el.classList.remove("is-on");
       await dropped;
       wrap.remove();
       pile.classList.remove("pile--intro");
     } else if (!reduced) {
       await sleep(700);
     }
-    light.remove();
+    light?.el.remove();
     busy = false;
     revealCurrent();
   };
@@ -368,6 +394,9 @@ function revealHit(stage: HTMLElement, item: HTMLElement, rank: number) {
   stars(item, color, tier);
   if (tier >= 2 && pile) rays(pile, color, tier);
   if (tier >= 3) {
+    // okolí ztmavne do barvy rarity a plují v něm rozmazaná světla
+    stage.style.setProperty("--sc", tier >= 4 ? "#ffd65a" : color);
+    bokeh(stage, color, tier);
     stage.classList.add("stage--spotlight");
     setTimeout(() => stage.classList.remove("stage--spotlight"), 2400);
     const name = item.dataset.rarity ?? "";
