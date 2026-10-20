@@ -1,23 +1,23 @@
 /* --- Odhalení vzácné karty (src/ui/reveal.ts, open.ts) ----------------------- */
 
-/* Po odkrytí přejede přes holo fólii pruh světla. */
+/* Po odkrytí přejede přes fólii jemný pruh světla. */
 .pile__item.is-revealed .flip__front::after {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: 4.6% / 3.3%;
   background: linear-gradient(
-    105deg,
-    transparent 30%,
-    rgb(255 255 255 / 0.15) 42%,
-    rgb(255 255 255 / 0.85) 50%,
-    color-mix(in srgb, var(--rc) 60%, white) 54%,
-    transparent 66%
+    110deg,
+    transparent 38%,
+    rgb(255 255 255 / 0.12) 45%,
+    color-mix(in srgb, var(--rc) 35%, rgb(255 255 255 / 0.55)) 50%,
+    rgb(255 255 255 / 0.12) 55%,
+    transparent 62%
   );
   background-size: 260% 100%;
   mix-blend-mode: screen;
   pointer-events: none;
-  animation: holo-sweep 1.1s 0.15s ease-out both;
+  animation: holo-sweep 1.5s 0.1s cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
 @keyframes holo-sweep {
@@ -29,43 +29,50 @@
   }
 }
 
+/* Vzácná karta nahoře: tenký světlý lem a měkká zář v barvě rarity (ne ostrý barevný stín). */
 .is-revealed .pcard__inner {
   box-shadow:
-    0 0 26px 6px var(--rc),
-    0 6px 16px rgb(0 0 0 / 0.45);
+    0 0 0 1px color-mix(in srgb, var(--rc) 55%, transparent),
+    0 0 38px -4px color-mix(in srgb, var(--rc) 65%, transparent),
+    0 18px 36px -12px rgb(0 0 0 / 0.6);
 }
 
-/* Karta po odkrytí poskočí. */
+/* Karta po odkrytí plynule vystoupí k divákovi a dosedne. */
 .pile__item.is-pop .flip__front {
-  animation: card-pop 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.4);
+  animation: card-pop 0.8s cubic-bezier(0.25, 0.8, 0.3, 1);
 }
 
 @keyframes card-pop {
   0% {
     scale: 1;
+    translate: 0 0;
   }
   35% {
-    scale: 1.1;
+    scale: 1.035;
+    translate: 0 -6px;
   }
   100% {
     scale: 1;
+    translate: 0 0;
   }
 }
 
-/* Štítek rarity po odhalení „dopadne“ a zazáří. */
+/* Štítek rarity po odhalení vyjede z rozmazání. */
 .pile__item.is-revealed.is-hit .pile__tag .badge:last-child {
-  animation: badge-stamp 0.55s 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.5) both;
-  box-shadow: 0 0 14px var(--rc);
+  animation: badge-in 0.5s 0.2s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  box-shadow: 0 0 14px -2px color-mix(in srgb, var(--rc) 70%, transparent);
 }
 
-@keyframes badge-stamp {
+@keyframes badge-in {
   from {
-    transform: scale(2.2);
+    transform: translateY(6px);
     opacity: 0;
+    filter: blur(4px);
   }
   to {
-    transform: scale(1);
+    transform: none;
     opacity: 1;
+    filter: none;
   }
 }
 

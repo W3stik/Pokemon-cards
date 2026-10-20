@@ -5,55 +5,65 @@
   animation: god-glow 1.4s ease-in-out infinite alternate;
 }
 
+/* měkká zář, která pomalu přechází ze zlaté do růžové */
 @keyframes god-glow {
   from {
     box-shadow:
-      0 0 14px 2px rgb(255 214 90 / 0.65),
-      0 6px 16px rgb(0 0 0 / 0.45);
+      0 0 0 1px rgb(255 214 90 / 0.6),
+      0 0 42px -4px rgb(255 214 90 / 0.7),
+      0 18px 36px -12px rgb(0 0 0 / 0.6);
   }
   to {
     box-shadow:
-      0 0 30px 8px rgb(255 140 230 / 0.75),
-      0 6px 16px rgb(0 0 0 / 0.45);
+      0 0 0 1px rgb(255 160 230 / 0.6),
+      0 0 52px -2px rgb(255 140 230 / 0.65),
+      0 18px 36px -12px rgb(0 0 0 / 0.6);
   }
 }
 
+/* Nápis GOD PACK: velké prostrkané písmo s duhovým přechodem, vyjede z rozmazání. */
 .god-banner {
   position: absolute;
   top: 38%;
   left: 50%;
   z-index: 30;
-  transform: translate(-50%, -50%);
-  font-size: clamp(2.2rem, 11vw, 4rem);
-  font-weight: 900;
-  letter-spacing: 0.04em;
+  translate: -50% -50%;
+  font-size: clamp(1.8rem, 9vw, 3.2rem);
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  padding-left: 0.22em;
   white-space: nowrap;
-  color: #fff6c9;
-  text-shadow:
-    0 0 12px rgb(255 200 60 / 0.9),
-    0 0 32px rgb(255 120 220 / 0.8),
-    0 4px 0 rgb(120 60 0 / 0.6);
+  background: linear-gradient(100deg, #ffe7a0, #ffd65a 30%, #ffb3ec 55%, #9fe3ff 75%, #ffe7a0);
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 18px rgb(255 200 90 / 0.65));
   pointer-events: none;
-  animation: god-banner 2.6s ease-out forwards;
+  animation:
+    god-banner 2.6s cubic-bezier(0.2, 0.8, 0.3, 1) forwards,
+    god-text 3s linear infinite;
 }
 
 @keyframes god-banner {
   0% {
     opacity: 0;
-    transform: translate(-50%, -50%) scale(0.4) rotate(-8deg);
+    letter-spacing: 0.6em;
+    scale: 1.15;
+    filter: blur(10px) drop-shadow(0 0 18px transparent);
   }
-  18% {
+  22% {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1.12) rotate(2deg);
+    letter-spacing: 0.22em;
+    scale: 1;
+    filter: blur(0) drop-shadow(0 0 18px rgb(255 200 90 / 0.65));
   }
-  30%,
-  75% {
+  78% {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
   }
   100% {
     opacity: 0;
-    transform: translate(-50%, -60%) scale(1.05);
+    translate: -50% -60%;
   }
 }
 
