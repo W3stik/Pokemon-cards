@@ -13,7 +13,7 @@ globalThis.localStorage = {
   },
 } as Storage;
 vi.mock("./cloudConfig", () => ({
-  SUPABASE_URL: "https://test.supabase.co",
+  SUPABASE_URL: "https://test.supabase.co/",
   SUPABASE_ANON_KEY: "anon-key",
   ACCOUNT_EMAIL_DOMAIN: "w3stik.github.io",
 }));

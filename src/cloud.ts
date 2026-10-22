@@ -92,7 +92,8 @@ async function request<T>(path: string, init: RequestInit & { auth?: boolean } =
   if (init.auth) headers.Authorization = `Bearer ${await accessToken()}`;
   let res: Response;
   try {
-    res = await fetch(SUPABASE_URL + path, { ...init, headers });
+    // adresa projektu může být zkopírovaná s lomítkem na konci
+    res = await fetch(SUPABASE_URL.replace(/\/+$/, "") + path, { ...init, headers });
   } catch {
     throw new CloudError("offline", "No connection");
   }
