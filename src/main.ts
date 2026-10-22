@@ -9,6 +9,7 @@ import { renderPick } from "./views/pick";
 import { renderSettings } from "./views/settings";
 import { renderShop } from "./views/shop";
 import { renderStats } from "./views/stats";
+import { initSync } from "./sync";
 
 const view = document.getElementById("view")!;
 const packBadge = document.getElementById("pack-badge")!;
@@ -154,6 +155,7 @@ document.querySelectorAll<HTMLAnchorElement>(".tabbar a").forEach((a) => {
   if (label && TAB_LABEL[a.dataset.route ?? ""]) label.textContent = TAB_LABEL[a.dataset.route ?? ""];
 });
 
+initSync();
 window.addEventListener("hashchange", route);
 subscribe(updateBadge);
 subscribe(protectCollection);

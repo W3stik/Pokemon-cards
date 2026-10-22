@@ -41,6 +41,9 @@ a karty Pokémon TCG, šance na tah podle reálných měření a tržní ceny ka
 - **Statistiky a Síň slávy**: měřák štěstí (kolik vzácných karet ti padlo proti očekávání) a natrvalo
   uložené god packy, které jde kdykoli znovu „otevřít“ – celé roztržení i odhalení, jen bez nových karet.
 - **Hodnota sbírky** podle aktuálních cen, **záloha** sbírky do souboru a obnovení na jiném zařízení.
+- **Účet jménem a heslem** (sekce Více, když je nastavený Supabase): sbírka se ukládá i v cloudu a
+  sama se synchronizuje mezi zařízeními; jde změnit heslo, odhlásit se i smazat účet. Bez účtu vše
+  funguje jen v prohlížeči jako dřív. Zapomenuté heslo obnovit nejde (účty nemají e-mail).
 - Funguje **offline**: data sad jsou součástí aplikace, obrázky karet se po prvním zobrazení ukládají.
 - **Čeština a angličtina** podle jazyka zařízení (slovenština dostane češtinu), v sekci Více jde jazyk zvolit ručně.
 
@@ -56,6 +59,18 @@ npm run build      # produkční build do dist/
 npm run preview    # náhled buildu (včetně service workeru)
 npm run e2e        # automatický průchod aplikací v Chromiu (po buildu; poprvé npx playwright install chromium)
 ```
+
+### Účty (Supabase, volitelné)
+
+Bez nastavení se účty v aplikaci vůbec neukazují. Zapnutí:
+
+1. Založ projekt na [supabase.com](https://supabase.com) (zdarma).
+2. *Authentication → Sign In / Providers → Email*: nech zapnuté, **vypni „Confirm email“**
+   (hráči zadávají jen jméno, aplikace z něj vyrobí adresu `jmeno@w3stik.github.io`, na kterou nic nechodí).
+3. *SQL Editor*: spusť celý soubor [`supabase/schema.sql`](supabase/schema.sql) (tabulka sbírek a pravidla,
+   že každý vidí jen svou).
+4. *Project Settings → API*: zkopíruj **Project URL** a **anon / publishable** klíč do `src/cloudConfig.ts`.
+   Ten klíč je veřejný a smí být v kódu; tajný `service_role` klíč tam nikdy nedávej.
 
 ### Instalace jako aplikace
 
@@ -103,6 +118,8 @@ s malým vzorkem (Black White Rare, Chaos Rising) jsou to odhady, poznámka u sa
 ├── src/pack.ts         generátor balíčků (+ pack.test.ts)
 ├── src/store.ts        sbírka a neotevřené balíčky v localStorage
 ├── src/storage.ts      trvalé úložiště a připomínka zálohy
+├── src/cloud.ts        účty a sbírka v Supabase (src/cloudConfig.ts, supabase/schema.sql)
+├── src/sync.ts         synchronizace sbírky s účtem
 ├── src/prices.ts       ceny z TCGdex
 └── src/views/          obchod, regál, otevírání, album, detail karty, nastavení
 ```

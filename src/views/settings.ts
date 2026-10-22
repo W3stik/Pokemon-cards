@@ -1,5 +1,6 @@
 import { lang, langPref, locale, setLangPref, t } from "../i18n";
 import { isPersisted, lastBackup, markBackup } from "../storage";
+import { accountSection } from "./account";
 import { exportState, importState, parseBackup, resetState, stateSummary } from "../store";
 import { h, toast } from "../ui/dom";
 import { CHARGE_MS, type Tier } from "../ui/reveal";
@@ -145,6 +146,7 @@ export function renderSettings(root: HTMLElement) {
 
   root.append(
     h("section", { class: "view-head" }, h("h1", null, t.settings.title)),
+    accountSection() ?? "",
     h(
       "section",
       { class: "panel" },

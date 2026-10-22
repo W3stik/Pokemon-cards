@@ -79,6 +79,30 @@
   flex-wrap: nowrap;
 }
 
+/* Účet v nastavení */
+.account__fields {
+  display: grid;
+  gap: 10px;
+  max-width: 360px;
+  margin: 10px 0;
+}
+
+.account__error {
+  min-height: 1.2em;
+  margin: 6px 0;
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.account__error:empty {
+  min-height: 0;
+  margin: 0;
+}
+
+.account__delete {
+  margin-top: 6px;
+}
+
 .btn--danger {
   border-color: var(--danger);
   color: var(--danger);
