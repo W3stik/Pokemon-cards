@@ -1,4 +1,4 @@
-// Kouřový test celé aplikace v Chromiu (Playwright): obchod (éry) → regál → otevření
+// Kouřový test celé aplikace v Chromiu (Playwright): přihlášení → obchod (éry) → regál → otevření
 // balíčku (3D model ve WebGL) → album → 3D detail karty (Esc, Zpět) → statistiky →
 // přehrání god packu ze Síně slávy (klávesnicí). Obrázky a API se
 // podvrhují, takže test běží i bez internetu a nezávisí na cizích serverech.
@@ -39,6 +39,54 @@ const check = (ok, message) => {
 };
 
 /**
+ * Podvržený Supabase (účty a sbírky v paměti): GoTrue /auth/v1 a PostgREST /rest/v1
+ * v rozsahu, který aplikace používá. Token je „tok-<userId>“.
+ */
+const fakeUsers = new Map(); // e-mail → { id, password }
+const fakeRows = new Map(); // userId → { state, updated_at }
+const fakePushes = [];
+async function fakeSupabase(route) {
+  const req = route.request();
+  const { pathname, searchParams } = new URL(req.url());
+  const body = req.postDataJSON?.() ?? null;
+  const user = (req.headers().authorization ?? "").replace("Bearer tok-", "");
+  const json = (status, data) => route.fulfill({ status, json: data, headers: { "Access-Control-Allow-Origin": "*" } });
+  const token = (id) => ({ access_token: "tok-" + id, refresh_token: "ref-" + id, expires_in: 3600, user: { id } });
+  if (req.method() === "OPTIONS") {
+    return route.fulfill({ status: 204, headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*", "Access-Control-Allow-Methods": "*" } });
+  }
+  if (pathname.endsWith("/auth/v1/signup")) {
+    if (fakeUsers.has(body.email)) return json(422, { error_code: "user_already_exists", msg: "User already registered" });
+    const id = "user-" + (fakeUsers.size + 1);
+    fakeUsers.set(body.email, { id, password: body.password });
+    return json(200, token(id));
+  }
+  if (pathname.endsWith("/auth/v1/token")) {
+    if (searchParams.get("grant_type") === "refresh_token") return json(200, token(body.refresh_token.slice(4)));
+    const u = fakeUsers.get(body.email);
+    if (!u || u.password !== body.password) return json(400, { error: "invalid_grant", error_description: "Invalid login credentials" });
+    return json(200, token(u.id));
+  }
+  if (pathname.endsWith("/auth/v1/logout")) return route.fulfill({ status: 204, headers: { "Access-Control-Allow-Origin": "*" } });
+  if (pathname.endsWith("/rest/v1/collections")) {
+    if (req.method() === "GET") return json(200, fakeRows.has(user) ? [fakeRows.get(user)] : []);
+    fakeRows.set(body.user_id, { state: body.state, updated_at: body.updated_at });
+    fakePushes.push(body.user_id);
+    return route.fulfill({ status: 201, body: "", headers: { "Access-Control-Allow-Origin": "*" } });
+  }
+  return json(404, { message: "not faked: " + pathname });
+}
+
+/** Přihlásí se na přihlašovací obrazovce (účet už musí existovat). */
+async function signIn(page, name, password) {
+  await page.waitForSelector(".login");
+  await page.fill('.login input[name="username"]', name);
+  await page.fill('.login input[name="password"]', password);
+  await page.locator(".login__submit").click();
+  await page.locator(".login").waitFor({ state: "detached", timeout: 5000 });
+}
+
+/**
  * Stránka v prohlížeči s daným jazykem (aplikace se podle něj přepne; bez něj by Playwright
  * převzal jazyk systému). Obrázky a API jsou podvržené.
  */
@@ -52,6 +100,7 @@ async function openPage(locale) {
   await page.route(/tcgplayer-cdn/, image(PACK));
   await page.route(/tcg\.pokemon\.com/, image(BACK));
   await page.route(/api\.(pokemontcg\.io|tcgdex\.net)/, (r) => r.abort());
+  await page.route(/supabase\.co\//, fakeSupabase);
   return page;
 }
 
@@ -67,8 +116,24 @@ try {
 
   const noHorizontalScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
 
+  // Přihlašovací obrazovka: bez účtu se do aplikace nejde
+  await page.goto(url + "#/album");
+  await page.waitForSelector(".login");
+  check(await page.locator(".tabbar").isHidden(), "bez přihlášení je vidět jen přihlašovací obrazovka");
+  await page.screenshot({ path: join(SHOTS, "0-login.png") });
+  await page.getByRole("tab", { name: "Nový účet" }).click();
+  await page.fill('.login input[name="username"]', "Tester");
+  await page.fill('.login input[name="password"]', "tajne123");
+  await page.fill('.login input[name="password2"]', "jine123");
+  await page.locator(".login__submit").click();
+  check((await page.locator(".account__error").textContent()) === "Nová hesla se neshodují", "nový účet hlídá shodu hesel");
+  await page.fill('.login input[name="password2"]', "tajne123");
+  await page.locator(".login__submit").click();
+  await page.locator(".login").waitFor({ state: "detached", timeout: 5000 });
+  check(page.url().endsWith("#/album") && (await page.locator(".tabbar").isVisible()), "po založení účtu se ukáže požadovaná obrazovka");
+  await page.goto(url + "#/shop");
+
   // Obchod: sady podle éry, zavřená éra se vykreslí až po rozbalení
-  await page.goto(url);
   await page.waitForSelector(".shop-tile");
   const eras = await page.locator(".era").count();
   check(eras >= 2, `obchod má sady rozdělené do ${eras} ér`);
@@ -263,6 +328,24 @@ try {
   await page.waitForSelector(".packgl canvas");
   check((await page.locator('.packgl canvas[data-e2e="first"]').count()) === 1, "další balíček použije stejný 3D model");
 
+  // Účet: sbírka se odeslala do (podvrženého) cloudu, odhlášení vrátí přihlašovací obrazovku
+  await page.goto(url + "#/more");
+  await page.waitForSelector("text=Přihlášen jako tester");
+  await page.getByRole("button", { name: "Synchronizovat teď" }).click();
+  await page.waitForTimeout(500);
+  const cloudCards = Object.keys(fakeRows.get("user-1")?.state?.collection ?? {}).length;
+  check(cloudCards > 0, `sbírka je uložená v účtu (${cloudCards} karet)`);
+  await page.getByRole("button", { name: "Odhlásit" }).click();
+  await page.waitForSelector(".login");
+  check(await page.locator(".tabbar").isHidden(), "odhlášení vrátí přihlašovací obrazovku");
+  await page.fill('.login input[name="username"]', "tester");
+  await page.fill('.login input[name="password"]', "spatne");
+  await page.locator(".login__submit").click();
+  await page.waitForFunction(() => document.querySelector(".account__error")?.textContent);
+  check((await page.locator(".account__error").textContent()) === "Špatné jméno nebo heslo", "špatné heslo se ohlásí");
+  await signIn(page, "tester", "tajne123");
+  check(Object.keys(JSON.parse(await progress())[0]).length > 0, "po novém přihlášení je sbírka zpátky");
+
   check(errors.length === 0, `bez chyb JavaScriptu${errors.length ? `: ${errors.join(" | ")}` : ""}`);
 
   // Angličtina: prohlížeč v angličtině dostane celou aplikaci anglicky (bez českých znaků),
@@ -277,7 +360,17 @@ try {
       (document.body.innerText.match(/\S*[ěščřžůťďňĚŠČŘŽŮŤĎŇ]\S*/g) ?? []).filter((w) => w !== "Čeština").join(", "),
     );
   await enPage.goto(url);
+  await enPage.waitForSelector(".login");
+  const loginLeft = await czechLeft();
+  check(loginLeft === "", "anglicky bez českých textů: přihlášení" + (loginLeft ? " (" + loginLeft + ")" : ""));
+  // stejný hráč na jiném zařízení: stáhne se jeho sbírka z účtu
+  await signIn(enPage, "tester", "tajne123");
   await enPage.waitForSelector(".shop-tile");
+  await enPage.waitForFunction(() => Object.keys(JSON.parse(localStorage.getItem("pokemon-packs:state:v1") ?? "{}").collection ?? {}).length > 0, null, { timeout: 5000 }).catch(() => undefined);
+  check(
+    await enPage.evaluate(() => Object.keys(JSON.parse(localStorage.getItem("pokemon-packs:state:v1") ?? "{}").collection ?? {}).length > 0),
+    "na jiném zařízení se po přihlášení stáhne sbírka z účtu",
+  );
   check((await enPage.locator("h1").first().textContent()) === "Shop", "anglický prohlížeč: obchod je anglicky");
   check((await enPage.evaluate(() => document.documentElement.lang)) === "en", "anglický prohlížeč: jazyk stránky en");
   for (const route of ["#/shop", "#/open", "#/album", "#/stats", "#/more"]) {

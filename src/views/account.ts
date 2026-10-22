@@ -1,14 +1,14 @@
-// Sekce Účet v nastavení: přihlášení jménem a heslem, nový účet, změna hesla,
-// odhlášení a smazání účtu; stav synchronizace sbírky.
-import { changePassword, CloudError, cloudEnabled, currentSession, deleteAccount, onSessionChange, signIn, signOut, signUp } from "../cloud";
+// Sekce Účet v nastavení: změna hesla, odhlášení a smazání účtu; stav synchronizace
+// sbírky. Přihlášení a nový účet jsou na přihlašovací obrazovce (login.ts).
+import { changePassword, CloudError, cloudEnabled, currentSession, deleteAccount, signOut } from "../cloud";
 import { locale, t } from "../i18n";
-import { onSyncChange, syncNow, syncStatus } from "../sync";
+import { flushSync, onSyncChange, syncNow, syncStatus } from "../sync";
 import { h, toast } from "../ui/dom";
 
 const timeFmt = new Intl.DateTimeFormat(locale, { hour: "numeric", minute: "2-digit" });
 
 /** Chyba ze Supabase srozumitelně. */
-function message(err: unknown): string {
+export function accountError(err: unknown): string {
   if (!(err instanceof CloudError)) return t.account.errOther(String(err));
   switch (err.code) {
     case "user_already_exists":
@@ -32,38 +32,7 @@ function message(err: unknown): string {
   }
 }
 
-const field = (label: string, input: HTMLInputElement) => h("label", { class: "field" }, h("span", null, label), input);
-
-function signedOutView(error: HTMLElement): HTMLElement {
-  const name = h("input", { type: "text", autocomplete: "username", autocapitalize: "none", spellcheck: "false", maxlength: "20" });
-  const password = h("input", { type: "password", autocomplete: "current-password" });
-  const run = (action: typeof signIn, button: HTMLButtonElement) => async () => {
-    error.textContent = "";
-    button.disabled = true;
-    try {
-      await action(name.value, password.value);
-      toast(t.account.welcome(currentSession()?.username ?? ""));
-    } catch (err) {
-      error.textContent = message(err);
-    } finally {
-      button.disabled = false;
-    }
-  };
-  const signInBtn = h("button", { class: "btn btn--primary" }, t.account.signIn);
-  const signUpBtn = h("button", { class: "btn" }, t.account.signUp);
-  signInBtn.addEventListener("click", run(signIn, signInBtn));
-  signUpBtn.addEventListener("click", run(signUp, signUpBtn));
-  password.addEventListener("keydown", (e) => e.key === "Enter" && signInBtn.click());
-  return h(
-    "div",
-    { class: "account" },
-    h("p", { class: "muted" }, t.account.intro),
-    h("div", { class: "account__fields" }, field(t.account.username, name), field(t.account.password, password)),
-    h("div", { class: "row" }, signInBtn, signUpBtn),
-    error,
-    h("p", { class: "muted small" }, t.account.nameRules, h("br"), t.account.forgotNote),
-  );
-}
+export const field = (label: string, input: HTMLInputElement) => h("label", { class: "field" }, h("span", null, label), input);
 
 function signedInView(error: HTMLElement): HTMLElement {
   const session = currentSession()!;
@@ -110,7 +79,7 @@ function signedInView(error: HTMLElement): HTMLElement {
       form.classList.add("hidden");
       toast(t.account.passwordChanged);
     } catch (err) {
-      error.textContent = message(err);
+      error.textContent = accountError(err);
     } finally {
       save.disabled = false;
     }
@@ -130,7 +99,14 @@ function signedInView(error: HTMLElement): HTMLElement {
         "button",
         {
           class: "btn",
-          onclick: async () => {
+          onclick: async (e: Event) => {
+            const button = e.currentTarget as HTMLButtonElement;
+            button.disabled = true;
+            // neodeslané změny nejdřív do cloudu; bez připojení zůstanou jen tady
+            if (!(await flushSync()) && !confirm(t.account.unsyncedSignOut)) {
+              button.disabled = false;
+              return;
+            }
             await signOut();
             toast(t.account.signedOut);
           },
@@ -150,7 +126,7 @@ function signedInView(error: HTMLElement): HTMLElement {
             await deleteAccount();
             toast(t.account.deleted);
           } catch (err) {
-            error.textContent = message(err);
+            error.textContent = accountError(err);
           }
         },
       },
@@ -159,22 +135,9 @@ function signedInView(error: HTMLElement): HTMLElement {
   );
 }
 
-/** Sekce Účet; bez nastaveného Supabase se neukazuje (null). */
+/** Sekce Účet; bez nastaveného Supabase nebo přihlášení se neukazuje (null). */
 export function accountSection(): HTMLElement | null {
-  if (!cloudEnabled()) return null;
-  const section = h("section", { class: "panel" });
-  const render = () => {
-    const error = h("p", { class: "account__error", role: "alert" });
-    section.replaceChildren(h("h2", null, t.account.title), currentSession() ? signedInView(error) : signedOutView(error));
-  };
-  render();
-  // přihlášení / odhlášení přestaví sekci (obnovení tokenu ne)
-  let user = currentSession()?.userId ?? null;
-  const off = onSessionChange((s) => {
-    if (!section.isConnected) return off();
-    if ((s?.userId ?? null) === user) return;
-    user = s?.userId ?? null;
-    render();
-  });
-  return section;
+  if (!cloudEnabled() || !currentSession()) return null;
+  const error = h("p", { class: "account__error", role: "alert" });
+  return h("section", { class: "panel" }, h("h2", null, t.account.title), signedInView(error));
 }

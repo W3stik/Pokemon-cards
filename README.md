@@ -41,9 +41,10 @@ a karty Pokémon TCG, šance na tah podle reálných měření a tržní ceny ka
 - **Statistiky a Síň slávy**: měřák štěstí (kolik vzácných karet ti padlo proti očekávání) a natrvalo
   uložené god packy, které jde kdykoli znovu „otevřít“ – celé roztržení i odhalení, jen bez nových karet.
 - **Hodnota sbírky** podle aktuálních cen, **záloha** sbírky do souboru a obnovení na jiném zařízení.
-- **Účet jménem a heslem** (sekce Více, když je nastavený Supabase): sbírka se ukládá i v cloudu a
-  sama se synchronizuje mezi zařízeními; jde změnit heslo, odhlásit se i smazat účet. Bez účtu vše
-  funguje jen v prohlížeči jako dřív. Zapomenuté heslo obnovit nejde (účty nemají e-mail).
+- **Účet jménem a heslem**: aplikace začíná přihlašovací obrazovkou (přihlášení / nový účet), bez účtu
+  se dál nejde. Sbírka se ukládá k účtu a sama se synchronizuje mezi zařízeními (v prohlížeči zůstává
+  kopie, takže hra jede i offline). V sekci Více jde změnit heslo, odhlásit se i smazat účet. Když se na
+  stejném zařízení přihlásí jiný hráč, uvidí jen svou sbírku. Zapomenuté heslo obnovit nejde (účty nemají e-mail).
 - Funguje **offline**: data sad jsou součástí aplikace, obrázky karet se po prvním zobrazení ukládají.
 - **Čeština a angličtina** podle jazyka zařízení (slovenština dostane češtinu), v sekci Více jde jazyk zvolit ručně.
 
@@ -62,7 +63,7 @@ npm run e2e        # automatický průchod aplikací v Chromiu (po buildu; poprv
 
 ### Účty (Supabase, volitelné)
 
-Bez nastavení se účty v aplikaci vůbec neukazují. Zapnutí:
+Bez nastavení se účty v aplikaci vůbec neukazují a hraje se bez přihlášení jen v prohlížeči. Zapnutí:
 
 1. Založ projekt na [supabase.com](https://supabase.com) (zdarma).
 2. *Authentication → Sign In / Providers → Email*: nech zapnuté, **vypni „Confirm email“**

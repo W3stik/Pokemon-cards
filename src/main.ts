@@ -1,9 +1,11 @@
 import "./styles/index.css";
+import { cloudEnabled, currentSession, onSessionChange } from "./cloud";
 import { lang, t } from "./i18n";
 import { persistStorage, shouldRemindBackup } from "./storage";
 import { stateSummary, storageFailed, subscribe, unopenedTotal } from "./store";
 import { clear, h, toast } from "./ui/dom";
 import { renderAlbum } from "./views/album";
+import { renderLogin } from "./views/login";
 import { renderOpen, renderReplay } from "./views/open";
 import { renderPick } from "./views/pick";
 import { renderSettings } from "./views/settings";
@@ -29,21 +31,30 @@ const TAB_OF: Record<string, string> = { pick: "shop", stats: "album", replay: "
 
 let renderId = 0;
 
+/** Nový kontejner obrazovky (pomalé načítání předchozí obrazovky nepřepíše tu aktuální). */
+function freshRoot(): HTMLElement {
+  const root = h("div", { class: "view-root" });
+  clear(view);
+  view.append(root);
+  window.scrollTo({ top: 0 });
+  return root;
+}
+
+/** Bez přihlášení se do aplikace nejde (když jsou účty zapnuté). */
+const locked = () => cloudEnabled() && !currentSession();
+
 async function route() {
+  const id = ++renderId;
+  document.body.classList.toggle("locked", locked());
+  if (locked()) return renderLogin(freshRoot());
   const [name = "shop", arg] = location.hash.replace(/^#\/?/, "").split("/");
   const render = routes[name] ?? renderShop;
-  const id = ++renderId;
 
   document.querySelectorAll<HTMLAnchorElement>(".tabbar a").forEach((a) => {
     a.classList.toggle("active", a.dataset.route === (routes[name] ? (TAB_OF[name] ?? name) : "shop"));
   });
 
-  // Každá obrazovka se kreslí do nového kontejneru, aby pomalé načítání
-  // předchozí obrazovky nepřepsalo tu aktuální.
-  const root = h("div", { class: "view-root" });
-  clear(view);
-  view.append(root);
-  window.scrollTo({ top: 0 });
+  const root = freshRoot();
   try {
     await render(root, arg);
   } catch (err) {
@@ -156,6 +167,13 @@ document.querySelectorAll<HTMLAnchorElement>(".tabbar a").forEach((a) => {
 });
 
 initSync();
+// přihlášení / odhlášení přepne mezi přihlašovací obrazovkou a aplikací (obnovení tokenu ne)
+let signedUser = currentSession()?.userId ?? null;
+onSessionChange((s) => {
+  if ((s?.userId ?? null) === signedUser) return;
+  signedUser = s?.userId ?? null;
+  route();
+});
 window.addEventListener("hashchange", route);
 subscribe(updateBadge);
 subscribe(protectCollection);

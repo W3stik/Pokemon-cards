@@ -2,6 +2,8 @@
 // cloud je kopie navíc a most mezi zařízeními.
 //  - po přihlášení: v cloudu nic → nahraje se sbírka z prohlížeče; prázdný prohlížeč
 //    → stáhne se z cloudu; obě jiné → hráč vybere, kterou si nechat
+//  - sbírka v prohlížeči patří poslednímu přihlášenému (owner); když se přihlásí jiný
+//    hráč, nahradí se jeho sbírkou z cloudu (nic se nemíchá ani neptá)
 //  - změny se odešlou pár vteřin po poslední (otevření balíčků jich udělá víc najednou)
 //    a hned při odchodu z aplikace; bez připojení počkají
 //  - při spuštění a návratu do aplikace se stáhne novější verze z jiného zařízení;
@@ -9,7 +11,7 @@
 // Kterou verzi cloud má, se pozná podle času uložení (updated_at), jen porovnáním na shodu.
 import { CloudError, cloudEnabled, currentSession, onSessionChange, pullCollection, pushCollection, type RemoteCollection } from "./cloud";
 import { t } from "./i18n";
-import { exportState, getState, type GameState, importState, sanitize, stateSummary, subscribe } from "./store";
+import { exportState, getState, type GameState, importState, resetState, sanitize, stateSummary, subscribe } from "./store";
 import { h } from "./ui/dom";
 import { openModal } from "./ui/modal";
 
@@ -23,14 +25,20 @@ interface Meta {
   syncedAt: string | null;
   /** Sbírka se tu od té doby změnila a ještě se neodeslala. */
   dirty: boolean;
+  /** Komu patří sbírka v prohlížeči (userId); null = sbírka z doby před účty. */
+  owner: string | null;
 }
 
 function loadMeta(): Meta {
   try {
     const m = JSON.parse(localStorage.getItem(META_KEY) ?? "null");
-    return { syncedAt: typeof m?.syncedAt === "string" ? m.syncedAt : null, dirty: Boolean(m?.dirty) };
+    return {
+      syncedAt: typeof m?.syncedAt === "string" ? m.syncedAt : null,
+      dirty: Boolean(m?.dirty),
+      owner: typeof m?.owner === "string" ? m.owner : null,
+    };
   } catch {
-    return { syncedAt: null, dirty: false };
+    return { syncedAt: null, dirty: false, owner: null };
   }
 }
 
@@ -95,17 +103,27 @@ function askWhich(local: GameState, remote: GameState): Promise<"local" | "remot
   });
 }
 
+/** Prohlížeč a cloud mají stejnou verzi sbírky přihlášeného hráče. */
+function synced(updatedAt: string | null) {
+  meta = { syncedAt: updatedAt, dirty: false, owner: currentSession()?.userId ?? meta.owner };
+  saveMeta();
+}
+
 let applying = false;
-/** Převezme sbírku z cloudu (bez odeslání zpátky). */
-function apply(remote: RemoteCollection, state: GameState) {
+/** Změní sbírku v prohlížeči bez odeslání zpátky do cloudu. */
+function quietly(change: () => void) {
   applying = true;
   try {
-    importState(state);
+    change();
   } finally {
     applying = false;
   }
-  meta = { syncedAt: remote.updatedAt, dirty: false };
-  saveMeta();
+}
+
+/** Převezme sbírku z cloudu. */
+function apply(remote: RemoteCollection, state: GameState) {
+  quietly(() => importState(state));
+  synced(remote.updatedAt);
 }
 
 const failed = (err: unknown) => setStatus(err instanceof CloudError && err.code === "offline" ? "offline" : "error");
@@ -120,8 +138,7 @@ async function push() {
     const updatedAt = new Date().toISOString();
     try {
       await pushCollection(JSON.parse(exportState()), updatedAt);
-      meta = { syncedAt: updatedAt, dirty: false };
-      saveMeta();
+      synced(updatedAt);
       setStatus("ok");
     } catch (err) {
       failed(err);
@@ -160,6 +177,18 @@ async function firstSync() {
   }
 }
 
+/**
+ * Přihlásil se jiný hráč, než komu patří sbírka v prohlížeči: ta se hned vyprázdní
+ * (cizí karty nesmí ani vidět, ani odeslat do svého účtu) a stáhne se jeho sbírka.
+ * Bez připojení zůstane prázdná, dokud se nestáhne (syncNow při návratu do aplikace).
+ */
+async function switchUser() {
+  clearTimeout(pushTimer);
+  quietly(() => resetState());
+  synced(null);
+  await syncNow();
+}
+
 /** Při spuštění a návratu do aplikace: převezme novější verzi z jiného zařízení. */
 export async function syncNow() {
   if (!currentSession()) return;
@@ -187,6 +216,16 @@ export async function syncNow() {
   }
 }
 
+/**
+ * Před odhlášením: hned odešle neodeslané změny. Vrátí false, když se to nepovedlo
+ * (bez připojení) – změny pak zůstanou jen v tomto prohlížeči do dalšího přihlášení.
+ */
+export async function flushSync(): Promise<boolean> {
+  clearTimeout(pushTimer);
+  if (meta.dirty) await push();
+  return !meta.dirty;
+}
+
 /** Spustí synchronizaci (jednou při startu aplikace). */
 export function initSync() {
   if (!cloudEnabled()) return;
@@ -203,17 +242,13 @@ export function initSync() {
   onSessionChange((s) => {
     if ((s?.userId ?? null) === knownUser) return;
     knownUser = s?.userId ?? null;
-    if (s) {
-      // nový účet / jiný hráč: verze z cloudu se teprve zjistí
-      meta = { syncedAt: null, dirty: meta.dirty };
-      saveMeta();
-      firstSync();
-    } else {
+    if (!s) {
+      // odhlášení: sbírka zůstane schovaná v prohlížeči (patří dál odhlášenému hráči)
       clearTimeout(pushTimer);
-      meta = { syncedAt: null, dirty: false };
-      saveMeta();
       setStatus("off");
-    }
+    } else if (meta.owner === s.userId) syncNow();
+    else if (meta.owner) switchUser();
+    else firstSync();
   });
   document.addEventListener("visibilitychange", () => {
     if (!currentSession()) return;

@@ -103,6 +103,77 @@
   margin-top: 6px;
 }
 
+/* Přihlašovací obrazovka (bez přihlášení není vidět navigace) */
+body.locked .tabbar {
+  display: none;
+}
+
+.login {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  max-width: 400px;
+  margin: 6vh auto 0;
+  padding: 0 4px;
+  text-align: center;
+}
+
+.login__logo {
+  width: 72px;
+  height: 72px;
+  filter: drop-shadow(0 6px 18px rgb(255 213 79 / 0.25));
+}
+
+.login h1 {
+  margin: 6px 0 0;
+}
+
+.login__form {
+  display: grid;
+  width: 100%;
+  margin: 12px 0 4px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  text-align: left;
+}
+
+.login__form .account__fields {
+  max-width: none;
+  margin: 14px 0 6px;
+}
+
+.login__tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.login__tabs button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.login__tabs button[aria-selected="true"] {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.3);
+}
+
+.login__submit {
+  margin-top: 8px;
+}
+
 .btn--danger {
   border-color: var(--danger);
   color: var(--danger);
