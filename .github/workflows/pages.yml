@@ -18,7 +18,9 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Pevná verze: ubuntu-latest přešlo na Ubuntu 26 a playwright install --with-deps
+    # na něm padá (Playwright tu verzi zatím nezná). Při přechodu ověřit e2e.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -55,7 +57,7 @@ jobs:
   deploy:
     needs: build
     if: github.ref_name == github.event.repository.default_branch && github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       pages: write
       id-token: write
