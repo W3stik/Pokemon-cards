@@ -37,14 +37,20 @@
         <img src="./icons/icon.svg" alt="" width="28" height="28" />
         <span>Booster Lab</span>
       </a>
+      <div class="modes" id="modes" role="group">
+        <button type="button" data-mode="packs">Balíčky</button>
+        <button type="button" data-mode="real">Moje karty</button>
+      </div>
     </header>
     <main id="view"></main>
     <nav class="tabbar" aria-label="Hlavní navigace">
-      <a href="#/shop" data-route="shop"><span class="tabbar__icon">🛒</span><span class="tabbar__label">Obchod</span></a>
-      <a href="#/open" data-route="open">
+      <a href="#/scan" data-route="scan" data-mode="real"><span class="tabbar__icon">📷</span><span class="tabbar__label">Sken</span></a>
+      <a href="#/cards" data-route="cards" data-mode="real"><span class="tabbar__icon">🗂️</span><span class="tabbar__label">Moje karty</span></a>
+      <a href="#/shop" data-route="shop" data-mode="packs"><span class="tabbar__icon">🛒</span><span class="tabbar__label">Obchod</span></a>
+      <a href="#/open" data-route="open" data-mode="packs">
         <span class="tabbar__icon">🎁<span id="pack-badge" class="tabbar__badge hidden"></span></span><span class="tabbar__label">Balíčky</span>
       </a>
-      <a href="#/album" data-route="album"><span class="tabbar__icon">📖</span><span class="tabbar__label">Album</span></a>
+      <a href="#/album" data-route="album" data-mode="packs"><span class="tabbar__icon">📖</span><span class="tabbar__label">Album</span></a>
       <a href="#/more" data-route="more"><span class="tabbar__icon">⚙️</span><span class="tabbar__label">Více</span></a>
     </nav>
     <script type="module" src="/src/main.ts"></script>

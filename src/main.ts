@@ -5,9 +5,11 @@ import { persistStorage, shouldRemindBackup } from "./storage";
 import { stateSummary, storageFailed, subscribe, unopenedTotal } from "./store";
 import { clear, h, toast } from "./ui/dom";
 import { renderAlbum } from "./views/album";
+import { renderCards } from "./views/cards";
 import { renderLogin } from "./views/login";
 import { renderOpen, renderReplay } from "./views/open";
 import { renderPick } from "./views/pick";
+import { renderScan } from "./views/scan";
 import { renderSettings } from "./views/settings";
 import { renderShop } from "./views/shop";
 import { renderStats } from "./views/stats";
@@ -24,7 +26,32 @@ const routes: Record<string, (root: HTMLElement, arg?: string) => void | Promise
   pick: renderPick,
   stats: renderStats,
   replay: renderReplay,
+  scan: renderScan,
+  cards: renderCards,
 };
+
+// Dva režimy aplikace: hra s balíčky a Moje karty (naskenované skutečné karty). Každý má
+// své záložky; Více je společné. Režim se pamatuje a řídí se i otevřenou adresou.
+type Mode = "packs" | "real";
+const MODE_KEY = "pokemon-packs:mode";
+const MODE_OF: Record<string, Mode> = { scan: "real", cards: "real", shop: "packs", open: "packs", album: "packs", pick: "packs", stats: "packs", replay: "packs" };
+const HOME: Record<Mode, string> = { packs: "shop", real: "cards" };
+let mode: Mode = "packs";
+try {
+  if (localStorage.getItem(MODE_KEY) === "real") mode = "real";
+} catch {
+  // nevadí
+}
+function setMode(next: Mode) {
+  mode = next;
+  try {
+    localStorage.setItem(MODE_KEY, next);
+  } catch {
+    // nevadí
+  }
+  document.body.dataset.mode = next;
+  document.querySelectorAll<HTMLButtonElement>("#modes button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === next)));
+}
 
 /** Podstránky, které v navigaci patří pod jinou záložku. */
 const TAB_OF: Record<string, string> = { pick: "shop", stats: "album", replay: "album" };
@@ -47,11 +74,16 @@ async function route() {
   const id = ++renderId;
   document.body.classList.toggle("locked", locked());
   if (locked()) return renderLogin(freshRoot());
-  const [name = "shop", arg] = location.hash.replace(/^#\/?/, "").split("/");
-  const render = routes[name] ?? renderShop;
+  const [first, arg] = location.hash.replace(/^#\/?/, "").split("/");
+  // bez adresy (nebo s neznámou) se otevře domovská obrazovka režimu
+  const name = routes[first] ? first : HOME[mode];
+  const render = routes[name];
+  if (MODE_OF[name]) setMode(MODE_OF[name]);
+  // skener je přes celou obrazovku (bez horní lišty a záložek)
+  document.body.classList.toggle("scanning", name === "scan");
 
   document.querySelectorAll<HTMLAnchorElement>(".tabbar a").forEach((a) => {
-    a.classList.toggle("active", a.dataset.route === (routes[name] ? (TAB_OF[name] ?? name) : "shop"));
+    a.classList.toggle("active", a.dataset.route === (TAB_OF[name] ?? name));
   });
 
   const root = freshRoot();
@@ -156,6 +188,8 @@ document.documentElement.lang = lang;
 document.querySelector('meta[name="description"]')?.setAttribute("content", t.app.description);
 document.querySelector(".tabbar")?.setAttribute("aria-label", t.app.nav);
 const TAB_LABEL: Record<string, string> = {
+  scan: t.app.tabs.scan,
+  cards: t.app.tabs.cards,
   shop: t.app.tabs.shop,
   open: t.app.tabs.packs,
   album: t.app.tabs.album,
@@ -164,6 +198,23 @@ const TAB_LABEL: Record<string, string> = {
 document.querySelectorAll<HTMLAnchorElement>(".tabbar a").forEach((a) => {
   const label = a.querySelector(".tabbar__label");
   if (label && TAB_LABEL[a.dataset.route ?? ""]) label.textContent = TAB_LABEL[a.dataset.route ?? ""];
+});
+
+setMode(mode);
+document.getElementById("modes")?.setAttribute("aria-label", t.app.mode);
+document.querySelectorAll<HTMLButtonElement>("#modes button").forEach((b) => {
+  b.textContent = b.dataset.mode === "real" ? t.app.modes.real : t.app.modes.packs;
+  b.addEventListener("click", () => {
+    const next = b.dataset.mode as Mode;
+    if (next === mode) return;
+    setMode(next);
+    location.hash = `#/${HOME[next]}`;
+  });
+});
+document.querySelector<HTMLAnchorElement>(".brand")?.addEventListener("click", (e) => {
+  // logo vede na domovskou obrazovku aktuálního režimu
+  e.preventDefault();
+  location.hash = `#/${HOME[mode]}`;
 });
 
 initSync();

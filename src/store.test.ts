@@ -178,3 +178,26 @@ describe("více oken", () => {
     expect(store.getState().packs.me1).toBe(2);
   });
 });
+
+describe("Moje karty (naskenované skutečné karty)", () => {
+  it("přidává a ubírá kusy podle provedení, nulový počet se smaže", () => {
+    store.addReal("sv08-057", "normal");
+    store.addReal("sv08-057", "normal");
+    store.addReal("sv08-057", "reverse");
+    expect(store.realCounts("sv08-057")).toEqual({ normal: 2, reverse: 1 });
+    store.addReal("sv08-057", "reverse", -1);
+    store.addReal("sv08-057", "normal", -5);
+    expect(store.getState().real).toEqual({});
+  });
+
+  it("jsou součástí zálohy i souhrnu a s herní sbírkou se nemíchají", () => {
+    store.addReal("base1-4", "normal", 3);
+    const backup = store.parseBackup(store.exportState());
+    expect(backup.real).toEqual({ "base1-4|normal": 3 });
+    expect(backup.collection).toEqual({});
+    expect(store.stateSummary().cards).toBe(3);
+    // záloha ze starší verze bez Mých karet a poškozené položky
+    expect(store.parseBackup(JSON.stringify({ version: 1, collection: {} })).real).toEqual({});
+    expect(store.parseBackup(JSON.stringify({ version: 1, collection: {}, real: { "x-1|normal": 2, "x-2|holo": 1, "x-3|reverse": -1 } })).real).toEqual({ "x-1|normal": 2 });
+  });
+});

@@ -41,6 +41,12 @@ a karty Pokémon TCG, šance na tah podle reálných měření a tržní ceny ka
 - **Statistiky a Síň slávy**: měřák štěstí (kolik vzácných karet ti padlo proti očekávání) a natrvalo
   uložené god packy, které jde kdykoli znovu „otevřít“ – celé roztržení i odhalení, jen bez nových karet.
 - **Hodnota sbírky** podle aktuálních cen, **záloha** sbírky do souboru a obnovení na jiném zařízení.
+- **Moje karty** (druhý režim, přepínač nahoře): skener skutečných karet a jejich album s cenami.
+  Skener ukáže kameru přes celou obrazovku, kartu zarovnáš do rámečku a aplikace ji sama pozná a přidá
+  (zná asi 19 600 anglických karet ze 150 sad; data skeneru, zhruba 12 MB, se stáhnou při prvním otevření).
+  Vše běží v telefonu, fotky se nikam neposílají. Karty se stejným obrázkem ve více sadách a nejisté
+  karty nabídne k výběru. Normální / reverse holo z fotky poznat nejde, proto je na obrazovce přepínač.
+  Album ukazuje ceny z Cardmarketu a TCGplayeru a celkovou hodnotu; ukládá se k účtu jako zbytek sbírky.
 - **Účet jménem a heslem**: aplikace začíná přihlašovací obrazovkou (přihlášení / nový účet), bez účtu
   se dál nejde. Sbírka se ukládá k účtu a sama se synchronizuje mezi zařízeními (v prohlížeči zůstává
   kopie, takže hra jede i offline). V sekci Více jde změnit heslo, odhlásit se i smazat účet. Když se na
@@ -59,6 +65,8 @@ npm test           # testy (generátor balíčků, šance, sbírka, ceny)
 npm run build      # produkční build do dist/
 npm run preview    # náhled buildu (včetně service workeru)
 npm run e2e        # automatický průchod aplikací v Chromiu (po buildu; poprvé npx playwright install chromium)
+npm run scan-db    # znovu vyrobí databázi skeneru (po vydání nových sad; stáhne asi 400 MB obrázků do .scan-cache)
+npm run scan-eval  # změří úspěšnost skeneru na simulovaných fotkách
 ```
 
 ### Účty (Supabase, volitelné)
@@ -119,6 +127,7 @@ s malým vzorkem (Black White Rare, Chaos Rising) jsou to odhady, poznámka u sa
 ├── src/pack.ts         generátor balíčků (+ pack.test.ts)
 ├── src/store.ts        sbírka a neotevřené balíčky v localStorage
 ├── src/storage.ts      trvalé úložiště a připomínka zálohy
+├── src/scan/           rozpoznání karty ze snímku (otisk, přiložení, databáze)
 ├── src/cloud.ts        účty a sbírka v Supabase (src/cloudConfig.ts, supabase/schema.sql)
 ├── src/sync.ts         synchronizace sbírky s účtem
 ├── src/prices.ts       ceny z TCGdex

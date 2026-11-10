@@ -36,6 +36,11 @@ export interface GameState {
   shelf: Record<string, SealedPack[]>;
   /** Vybrané balíčky z regálu čekající na otevření (jsou součástí počtu v `packs`). */
   sealed: Record<string, SealedPack[]>;
+  /**
+   * Moje karty: naskenované skutečné karty, klíč „id karty v TCGdex|provedení“ → kusy.
+   * Jiná id než `collection` (ta jsou z pokemon-tcg-data) a s hrou se nemíchají.
+   */
+  real: Record<string, number>;
 }
 
 const KEY = "pokemon-packs:state:v1";
@@ -54,6 +59,7 @@ const empty = (): GameState => ({
   hallOfFame: [],
   shelf: {},
   sealed: {},
+  real: {},
 });
 
 // --- Kontrola stavu ----------------------------------------------------------
@@ -135,6 +141,7 @@ export function sanitize(raw: unknown): GameState {
       .slice(0, HALL_LIMIT),
     shelf: packLists(raw.shelf),
     sealed,
+    real: numbers(raw.real, isCount, isCollectionKey),
   };
 }
 
@@ -299,10 +306,30 @@ export function countsFor(cardId: string): Partial<Record<Variant, number>> {
 export const totalCount = (cardId: string) =>
   Object.values(countsFor(cardId)).reduce((a, b) => a + (b ?? 0), 0);
 
-/** Souhrn stavu pro potvrzovací dotazy: kusy karet a neotevřené balíčky. */
+/** Souhrn stavu pro potvrzovací dotazy: kusy karet (ze hry i naskenované) a neotevřené balíčky. */
 export function stateSummary(s: GameState = state) {
   const sum = (r: Record<string, number>) => Object.values(r).reduce((a, b) => a + b, 0);
-  return { cards: sum(s.collection), packs: sum(s.packs) };
+  return { cards: sum(s.collection) + sum(s.real), packs: sum(s.packs) };
+}
+
+/** Moje karty: přidá (nebo při záporném `count` ubere) kusy naskenované karty. */
+export function addReal(cardId: string, variant: Variant, count = 1) {
+  mutate((s) => {
+    const key = collectionKey(cardId, variant);
+    const next = (s.real[key] ?? 0) + count;
+    if (next > 0) s.real[key] = next;
+    else delete s.real[key];
+  });
+}
+
+/** Moje karty: kusy podle provedení jedné karty. */
+export function realCounts(cardId: string): Partial<Record<Variant, number>> {
+  const out: Partial<Record<Variant, number>> = {};
+  for (const v of VARIANTS) {
+    const n = state.real[collectionKey(cardId, v)];
+    if (n) out[v] = n;
+  }
+  return out;
 }
 
 export function exportState(): string {

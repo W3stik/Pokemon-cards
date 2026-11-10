@@ -328,6 +328,48 @@ try {
   await page.waitForSelector(".packgl canvas");
   check((await page.locator('.packgl canvas[data-e2e="first"]').count()) === 1, "další balíček použije stejný 3D model");
 
+  // Moje karty: druhý režim s vlastními záložkami, album naskenovaných karet a skener
+  await page.goto(url + "#/shop");
+  await page.waitForSelector(".shop-tile");
+  await page.locator('#modes button[data-mode="real"]').click();
+  await page.waitForSelector("text=Zatím tu nic není");
+  check(page.url().endsWith("#/cards"), "přepnutí režimu otevře Moje karty");
+  check((await page.locator('.tabbar a[data-route="scan"]').isVisible()) && (await page.locator('.tabbar a[data-route="shop"]').isHidden()), "režim Moje karty má vlastní záložky");
+  const realCard = await page.evaluate(async () => {
+    const index = await (await fetch("./data/scan/index.json")).json();
+    const set = index.sets[index.sets.length - 1];
+    const key = "pokemon-packs:state:v1";
+    const s = JSON.parse(localStorage.getItem(key));
+    s.real = { [`${set.id}-${set.cards[0][0]}|normal`]: 2 };
+    localStorage.setItem(key, JSON.stringify(s));
+    return { name: set.cards[0][1], count: index.count };
+  });
+  check(realCard.count > 15000, `databáze skeneru zná ${realCard.count} karet`);
+  await page.reload();
+  await page.waitForSelector(".real-tile");
+  check((await page.locator(".real-tile").count()) === 1 && (await page.locator(".real-tile .count-badge").textContent()) === "×2", "album Moje karty ukazuje naskenovanou kartu a počet kusů");
+  check((await page.locator(".real-tile__name").textContent()) === realCard.name, "karta v albu má jméno ze seznamu skeneru");
+  check(await noHorizontalScroll(), "Moje karty nepřetékají do šířky");
+  await page.screenshot({ path: join(SHOTS, "10-my-cards.png") });
+  await page.locator(".real-tile").click();
+  await page.waitForSelector(".real-row");
+  await page.locator('.real-row button[aria-label="Přidat kus"]').first().click();
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => document.querySelector(".real-tile .count-badge")?.textContent === "×3");
+  check(true, "v detailu jde přidat kus karty");
+  // skener: v testu není kamera, obrazovka to musí ohlásit a jít zavřít
+  await page.locator('.tabbar a[data-route="scan"]').click();
+  await page.waitForSelector(".scan");
+  await page.waitForFunction(() => document.querySelector(".scan__status")?.textContent?.startsWith("Kamera není"), null, { timeout: 5000 }).catch(() => undefined);
+  check((await page.locator(".scan__status").textContent()) === "Kamera není k dispozici.", "skener bez kamery to ohlásí");
+  check(await page.locator(".tabbar").isHidden(), "skener je přes celou obrazovku");
+  await page.screenshot({ path: join(SHOTS, "11-scan-no-camera.png") });
+  await page.locator('.scan__top a[aria-label="Zavřít"]').click();
+  await page.waitForSelector(".real-tile");
+  await page.locator('#modes button[data-mode="packs"]').click();
+  await page.waitForSelector(".shop-tile");
+  check(await page.locator('.tabbar a[data-route="shop"]').isVisible(), "přepnutí zpět vrátí hru s balíčky");
+
   // Účet: sbírka se odeslala do (podvrženého) cloudu, odhlášení vrátí přihlašovací obrazovku
   await page.goto(url + "#/more");
   await page.waitForSelector("text=Přihlášen jako tester");
@@ -373,7 +415,7 @@ try {
   );
   check((await enPage.locator("h1").first().textContent()) === "Shop", "anglický prohlížeč: obchod je anglicky");
   check((await enPage.evaluate(() => document.documentElement.lang)) === "en", "anglický prohlížeč: jazyk stránky en");
-  for (const route of ["#/shop", "#/open", "#/album", "#/stats", "#/more"]) {
+  for (const route of ["#/shop", "#/open", "#/album", "#/stats", "#/more", "#/cards"]) {
     await enPage.goto(url + route);
     await enPage.waitForTimeout(600);
     const left = await czechLeft();
