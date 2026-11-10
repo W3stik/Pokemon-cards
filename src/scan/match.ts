@@ -124,6 +124,33 @@ export interface Identified {
   candidates: Candidate[];
   /** Kde karta ve snímku leží (v pixelech snímku). */
   placement: Placement;
+  /** Ostrost výřezu (průměrný gradient / kontrast); rozmazaný záběr má málo. */
+  sharpness: number;
+}
+
+/** Ostrost: průměrná velikost gradientu šedého výřezu karty dělená jeho kontrastem. */
+function sharpnessOf(frame: Frame, p: Placement): number {
+  const W = 72;
+  const H = 100;
+  const rgba = sampleRgba(frame, p, W, H);
+  const g = new Float32Array(W * H);
+  let mean = 0;
+  for (let i = 0; i < g.length; i++) {
+    g[i] = 0.299 * rgba[i * 4] + 0.587 * rgba[i * 4 + 1] + 0.114 * rgba[i * 4 + 2];
+    mean += g[i];
+  }
+  mean /= g.length;
+  let variance = 0;
+  for (let i = 0; i < g.length; i++) variance += (g[i] - mean) ** 2;
+  const std = Math.sqrt(variance / g.length);
+  if (std < 4) return 0;
+  let grad = 0;
+  for (let y = 1; y < H - 1; y++)
+    for (let x = 1; x < W - 1; x++) {
+      const i = y * W + x;
+      grad += Math.abs(g[i + 1] - g[i - 1]) + Math.abs(g[i + W] - g[i - W]);
+    }
+  return grad / ((W - 2) * (H - 2)) / std;
 }
 
 /**
@@ -159,5 +186,62 @@ export function identify(frame: Frame, guide: Placement, db: CardDb, top = 30): 
   const candidates = pool
     .map((index) => ({ index, score: register(gray, db.refs, index * REF_W * REF_H, found.placement, 0.02).score }))
     .sort((a, b) => b.score - a.score);
-  return { candidates, placement: exact };
+  return { candidates, placement: exact, sharpness: sharpnessOf(frame, exact) };
+}
+
+/**
+ * Pravidla, kdy je v záběru karta a kdy si je skener jistý (naměřeno skriptem scan-eval:
+ * správná karta má skóre ≥ 0,87 i ve špatných podmínkách, záběr bez karty – stůl, ruka,
+ * kus potisku – nejvýš 0,66; rozmazaná karta se trefí do rozvržení jiné karty, proto ostrost).
+ */
+export const RULES = {
+  /** Shoda, od které se karta přidá sama. */
+  sure: 0.8,
+  /** Odstup od nejlepší karty jiného jména. */
+  margin: 0.1,
+  /** Od téhle shody se při déle trvající nejistotě nabídne výběr. */
+  maybe: 0.7,
+  /** Nejmenší ostrost (skutečné karty ≥ 0,6, rozmazané ≤ 0,56). */
+  sharp: 0.5,
+  /** Nalezená karta vůči rámečku: velikost, poměr stran, zkosení, posun středu (díl šířky). */
+  scale: [0.85, 1.2],
+  aspect: [0.9, 1.12],
+  skew: 0.12,
+  offset: 0.15,
+};
+
+export type Verdict = "sure" | "maybe" | "none";
+
+/** Vypadá nalezené místo jako karta? (tvar jako karta v rámečku a dost ostrý záběr) */
+export function cardShaped(r: Identified, guide: Placement): boolean {
+  const [cx, cy, ax, ay, bx, by] = r.placement;
+  const a = Math.hypot(ax, ay);
+  const b = Math.hypot(bx, by);
+  const ga = Math.hypot(guide[2], guide[3]);
+  const gb = Math.hypot(guide[4], guide[5]);
+  const scale = Math.sqrt((a * b) / (ga * gb));
+  const aspect = b / a / (gb / ga);
+  const skew = Math.abs(ax * bx + ay * by) / (a * b);
+  const offset = Math.hypot(cx - guide[0], cy - guide[1]) / ga;
+  return (
+    r.sharpness >= RULES.sharp &&
+    scale >= RULES.scale[0] &&
+    scale <= RULES.scale[1] &&
+    aspect >= RULES.aspect[0] &&
+    aspect <= RULES.aspect[1] &&
+    skew <= RULES.skew &&
+    offset <= RULES.offset
+  );
+}
+
+/**
+ * Verdikt nad výsledkem `identify`: „sure“ = přidat, „maybe“ = karta tam nejspíš je, ale
+ * nejistá, „none“ = v záběru karta není. `sameName(i, j)` říká, jestli jsou dvě karty
+ * databáze stejného jména (dotisky se nepočítají jako konkurence).
+ */
+export function judge(r: Identified, guide: Placement, sameName: (i: number, j: number) => boolean): Verdict {
+  const best = r.candidates[0];
+  if (!best || best.score < RULES.maybe || !cardShaped(r, guide)) return "none";
+  const other = r.candidates.find((c) => !sameName(c.index, best.index));
+  return best.score >= RULES.sure && best.score - (other?.score ?? 0) >= RULES.margin ? "sure" : "maybe";
 }

@@ -6,7 +6,7 @@ import { t } from "../i18n";
 import { formatEur, formatUsd, variantPrice } from "../prices";
 import { cardInfo } from "../scan/cardInfo";
 import { loadScanDb, type ScanCard, type ScanIndex } from "../scan/db";
-import { type CardDb, identify } from "../scan/match";
+import { type CardDb, identify, judge } from "../scan/match";
 import type { Placement } from "../scan/verify";
 import { addReal, realCounts } from "../store";
 import type { Variant } from "../types";
@@ -19,11 +19,7 @@ const GUIDE_W = 360;
 const GUIDE_H = 503;
 const GUIDE: Placement = [FRAME_W / 2, FRAME_H / 2, GUIDE_W, 0, 0, GUIDE_H];
 
-/** Od jaké shody a odstupu od nejlepší jiné karty se karta přidá sama. */
-const SURE = 0.62;
-const MARGIN = 0.1;
-/** Pod touhle shodou v záběru žádná karta není. */
-const EMPTY = 0.45;
+// Kdy je v záběru karta a kdy je jistá, rozhoduje judge() v src/scan/match.ts (RULES).
 /** Karty stejného jména takhle blízko nejlepší jsou dotisky se stejným obrázkem. */
 const TWIN = 0.06;
 /** Kolik snímků po sobě musí vyjít stejně. */
@@ -211,14 +207,16 @@ export function renderScan(root: HTMLElement) {
   let handled = new Set<number>();
 
   const step = (index: ScanIndex, db: CardDb) => {
-    const { candidates } = identify({ rgba: grab().data, w: FRAME_W, h: FRAME_H }, GUIDE, db);
+    const found = identify({ rgba: grab().data, w: FRAME_W, h: FRAME_H }, GUIDE, db);
+    const { candidates } = found;
     const best = candidates[0];
     const card = index.cards[best.index];
-    const other = candidates.find((c) => index.cards[c.index].name !== card.name);
-    const sure = best.score >= SURE && best.score - (other?.score ?? 0) >= MARGIN;
+    // stůl, ruka nebo rozmazaný záběr nesmí projít jako karta (judge hlídá shodu, tvar i ostrost)
+    const verdict = judge(found, GUIDE, (i, j) => index.cards[i].name === index.cards[j].name);
+    const sure = verdict === "sure";
     guide.classList.toggle("is-sure", sure);
 
-    if (best.score < EMPTY) {
+    if (verdict === "none") {
       // karta zmizela ze záběru: další je nová
       if (++emptyFrames >= 3) handled = new Set();
       streak = 0;
@@ -234,7 +232,7 @@ export function renderScan(root: HTMLElement) {
     if (!sure) {
       streak = 0;
       status.textContent = t.scan.aim;
-      if (++unsureFrames >= UNSURE_FRAMES && best.score >= SURE - 0.1) {
+      if (++unsureFrames >= UNSURE_FRAMES) {
         unsureFrames = 0;
         const options = candidates.slice(0, 4);
         choose(
